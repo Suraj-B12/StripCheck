@@ -1,0 +1,49 @@
+### THEME CARD T07 · llm_agents · Priority 2
+
+**Objective.** Justify a bounded, tool-using agent with a hybrid rules-plus-LLM planner, small local models, structured outputs, human-in-the-loop interrupts and a hard-rule verifier.
+
+**Key questions**
+- Q1. Reasoning-and-acting agents: ReAct, MRKL, Toolformer, Reflexion, Self-Refine, CRITIC, and their successors to 2026.
+- Q2. Limits of self-correction and the case for external verifiers (for example Huang et al. 2024; Kambhampati et al. 2024 "LLM-Modulo").
+- Q3. Multi-agent and supervisor patterns, durable execution, checkpointing and interrupts (LangGraph and comparable frameworks), and human-in-the-loop agent designs.
+- Q4. Small language models for agents; structured output and constrained decoding (and its effect on reasoning quality).
+- Q5. Evaluation practice for agents (cost, latency, baselines, reliability) and agents in high-stakes domains such as health (2024 to 2026).
+
+**Search hints.** arXiv; NeurIPS, ICLR, ICML and ACL proceedings; framework documentation.
+
+**Already in our verified bibliography** (do not duplicate):
+- `arize2026openinference` (2026): OpenInference: conventions and plugins for tracing AI applications
+- `belcak2025slm` (2025): Small Language Models are the Future of Agentic AI
+- `dong2025xgrammar` (2025): XGrammar: Flexible and Efficient Structured Generation Engine for Large Language Models
+- `geng2025jsonschemabench` (2025): JSONSchemaBench: A Rigorous Benchmark of Structured Outputs for Language Models
+- `gou2024critic` (2024): CRITIC: Large Language Models Can Self-Correct with Tool-Interactive Critiquing
+- `hong2023metagpt` (2023): MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework
+- `huang2024cannot` (2024): Large Language Models Cannot Self-Correct Reasoning Yet
+- `jiang2025medagentbench` (2025): MedAgentBench: A Virtual EHR Environment to Benchmark Medical LLM Agents
+- `kambhampati2024llmmodulo` (2024): LLMs Can't Plan, But Can Help Planning in LLM-Modulo Frameworks
+- `kapoor2024agents` (2024): AI Agents That Matter
+- `karpas2022mrkl` (2022): MRKL Systems: A modular, neuro-symbolic architecture that combines large language models, external knowledge sources ...
+- `langchain2026interrupts` (2026): LangGraph documentation: Interrupts
+- `langchain2026persistence` (2026): LangGraph documentation: Persistence (page served at the durable-execution URL)
+- `li2023camel` (2023): CAMEL: Communicative Agents for Mind Exploration of Large Language Model Society
+- `liu2024agentbench` (2024): AgentBench: Evaluating LLMs as Agents
+- `madaan2023selfrefine` (2023): Self-Refine: Iterative Refinement with Self-Feedback
+- `ollama2026structured` (2026): Structured outputs
+- `otel2026genai` (2026): Semantic conventions for generative AI (semantic-conventions-genai repository)
+- `patil2025bfcl` (2025): The Berkeley Function Calling Leaderboard (BFCL): From Tool Use to Agentic Evaluation of Large Language Models
+- `qu2026neurosymbolic` (2026): Neurosymbolic Clinical Trial Matching via LLM-Driven Abduction and Logical Verification
+- `ross2025when2call` (2025): When2Call: When (not) to Call Tools
+- `schick2023toolformer` (2023): Toolformer: Language Models Can Teach Themselves to Use Tools
+- `schluntz2024building` (2024): Building effective agents
+- `shi2026unwatched` (2026): When Agents Act Unwatched: The Reduced-Supervision Paradox in Agentic AI
+- `shinn2023reflexion` (2023): Reflexion: Language Agents with Verbal Reinforcement Learning
+- `srivastava2026handoff` (2026): Agentic AI-based Framework for Mitigating Premature Diagnostic Handoff and Silent Hallucination in Healthcare Applica...
+- `tam2024speak` (2024): Let Me Speak Freely? A Study On The Impact Of Format Restrictions On Large Language Model Performance
+- `tripathi2026sepsis` (2026): How Compliant is Sepsis Treatment? An Expert-Guided Neuro-symbolic Pipeline for Generating Clinical Compliance Insights
+- `turan2026oversight` (2026): Oversight Has a Capacity: Calibrating Agent Guards to a Subjective, Fatiguing Human
+- `wang2023survey` (2024): A survey on large language model based autonomous agents
+- `willard2023outlines` (2023): Efficient Guided Generation for Large Language Models
+- `wu2023autogen` (2023): AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation
+- `xi2023rise` (2023): The Rise and Potential of Large Language Model Based Agents: A Survey
+- `yao2023react` (2023): ReAct: Synergizing Reasoning and Acting in Language Models
+- `yao2024taubench` (2024): $\tau$-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains

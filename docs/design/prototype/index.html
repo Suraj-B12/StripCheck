@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StripCheck · Check prototype</title>
+<!-- Prototype only: fonts from Google Fonts. The real app self-hosts them via @fontsource (no CDN). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Atkinson+Hyperlegible+Next:wght@400..700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #F4F5F7; --card: #FFFFFF; --ink: #14171C; --ink-2: #4B5462; --ink-3: #7B8494; --rule: #DCDFE5;
+  --foil-hi: #F7F8FA; --foil: #E3E7EC; --foil-mid: #C5CBD3; --foil-lo: #9EA6B1;
+  --pen: #22389E; --pen-hover: #1B2D80; --pen-soft: #E7EAF8; --on-pen: #FFFFFF;
+  --nsq: #B4232A; --nsq-soft: #FBEAEA; --fake: #6E1631; --fake-soft: #F5E4EA;
+  --nl: #3A4A5C; --nl-soft: #E9EDF2; --cv: #9A5B13; --cv-soft: #FBF0E0;
+  --display: "Archivo", "Arial Narrow", sans-serif; --body: "Atkinson Hyperlegible Next", "Segoe UI", sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, "Cascadia Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0F1216; --card: #161A20; --ink: #E8EBF0; --ink-2: #AEB6C2; --ink-3: #7D8694; --rule: #262C35;
+    --foil-hi: #3F4651; --foil: #2B3139; --foil-mid: #4C5562; --foil-lo: #12161B;
+    --pen: #8EA2F0; --pen-hover: #A9B8F4; --pen-soft: #1C2340; --on-pen: #0F1216;
+    --nsq: #F07A72; --nsq-soft: #2A1517; --fake: #E58AA6; --fake-soft: #2A1620; --nl: #A9B7C8; --nl-soft: #1B222B; --cv: #E7AE5E; --cv-soft: #2A2013;
+  }
+}
+:root[data-theme="dark"] {
+    --paper: #0F1216; --card: #161A20; --ink: #E8EBF0; --ink-2: #AEB6C2; --ink-3: #7D8694; --rule: #262C35;
+    --foil-hi: #3F4651; --foil: #2B3139; --foil-mid: #4C5562; --foil-lo: #12161B;
+    --pen: #8EA2F0; --pen-hover: #A9B8F4; --pen-soft: #1C2340; --on-pen: #0F1216;
+    --nsq: #F07A72; --nsq-soft: #2A1517; --fake: #E58AA6; --fake-soft: #2A1620; --nl: #A9B7C8; --nl-soft: #1B222B; --cv: #E7AE5E; --cv-soft: #2A2013;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 400 17px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- frame ---------- */
+.frame { display: grid; grid-template-columns: 76px 1fr; min-height: 100vh; }
+.rail { border-right: 1px solid var(--rule); background: var(--card); display: flex; flex-direction: column; align-items: center; padding: 18px 0; gap: 6px; }
+.mark { font: 800 15px/1 var(--display); font-stretch: 75%; letter-spacing: .02em; writing-mode: vertical-rl; transform: rotate(180deg); margin-bottom: 18px; color: var(--ink); }
+.mark b { color: var(--pen); font-weight: 800; }
+.navbtn { width: 56px; padding: 8px 0 6px; border: 0; background: none; border-radius: 10px; display: grid; justify-items: center; gap: 4px; color: var(--ink-3); cursor: pointer; font-size: 11.5px; }
+.navbtn svg { width: 22px; height: 22px; }
+.navbtn[aria-current="page"] { color: var(--pen); background: var(--pen-soft); }
+.navbtn:hover { color: var(--ink); }
+
+.main { padding: 22px 32px 90px; max-width: 1280px; width: 100%; }
+.topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.topbar h1 { font: 700 30px/1.1 var(--display); font-stretch: 82%; margin: 0; letter-spacing: -.005em; }
+.spacer { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--rule); background: var(--card); border-radius: 999px; padding: 5px 12px; font-size: 14px; color: var(--ink-2); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--nl); }
+.chip .mono { font-family: var(--mono); color: var(--ink); }
+.ghost { border: 1px solid var(--rule); background: var(--card); border-radius: 8px; padding: 6px 12px; font-size: 14px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.ghost:hover { border-color: var(--ink-3); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: start; }
+.label { font: 700 12.5px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+.panel { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; }
+
+/* ---------- pack ---------- */
+.photo { padding: 10px; }
+.photo svg { display: block; width: 100%; height: auto; border-radius: 6px; }
+.ocrbox { fill: none; stroke: var(--pen); stroke-width: 2; stroke-dasharray: 5 4; opacity: .55; }
+.ocrbox.hot { stroke-dasharray: none; opacity: 1; stroke-width: 3; }
+.fields { margin-top: 18px; display: grid; grid-template-columns: auto 1fr auto; gap: 7px 14px; font-size: 15.5px; }
+.fields dt { color: var(--ink-3); }
+.fields dd { margin: 0; }
+.fields .mono { font-family: var(--mono); }
+.src { font: 700 11px/1 var(--mono); letter-spacing: .06em; color: var(--ink-3); border: 1px solid var(--rule); border-radius: 4px; padding: 3px 5px; align-self: center; }
+
+/* ---------- the batch strip (signature) ---------- */
+.stripwrap { margin-top: 20px; }
+.strip { display: inline-flex; max-width: 100%; align-items: center; gap: 10px; padding: 10px 12px 10px 10px; border-radius: 14px;
+  background: linear-gradient(180deg, var(--foil-hi) 0%, var(--foil) 38%, var(--foil-mid) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75), 0 1px 2px rgba(20,23,28,.08); position: relative; }
+.strip .tag { font: 700 11px/1 var(--mono); letter-spacing: .08em; color: var(--ink-2); writing-mode: vertical-rl; transform: rotate(180deg); padding: 0 2px; }
+.cell { width: 40px; height: 54px; border-radius: 10px; display: flex; align-items: center; justify-content: center; position: relative;
+  font: 600 27px/1 var(--mono); color: var(--ink);
+  background: radial-gradient(120% 90% at 50% 18%, rgba(255,255,255,.98), rgba(255,255,255,.62) 70%, rgba(255,255,255,.4));
+  box-shadow: inset 0 1px 0 #fff, inset 0 -3px 5px rgba(20,23,28,.07), 0 1px 0 var(--foil-lo);
+  transition: transform .18s ease, box-shadow .18s ease; }
+:root[data-theme="dark"] .cell:not(.sep) { background: radial-gradient(120% 90% at 50% 18%, #2E343D, #20252C 70%, #1B1F25); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -3px 5px rgba(0,0,0,.35); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cell:not(.sep) { background: radial-gradient(120% 90% at 50% 18%, #2E343D, #20252C 70%, #1B1F25); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -3px 5px rgba(0,0,0,.35); } }
+.cell + .cell::before { content: ""; position: absolute; left: -6px; top: 12%; bottom: 12%; border-left: 2px dotted var(--foil-lo); opacity: .55; }
+.cell.sep { width: 18px; background: none; box-shadow: none; color: var(--ink-3); font-size: 22px; }
+.cell.sep::before { display: none; }
+.cell .alts { position: absolute; bottom: -19px; font: 600 12px/1 var(--mono); color: var(--ink-3); letter-spacing: .1em; white-space: nowrap; }
+.strip .cell.asked { transform: translateY(-7px); box-shadow: 0 0 0 3px var(--pen), 0 8px 18px rgba(34,56,158,.22) !important; }
+.cell.confirmed::after { content: ""; position: absolute; bottom: -12px; width: 12px; height: 7px; border-left: 2.5px solid var(--pen); border-bottom: 2.5px solid var(--pen); transform: rotate(-45deg); }
+.striplegend { margin-top: 26px; font-size: 14px; color: var(--ink-3); }
+
+/* ---------- timeline ---------- */
+.timeline { list-style: none; margin: 0; padding: 0; }
+.step { display: grid; grid-template-columns: 26px 158px 58px 1fr auto; gap: 4px 12px; padding: 11px 16px; border-top: 1px solid var(--rule); align-items: baseline; font-size: 15px; }
+.step:first-child { border-top: 0; }
+.step .n { font: 600 13px/1 var(--mono); color: var(--ink-3); }
+.step .act { font: 600 14px/1.3 var(--mono); }
+.step .who { justify-self: start; display: inline-block; font: 700 10.5px/1 var(--mono); letter-spacing: .06em; padding: 3px 5px; border-radius: 4px; margin-left: 6px; vertical-align: 1px; color: var(--ink-2); border: 1px solid var(--rule); }
+.step .who.llm { color: var(--pen); border-color: color-mix(in srgb, var(--pen) 40%, transparent); }
+.step .res { color: var(--ink-2); }
+.step .res .mono { font-family: var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+.step .thought { grid-column: 4; color: var(--ink); border-left: 2px solid var(--pen); padding-left: 10px; margin: 2px 0; }
+.step .ms { font: 500 13px/1 var(--mono); color: var(--ink-3); }
+.step.wait .act { color: var(--pen); }
+
+/* ---------- ask card ---------- */
+.ask { margin-top: 18px; padding: 20px; border: 1px solid var(--pen); background: var(--card); border-radius: 10px; box-shadow: 0 0 0 4px var(--pen-soft); }
+.ask h2 { font: 700 21px/1.25 var(--display); font-stretch: 88%; margin: 0 0 6px; }
+.ask p { margin: 0 0 14px; color: var(--ink-2); }
+.ask .row { display: grid; grid-template-columns: 168px 1fr; gap: 20px; align-items: center; }
+.crop { width: 168px; height: 168px; border-radius: 8px; overflow: hidden; border: 1px solid var(--rule); background: #fff; position: relative; }
+.crop svg { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.crop figcaption { position: absolute; left: 8px; bottom: 6px; font: 600 11px/1 var(--mono); color: var(--ink-3); background: rgba(255,255,255,.85); padding: 3px 5px; border-radius: 3px; }
+.choices { display: flex; gap: 10px; flex-wrap: wrap; }
+.choice { min-width: 112px; min-height: 52px; border-radius: 8px; border: 1px solid var(--ink); background: var(--card); padding: 8px 14px; cursor: pointer; display: grid; gap: 2px; text-align: left; }
+.choice b { font: 600 24px/1 var(--mono); }
+.choice span { font-size: 13px; color: var(--ink-2); }
+.choice.primary { background: var(--pen); border-color: var(--pen); color: var(--on-pen); }
+.choice.primary span { color: var(--on-pen); opacity: .85; }
+.choice.primary .kbd { color: var(--on-pen); border-color: currentColor; }
+.choice.quiet { border-color: var(--rule); }
+.choice:hover { border-color: var(--pen); }
+.prior { margin-top: 12px; font-size: 14px; color: var(--ink-3); }
+.kbd { font: 600 11px/1 var(--mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; color: var(--ink-3); margin-left: 6px; }
+
+/* ---------- verdict slip ---------- */
+.slip { --v: var(--nsq); --vs: var(--nsq-soft); background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 20px 22px 18px 28px; position: relative; margin-bottom: 18px; }
+.slip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; border-radius: 10px 0 0 10px; background: var(--v); }
+.slip.fake { --v: var(--fake); --vs: var(--fake-soft); }
+.slip.fake::before { background: repeating-linear-gradient(135deg, var(--v) 0 5px, transparent 5px 9px), var(--vs); }
+.slip.nl { --v: var(--nl); --vs: var(--nl-soft); }
+.slip.nl::before { background: transparent; box-shadow: inset 0 0 0 2px var(--v); }
+.slip.cv { --v: var(--cv); --vs: var(--cv-soft); }
+.slip.cv::before { background: repeating-linear-gradient(180deg, var(--v) 0 8px, transparent 8px 13px); }
+.slip .kicker { font: 700 12px/1 var(--mono); letter-spacing: .08em; color: var(--v); text-transform: uppercase; margin-bottom: 10px; }
+.slip h2 { font: 760 31px/1.08 var(--display); font-stretch: 82%; margin: 0 0 8px; color: var(--v); letter-spacing: -.005em; }
+.slip .sub { font-size: 16px; color: var(--ink); margin-bottom: 4px; }
+.slip .sub .mono { font-family: var(--mono); }
+.slip .what { color: var(--ink-2); font-size: 15px; }
+.slip .advice { margin: 14px 0; padding: 12px 14px; background: var(--vs); border-radius: 8px; font-size: 16px; }
+.evid { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14.5px; margin: 6px 0 12px; }
+.evid span { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); }
+.evid i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 2px solid var(--ink-2); }
+.evid i.m { background: var(--ink-2); }
+.evid i.h { background: linear-gradient(90deg, var(--pen) 50%, transparent 50%); border-color: var(--pen); }
+.evid i.x { border-color: var(--nsq); background: none; position: relative; }
+.evid b { color: var(--ink); font-weight: 600; }
+.cite { font: 500 13px/1.45 var(--mono); color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 10px; }
+.cite a { color: var(--pen); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.btn { border-radius: 8px; padding: 9px 14px; border: 1px solid var(--rule); background: var(--card); cursor: pointer; font-size: 15px; }
+.btn.primary { background: var(--pen); border-color: var(--pen); color: var(--on-pen); }
+.btn:hover { border-color: var(--pen); }
+.btn .deva { font-family: "Noto Sans Devanagari", var(--body); }
+
+.foot { margin-top: 28px; font-size: 13.5px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 12px; }
+
+/* ---------- prototype state switcher (not part of the product) ---------- */
+.proto { position: fixed; right: 16px; bottom: 16px; background: var(--ink); color: var(--paper); border-radius: 10px; padding: 8px; display: flex; gap: 4px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); z-index: 10; flex-wrap: wrap; max-width: calc(100vw - 32px); }
+.proto span { padding: 6px 8px; opacity: .7; }
+.proto button { background: transparent; border: 0; color: inherit; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.proto button[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
+
+[hidden] { display: none !important; }
+body:not([data-state="ask"]) .timeline-wrap { opacity: .9; }
+
+/* ---------- phone ---------- */
+@media (max-width: 860px) {
+  .frame { grid-template-columns: minmax(0, 1fr); }
+  .ghost { display: none; }
+  .rail { position: fixed; bottom: 0; left: 0; right: 0; flex-direction: row; justify-content: space-around; padding: 6px 4px; border-right: 0; border-top: 1px solid var(--rule); z-index: 5; }
+  .mark { display: none; }
+  .main { padding: 16px 16px 120px; }
+  .topbar { flex-wrap: wrap; }
+  .topbar h1 { font-size: 25px; width: 100%; }
+  .cols { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .strip { display: flex; gap: 5px; padding: 8px 8px 8px 6px; }
+  .cell { flex: 1 1 0; min-width: 0; width: auto; max-width: 36px; height: 46px; font-size: 21px; border-radius: 8px; }
+  .cell.sep { flex: 0 0 8px; }
+  .cell + .cell::before { left: -4px; }
+  .step { grid-template-columns: 18px minmax(0, 1fr) auto auto; padding: 10px 12px; }
+  .step .n { grid-row: 1; grid-column: 1; } .step .act { grid-row: 1; grid-column: 2; }
+  .step .who { grid-row: 1; grid-column: 3; } .step .ms { grid-row: 1; grid-column: 4; }
+  .step .res, .step .thought { grid-column: 2 / 5; }
+  .step > span:empty { display: none; }
+  .ask .row { grid-template-columns: 1fr; }
+  .crop { width: 100%; height: 120px; }
+  .choice { flex: 1 1 0; min-width: 0; }
+  .slip h2 { font-size: 26px; }
+  .proto { bottom: 76px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body data-state="ask">
+<div class="frame">
+  <nav class="rail" aria-label="Main">
+    <div class="mark">STRIP<b>CHECK</b></div>
+    <button class="navbtn" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="13" rx="2"/><circle cx="12" cy="12.5" r="3.6"/><path d="M8.5 6l1.4-2h4.2l1.4 2"/></svg>Check</button>
+    <button class="navbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Lists</button>
+    <button class="navbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2M12 11v5M9.5 13.5h5"/></svg>Cabinet</button>
+    <button class="navbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Results</button>
+    <button class="navbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h7a3 3 0 010 6H10a3 3 0 000 6h7"/></svg>Traces</button>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Check a pack</h1>
+      <div class="spacer"></div>
+      <span class="chip" title="Newest CDSCO list in the local index"><span class="dot"></span>Lists to <span class="mono">Sep 2026</span> · <span class="mono">7,005</span> entries</span>
+      <button class="ghost"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>Use your phone</button>
+    </div>
+
+    <div class="cols">
+      <!-- ================= PACK ================= -->
+      <section aria-labelledby="pack-h">
+        <p class="label" id="pack-h">Pack</p>
+        <div class="panel photo">
+          <svg viewBox="0 0 600 380" role="img" aria-label="Photo of the carton with the text lines the camera read outlined">
+            <defs>
+              <linearGradient id="board" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBFBF8"/><stop offset="1" stop-color="#EEEFEA"/></linearGradient>
+              <filter id="soft"><feGaussianBlur stdDeviation="0.35"/></filter>
+              <symbol id="carton" viewBox="0 0 600 380">
+                <rect width="600" height="380" fill="#D9DCD6"/>
+                <g transform="rotate(-1.6 300 190)">
+                  <rect x="34" y="30" width="532" height="318" rx="4" fill="url(#board)"/>
+                  <rect x="34" y="30" width="532" height="64" fill="#1E5F8C"/>
+                  <text x="56" y="76" font-family="Arial Black, Arial" font-weight="900" font-size="38" fill="#fff" letter-spacing="1">NAMIK-MR</text>
+                  <text x="56" y="124" font-family="Arial" font-size="17" fill="#222">Aceclofenac, Paracetamol &amp; Chlorzoxazone Tablets</text>
+                  <text x="56" y="148" font-family="Arial" font-size="15" fill="#555">10 x 10 Tablets</text>
+                  <g filter="url(#soft)" font-family="Consolas, 'Courier New', monospace" font-size="21" fill="#2A2A2A">
+                    <text x="56" y="214" textLength="184.8" lengthAdjust="spacing">B.No. AT25-0938A</text>
+                    <text x="56" y="246">Mfg. 11/2025   Exp. 10/2027</text>
+                  </g>
+                  <rect x="218.6" y="198.5" width="2.8" height="16.5" fill="#2A2A2A" opacity=".85"/>
+                  <text x="56" y="296" font-family="Arial" font-size="14" fill="#333">Mfd. by: Aspo Pharmaceuticals LLP, Baddi, Solan (H.P.)</text>
+                  <text x="56" y="318" font-family="Arial" font-size="12" fill="#777">Store below 30°C. Keep out of reach of children.</text>
+                </g>
+              </symbol>
+            </defs>
+            <use href="#carton" width="600" height="380"/>
+            <rect class="ocrbox" x="48" y="38" width="250" height="52" rx="3" transform="rotate(-1.6 300 190)"/>
+            <rect class="ocrbox" x="48" y="106" width="440" height="26" rx="3" transform="rotate(-1.6 300 190)"/>
+            <rect class="ocrbox hot" x="48" y="192" width="202" height="30" rx="3" transform="rotate(-1.6 300 190)"/>
+            <rect class="ocrbox" x="48" y="226" width="318" height="28" rx="3" transform="rotate(-1.6 300 190)"/>
+            <rect class="ocrbox" x="48" y="279" width="420" height="24" rx="3" transform="rotate(-1.6 300 190)"/>
+          </svg>
+        </div>
+
+        <div class="stripwrap">
+          <p class="label">Batch number</p>
+          <div class="strip" aria-label="Batch number as read, one character per cell">
+            <span class="tag" data-show="ask">OCR</span><span class="tag" data-show="done">YOU</span>
+            <span class="cell">A</span><span class="cell">T</span><span class="cell">2</span><span class="cell">5</span>
+            <span class="cell sep">-</span>
+            <span class="cell">0</span><span class="cell">9</span><span class="cell">3</span>
+            <span class="cell asked" data-show="ask">B<span class="alts">8 3</span></span>
+            <span class="cell confirmed" data-show="flagged notlisted">8</span>
+            <span class="cell confirmed" data-show="fake">8</span>
+            <span class="cell" data-show="cantverify">?</span>
+            <span class="cell">A</span>
+          </div>
+          <p class="striplegend" data-show="ask">The camera read the 8th character as <b>B</b> with confidence 0.99. CDSCO lists <span style="font-family:var(--mono)">AT25-0938A</span>.</p>
+          <p class="striplegend" data-show="flagged fake notlisted">You confirmed the 8th character. Tap any cell to correct a character.</p>
+          <p class="striplegend" data-show="cantverify">The 8th character could not be confirmed.</p>
+        </div>
+
+        <dl class="fields">
+          <dt>Product</dt><dd>Aceclofenac, Paracetamol &amp; Chlorzoxazone Tablets</dd><span class="src">OCR</span>
+          <dt>Brand</dt><dd>NAMIK-MR</dd><span class="src">OCR</span>
+          <dt>Mfg / Exp</dt><dd class="mono">11/2025 · 10/2027</dd><span class="src">OCR</span>
+          <dt>Maker</dt><dd>Aspo Pharmaceuticals LLP</dd><span class="src">OCR</span>
+        </dl>
+      </section>
+
+      <!-- ================= REASONING ================= -->
+      <section aria-labelledby="why-h">
+        <!-- verdicts -->
+        <article class="slip" data-show="flagged" aria-live="polite">
+          <div class="kicker">Flagged · NSQ</div>
+          <h2>On a CDSCO list of failed samples</h2>
+          <div class="sub">Not of Standard Quality · September 2026 · content of Aceclofenac</div>
+          <div class="what">Batch <span style="font-family:var(--mono)">AT25-0938A</span> · Aceclofenac, Paracetamol &amp; Chlorzoxazone Tablets (Namik-MR)</div>
+          <div class="advice">This batch appears on CDSCO's Sep 2026 state list of drugs found Not of Standard Quality (failed test: content of Aceclofenac; reported by Lucknow, Uttar Pradesh). Show this pack to your pharmacist. Do not stop any prescribed medicine without medical advice.</div>
+          <div class="evid">
+            <span><i class="h"></i>Batch <b>you confirmed</b></span><span><i class="m"></i>Product <b>match</b></span><span><i class="m"></i>Brand <b>match</b></span><span><i class="m"></i>Dates <b>match</b></span><span><i class="m"></i>Maker <b>match</b></span>
+          </div>
+          <div class="cite">State NSQ alert Sep 2026 · LUCKNOW, Uttar Pradesh · failed: content of Aceclofenac · source: CDSCO NSQ portal, SEP-2026 · <a href="#">View record</a></div>
+          <div class="actions"><button class="btn primary">Save to cabinet</button><button class="btn">Read aloud</button><button class="btn"><span class="deva">हिन्दी</span></button><button class="btn">See reasoning</button></div>
+        </article>
+
+        <article class="slip fake" data-show="fake">
+          <div class="kicker">Suspected spurious</div>
+          <h2>Listed by CDSCO as possibly spurious</h2>
+          <div class="sub">The maker named on the label says it did not make this batch · September 2026</div>
+          <div class="what">Batch <span style="font-family:var(--mono)">BDS25003</span> · Lactic Acid Bacillus Tablets (120 M) (Sporlac-DS)</div>
+          <div class="advice">This batch matches an entry CDSCO lists as purported spurious in its Sep 2026 alert (the manufacturer named on the label says it did not make this batch). Show this pack to your pharmacist. Do not stop any prescribed medicine without medical advice.</div>
+          <div class="evid"><span><i class="h"></i>Batch <b>you confirmed</b></span><span><i class="m"></i>Product <b>match</b></span><span><i class="m"></i>Dates <b>match</b></span><span><i></i>Maker <b>not compared</b></span></div>
+          <div class="cite">Spurious drugs, Sep 2026 · CDL, Kolkata · status: under investigation · source: CDSCO NSQ portal (spurious feed) · <a href="#">View record</a></div>
+          <div class="actions"><button class="btn primary">Save to cabinet</button><button class="btn">Read aloud</button><button class="btn"><span class="deva">हिन्दी</span></button><button class="btn">See reasoning</button></div>
+        </article>
+
+        <article class="slip nl" data-show="notlisted">
+          <div class="kicker">Not listed</div>
+          <h2>Not on the CDSCO lists we have</h2>
+          <div class="sub">Lists loaded up to Sep 2026 · this does not certify the medicine</div>
+          <div class="what">Batch <span style="font-family:var(--mono)">AT25-093BA</span>, as you confirmed it</div>
+          <div class="advice">No match on the CDSCO lists loaded (93 monthly lists, latest Sep 2026). This does not certify the medicine; CDSCO tests only sampled batches.</div>
+          <div class="evid"><span><i class="h"></i>Batch <b>you confirmed</b></span><span><i></i>Nearest listed batch <b>AT25-0938A, rejected</b></span></div>
+          <div class="cite">Searched: exact batch and 31 one- or two-character variants · 1 candidate rejected because you confirmed the printed character</div>
+          <div class="actions"><button class="btn primary">Save to cabinet</button><button class="btn">Read aloud</button><button class="btn"><span class="deva">हिन्दी</span></button><button class="btn">See reasoning</button></div>
+        </article>
+
+        <article class="slip cv" data-show="cantverify">
+          <div class="kicker">Can't verify</div>
+          <h2>Couldn't verify this pack</h2>
+          <div class="sub">One character of the batch decides the match, and it couldn't be confirmed</div>
+          <div class="advice">StripCheck could not verify this pack: the 8th character of the batch could not be confirmed. If it is an 8, this batch is on CDSCO's Sep 2026 list. Ask your pharmacist to check the batch number against CDSCO's alerts.</div>
+          <div class="evid"><span><i class="x"></i>Batch <b>unconfirmed</b></span><span><i class="m"></i>Product <b>match</b></span><span><i class="m"></i>Dates <b>match</b></span><span><i class="m"></i>Maker <b>match</b></span></div>
+          <div class="cite">Possible match: State NSQ alert Sep 2026 · LUCKNOW, Uttar Pradesh · batch AT25-0938A</div>
+          <div class="actions"><button class="btn primary">Type the batch instead</button><button class="btn">Photograph the carton</button><button class="btn">See reasoning</button></div>
+        </article>
+
+        <p class="label" id="why-h">Reasoning <span style="text-transform:none;letter-spacing:0;font-weight:400" data-show="ask">· step 8 of at most 12</span></p>
+        <div class="panel timeline-wrap">
+          <ol class="timeline">
+            <li class="step"><span class="n">1</span><span class="act">read_qr</span><span class="who">RULES</span><span class="res">No QR code on this carton</span><span class="ms">0.4 s</span></li>
+            <li class="step"><span class="n">2</span><span class="act">read_text</span><span class="who">RULES</span><span class="res">6 lines read</span><span class="ms">1.1 s</span></li>
+            <li class="step"><span class="n">3</span><span class="act">extract_fields</span><span class="who">RULES</span><span class="res">Batch <span class="mono">AT25-093BA</span>, line confidence 0.99; dates 11/2025 and 10/2027</span><span class="ms">0.1 s</span></li>
+            <li class="step"><span class="n">4</span><span class="act">search_exact</span><span class="who">RULES</span><span class="res">No entry with this batch</span><span class="ms">0.0 s</span></li>
+            <li class="step"><span class="n">5</span><span class="act">planner</span><span class="who llm">LLM</span><span class="thought">"The B could be a scuffed 8 or 3. Search close variants before deciding."</span><span class="ms">2.3 s</span><span></span><span></span><span></span><span class="res">&rarr; <span class="mono">search_variants</span></span></li>
+            <li class="step"><span class="n">6</span><span class="act">search_variants</span><span class="who">RULES</span><span class="res">31 variants, 1 entry: <span class="mono">AT25-0938A</span>, state list Sep 2026</span><span class="ms">0.0 s</span></li>
+            <li class="step"><span class="n">7</span><span class="act">grade</span><span class="who">RULES</span><span class="res">Product, brand, dates and maker all match; the batch differs in one character</span><span class="ms">0.1 s</span></li>
+            <li class="step wait" data-show="ask"><span class="n">8</span><span class="act">ask_user</span><span></span><span class="res">Waiting for you</span><span class="ms"></span></li>
+            <li class="step" data-show="done"><span class="n">8</span><span class="act">ask_user</span><span></span><span class="res" data-show="flagged fake">You picked <span class="mono">8</span></span><span class="res" data-show="notlisted">You picked <span class="mono">B</span></span><span class="res" data-show="cantverify">You couldn't tell</span><span class="ms">6.0 s</span></li>
+            <li class="step" data-show="done"><span class="n">9</span><span class="act">verify</span><span class="who">RULES</span><span class="res" data-show="flagged fake">All 10 rules pass</span><span class="res" data-show="notlisted">All 10 rules pass</span><span class="res" data-show="cantverify">Rule R2: batch not confirmed, downgraded</span><span class="ms">0.0 s</span></li>
+          </ol>
+        </div>
+
+        <!-- question -->
+        <div class="ask" data-show="ask" role="group" aria-labelledby="ask-h">
+          <h2 id="ask-h">Look at the 8th character of the batch on your strip</h2>
+          <p>The camera read it as B. CDSCO lists the same product from the same maker with an 8 in that place.</p>
+          <div class="row">
+            <figure class="crop" style="margin:0">
+              <svg viewBox="206 191 30 30" preserveAspectRatio="xMidYMid slice" aria-label="Enlarged photo of the 8th character"><use href="#carton" width="600" height="380"/></svg>
+              <figcaption>from your photo</figcaption>
+            </figure>
+            <div>
+              <div class="choices">
+                <button class="choice primary" onclick="setState('flagged')"><b>8</b><span>It's an 8 <span class="kbd">1</span></span></button>
+                <button class="choice" onclick="setState('notlisted')"><b>B</b><span>It's a B <span class="kbd">2</span></span></button>
+                <button class="choice quiet" onclick="setState('cantverify')"><b>?</b><span>Can't tell <span class="kbd">3</span></span></button>
+              </div>
+              <p class="prior">OCR has misread 8 as B three times before on this laptop. That changes the order of the search, never your answer.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <p class="foot">Advisory only, not medical advice: show your pharmacist. StripCheck is a student project and not a CDSCO service. Alert data: CDSCO NSQ portal, Jan 2019 to Sep 2026.</p>
+  </main>
+</div>
+
+<div class="proto" role="toolbar" aria-label="Prototype states">
+  <span>Prototype</span>
+  <button data-s="ask" aria-pressed="true">Asking</button>
+  <button data-s="flagged">Flagged</button>
+  <button data-s="fake">Spurious</button>
+  <button data-s="notlisted">Not listed</button>
+  <button data-s="cantverify">Can't verify</button>
+</div>
+
+<script>
+function setState(s) {
+  document.body.dataset.state = s;
+  document.querySelectorAll('[data-show]').forEach(el => {
+    const t = el.dataset.show.split(' ');
+    el.hidden = !(t.includes(s) || (t.includes('done') && s !== 'ask'));
+  });
+  document.querySelectorAll('.proto button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === s)));
+}
+document.querySelectorAll('.proto button').forEach(b => b.addEventListener('click', () => setState(b.dataset.s)));
+const q = new URLSearchParams(location.search);
+if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
+setState(q.get('state') || 'ask');
+if (q.has('clean')) document.querySelector('.proto').hidden = true;
+document.addEventListener('keydown', e => {
+  if (document.body.dataset.state !== 'ask') return;
+  if (e.key === '1') setState('flagged');
+  if (e.key === '2') setState('notlisted');
+  if (e.key === '3') setState('cantverify');
+});
+</script>
+</body>
+</html>

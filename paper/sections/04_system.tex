@@ -1,0 +1,39 @@
+\section{System Design}
+\label{sec:system}
+
+\todo{Architecture figure (agents, stores, interfaces) in M6. This section describes the design as specified; M3 to M6 confirm or revise each part against the implementation.}
+
+\subsection{Overview}
+StripCheck has four agents built as LangGraph state graphs \cite{langchain2026interrupts,langchain2026persistence}. The \emph{ingest agent} turns alert sources into a validated index. The \emph{investigator} reads a pack, retrieves and grades candidate entries, asks the person when evidence is missing, and drafts a verdict. The \emph{verifier} checks each draft against hard rules. A \emph{supervisor} runs background work: after each sync it re-checks the medicines a person has saved and raises notifications. The agents share a SQLite store, and the investigator's state is checkpointed per check, so a question to the user can wait any length of time and a check survives a restart. A verdict is one of four labels: \textsc{flagged} (the batch matches an NSQ entry), \textsc{suspected\_fake} (it matches an entry listed as purported spurious), \textsc{not\_listed} (no match survives on the lists loaded, which is not a statement about quality) and \textsc{cant\_verify} (the agent abstains).
+
+\subsection{Ingest agent}
+Each source passes through classification, extraction, header mapping, validation, repair and a transactional commit. Portal JSON is the primary source. For PDF lists, a rule-based table extractor runs first and an LLM-assisted chunk extractor serves as fallback. When a header or JSON key is unknown, the language model proposes a mapping, and the agent accepts it only if at least four of five sample rows then validate. Rows that fail validation get one grounded repair attempt, in which every repaired batch number must occur in the raw row text; otherwise they are quarantined with a reason. Ingestion is idempotent through a hash of each raw row, and the agent re-polls the most recent months because late state reports change them.
+
+\subsection{Reading the pack}
+The investigator reads a QR or DataMatrix code first, because a decoded payload is error-checked. It then runs PP-OCR through RapidOCR \cite{du2020ppocr,rapidai2021rapidocr}, extracts fields with label-anchored patterns, and keeps the provenance of every value (source, image, line, confidence). If the batch is missing or read with low confidence, it re-reads an enhanced image once. An optional small vision-language model gives an independent second read of the batch. We use it only to establish agreement: a batch read by the vision model alone never justifies an alarm.
+
+\subsection{Retrieval with an OCR channel model}
+Retrieval uses the normalised batch key as a blocking key. Exact lookup comes first. If no exact candidate is accepted, the agent searches confusion variants, the keys reachable from the read key $r$ by at most two substitutions drawn from a table of characters that OCR confuses on printed codes (for example \texttt{B}/\texttt{3}/\texttt{8}, \texttt{0}/\texttt{O}/\texttt{D}, \texttt{1}/\texttt{7}/\texttt{I}). Variants are ordered by the number of substitutions and then by a channel score
+\begin{equation}
+s(v \mid r) = \sum_{i \in S} \log \frac{n_{r_i v_i} + \alpha}{n_{r_i r_i} + \alpha},
+\label{eq:channel}
+\end{equation}
+which follows the noisy-channel view of spelling and OCR correction \cite{kernighan1990spelling,brill2000improved,kolak2002ocr}. Here $S$ is the set of substituted positions, $n_{ab}$ counts how often OCR produced $a$ when the printed character was $b$, and $\alpha$ is a smoothing constant. The counts come from rendered calibration packs and grow with every character a user confirms, which gives the agent a learning loop. The score only orders candidates. It never replaces the question to the user, because sibling batches make a confident correction unsafe.
+
+\subsection{Grading as record linkage}
+Each candidate is compared with the pack field by field: product (share of the entry's name tokens found on the pack), brand, manufacturing and expiry dates, and manufacturer. The comparison follows the match, possible-match and non-match zones of record linkage \cite{fellegi1969theory}. A disagreement on product, brand or manufacturer rejects the candidate as a collision. A single-digit date difference on an exact or confirmed batch becomes a question, because one misread digit or one transcription error explains it; a larger difference becomes a conflict that leads to abstention instead of a silent \textsc{not\_listed}. A variant batch, a missing field or a partial product match leaves the candidate in the possible-match zone, where the agent asks the person or, for product names, asks the language model to judge.
+
+\subsection{Planner and human questions}
+A deterministic planner chooses the next action from the state, in a fixed priority order. In hybrid mode the language model chooses at branch points (a low-confidence read, an empty search, a pending candidate, a verifier send-back), but only from the actions the rules allow; any failure or invalid choice falls back to the rule planner and is logged. Questions use LangGraph interrupts and come in five kinds: confirm a character, confirm the batch, confirm a date, photograph the carton, or type the batch. At most two questions are asked per check. Each character question shows the camera's own crop of the doubtful glyph. Before any alarm the batch must come from a QR code, from the person, or from two independent reads that agree; otherwise the agent asks the person to confirm the batch. This gate addresses the sibling-misread false alarm described in Section~\ref{sec:data}.
+
+\subsection{Verifier}
+The verifier applies ten hard rules to every draft. Among them: an alarm needs an accepted entry, confirmed batch evidence, a matching product and no unresolved conflict; \textsc{not\_listed} needs a grounded batch and both exact and variant searches for every read; every user-facing text must use a fixed template, carry its citation, and avoid banned phrases such as ``safe'' or ``genuine''; and a \textsc{not\_listed} result must state which lists were loaded and how recent they are. On a violation the verifier sends the draft back once with the rule that failed; a second violation downgrades the verdict to \textsc{cant\_verify}. An optional LLM critique can remove the model's rationale line but cannot change the template text. Using an external rule checker in place of model self-critique follows evidence that language models are unreliable at correcting their own reasoning \cite{huang2024cannot,kambhampati2024llmmodulo}.
+
+\subsection{Memory and notifications}
+A person can save a checked medicine to a cabinet. After each sync the supervisor re-checks every saved batch against the new rows and creates a notification when one now matches. It also reminds the person 30 days before a saved expiry month.
+
+\subsection{Interface and risk communication}
+The interface runs in a browser on the laptop or on a phone on the same network. It streams the agent's steps as they happen and shows the batch as a strip of character cells that the agent inspects and the person confirms. Verdict text comes only from reviewed templates, in English, Hindi and one regional language. \textsc{not\_listed} is shown in a neutral colour, never green, with the lists' date range and the statement that the result does not certify the medicine.
+
+\subsection{Implementation}
+Python 3, LangGraph with SQLite checkpoints, RapidOCR on ONNX Runtime, Ollama serving small local models, FastAPI with server-sent events, and a React interface. Traces go to Arize Phoenix through OpenTelemetry when it is running and to a JSON-lines log in every case. Every model and network call has a timeout and a fallback, so a check completes with the language model, the tracer and the network all switched off. \todo{model names and versions from the M4 benchmark}

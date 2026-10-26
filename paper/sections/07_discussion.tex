@@ -1,0 +1,11 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Limitations}
+A \textsc{not\_listed} verdict is only as good as the lists behind it. CDSCO tests samples, so most batches on the market are never tested, and an unlisted batch can still be substandard. StripCheck states this on every such result and shows how recent its lists are. The confusion table and the calibration packs reflect one OCR engine and synthetic damage; real embossed foil may produce confusions the table does not contain. \todo{limits found in M7: real-photo accuracy, model reliability, latency on CPU}
+
+\subsection{Safety and ethics}
+The system gives advice and directs every result to a pharmacist. It never says that a medicine is safe or genuine and never tells anyone to stop a medicine. Verdict text comes from fixed templates, and the language model cannot write user-facing text. Text read from packs and alerts enters prompts only as data, and the planner can choose only among allowed actions, which limits what injected text could do. Images and results stay on the user's machine. StripCheck is a student project and not a CDSCO service, and the interface says so. \todo{translation review sign-off; consent procedure if the usability study runs}
+
+\subsection{Threats to validity}
+\todo{synthetic-to-real gap; label leakage between development and evaluation seeds; the simulated user answers perfectly, real users may not; small real-photo sample}

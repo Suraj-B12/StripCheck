@@ -1,0 +1,23 @@
+TOTAL rows: 7005  (nsq tab 6956, spurious tab 49)
+NSQ months covered: 93  first 2019-01  last 2026-09
+NSQ rows by year: {'2019': 404, '2020': 326, '2021': 345, '2022': 572, '2023': 644, '2024': 877, '2025': 1898, '2026': 1890}
+rows/month: min 8 median 48 max 330
+spurious-tab rows by month: {'2025-06': 4, '2025-07': 8, '2025-08': 3, '2025-09': 1, '2025-10': 5, '2025-11': 2, '2025-12': 10, '2026-01': 4, '2026-02': 4, '2026-03': 1, '2026-04': 2, '2026-05': 2, '2026-07': 1, '2026-08': 1, '2026-09': 1}
+rows mentioning spurious (any tab): 121
+reporting source variants: [('state lab', 3822), ('cdsco lab', 3178), ('not applicable', 5)]
+brand present share (nsq): 0.138
+batch key length dist: {0: 2, 1: 20, 2: 42, 3: 107, 4: 255, 5: 523, 6: 1067, 7: 1877, 8: 1728, 9: 915, 10: 317, 11: 73, 12: 20, 13: 26, 14: 16, 15: 3, 18: 2, 19: 2, 20: 2, 21: 1, 24: 1, 33: 1, 52: 4, 55: 1}
+empty/placeholder batch share: 0.0014
+short keys (<4) share: 0.0241
+weird batch examples: ['PFB-701, OPCP-195', 'AHT-1239,', '8S17004,', 'RT-180380,', '8S17004,', 'RT-180380,', '(10)CITW-31', 'T?19598', 'T?18839', 'T?18909', 'SRDT ? 1207', 'LVC?6286']
+distinct keys: 6667  keys listed >1 time: 268  same-product repeats: 148  disjoint-product collisions: 36
+collision examples: [('51', ['Menadione Sodium Bisulphite Injection 1 ', 'CETIRIZINE TABLETS IP 10\nmg', 'Ofloxacin And Ornidazole Tablets IP']), ('3', ['Octt Hair Serum', 'Beauty care EGG Protein Shampoo']), ('HC834', ['Enteric Coated Rabeprazole Sodium and Do', 'Doxycycline HCl and Lactic Acid Bacillus']), ('8S17004', ['Cyproheptadine and Tricholine Oral Drops', 'Calcium and Vitamin D3 Tablets IP (CALCI', 'Paracetamol Tablets IP 500 mg (RIDMOL-50']), ('RT180380', ['Paracetamol Tablets IP 500 mg (RELIMOL T', 'Teicoplanin Injection IP (TEXOPLAN INJEC']), ('393', ['Luliconazole 1 % w/w Cream (LUZOLE)', 'Isopropyl Rubbing Alcohol IP (ADDIISURE '])]
+keys with a 1-confusable-substitution neighbour in index: 95 (1.42%); same maker: 58 (0.87%)
+sibling examples: [('R21119', ['R21719'], 'Ciprofloxacin Tablets IP (P-CI'), ('R21719', ['R21119'], 'Ciprofloxacin HCl Tablets IP ('), ('19501', ['19507'], 'Hypodermic Syringe 2ml.'), ('BPT6611', ['BPT6617'], 'OYSCAL AMPICILLIN CAPSULES I.P'), ('BPT6617', ['BPT6611'], 'Calcium Carbonate & Vitamin D3'), ('TACB011', ['TACB017'], 'Clopidogrel & Aspirin Tablets'), ('19507', ['19501'], 'Sterile Hypodermic Syringe (2m'), ('S2FBV33', ['S2FBV38'], 'RL ? 500 ml,\nCompound Sodium L')]
+lag mfg->alert months: n=6892 median 10.0 IQR 6-15  p90 20  negative(mfg after alert) 16
+remaining shelf life at alert months: n=6889 median 14 IQR 9-18; share >=12 months left 63.46%; already expired 0.58%
+date parse failure share (mfg/exp): 0.0161 0.0166
+mfg after exp: 14
+unparsed date examples: ['', None]
+failure categories (multi-label): [('assay/content', 2925), ('dissolution', 1903), ('description', 952), ('particulate', 412), ('labelling/misbranded', 364), ('identification', 362), ('pH', 298), ('sterility', 291), ('disintegration', 266), ('uniformity', 235), ('weight', 190), ('BET/endotoxin', 119), ('microbial', 77)]
+top labs/states: [('CDL Kolkata', 1251), ('RDTL Guwahati', 779), ('RDTL Chandigarh', 618), ('CDL, Kolkata', 452), ('CDTL Mumbai', 275), ('DTL Thiruvananthapuram', 159), ('DTL, Bengaluru, Karnataka', 133), ('RDTL, Chandigarh', 121), ('RDTL, Guwahati', 102), ('DTL Chennai', 95)]

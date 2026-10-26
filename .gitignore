@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------------
+# StripCheck .gitignore
+# ---------------------------------------------------------------------------
+
+# Data stays on each machine. CDSCO's copyright policy forbids reproducing its
+# content without permission, so alert snapshots, databases, uploads, props and
+# run logs are never committed. Each machine fetches its own copy
+# (docs/BUILD_GUIDE.md, "Getting the data").
+data/
+runs/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node / web build
+node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
+npm-debug.log*
+
+# Secrets and machine-local settings
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Paper build output (latexmk writes everything to paper/build/)
+paper/build/
+
+# Regenerated intake output for external survey files
+research_notes/External survey/_intake/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~

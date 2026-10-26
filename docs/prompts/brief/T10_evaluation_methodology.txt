@@ -1,0 +1,45 @@
+### THEME CARD T10 · evaluation_methodology · Priority 1
+
+**Objective.** Justify the evaluation: synthetic packs with controlled damage, print-and-capture and real photos, A/B against a lookup baseline with preregistered rules, ablations, robustness curves, paired tests and confidence intervals, abstention metrics, an LLM benchmark and a usability study.
+
+**Key questions**
+- Q1. Synthetic text-image data for training and testing OCR (MJSynth, SynthText and later work) and the synthetic-to-real gap; print-and-capture and physical-world testing.
+- Q2. Corruption robustness benchmarks (Hendrycks and Dietterich 2019) and OCR-specific robustness under blur, glare, perspective and compression.
+- Q3. Paired comparison of classifiers (McNemar 1947; Edwards 1948; Dietterich 1998), confidence intervals for proportions (Wilson 1927; Agresti and Coull 1998; Brown, Cai and DasGupta 2001), the bootstrap (Efron and Tibshirani 1993), and multiple-comparison correction (Holm 1979).
+- Q4. Evaluating systems that can abstain (risk-coverage curves, AURC), ablation practice, preregistration (Nosek et al. 2018) and its use in machine learning, and reporting cost and latency for agents (Kapoor et al. 2024).
+- Q5. Usability and app-quality measurement: the System Usability Scale (Brooke 1996; Bangor, Kortum and Miller; Lewis 2018) and MARS for mHealth apps (Stoyanov et al. 2015).
+
+**Search hints.** Statistics journals; NeurIPS, ICLR and CVPR; CHI; International Journal of Human-Computer Interaction; JMIR.
+
+**Already in our verified bibliography** (do not duplicate; this list is partial):
+- `agresti1998approximate` (1998): Approximate is Better than ``Exact'' for Interval Estimation of Binomial Proportions
+- `baek2019wrong` (2019): What Is Wrong With Scene Text Recognition Model Comparisons? Dataset and Model Analysis
+- `bangor2008empirical` (2008): An Empirical Evaluation of the System Usability Scale
+- `bangor2009determining` (2009): Determining What Individual SUS Scores Mean: Adding an Adjective Rating Scale
+- `bertinetto2020preregistration` (2020): The pre-registration experiment: an alternative publication model for machine learning research
+- `bowyer2025clt` (2025): Position: Don't Use the CLT in LLM Evals With Fewer Than a Few Hundred Datapoints
+- `brooke1996sus` (1996): SUS: A ``Quick and Dirty'' Usability Scale
+- `brown2001interval` (2001): Interval Estimation for a Binomial Proportion
+- `bulatov2022midv2020` (2022): MIDV-2020: A Comprehensive Benchmark Dataset for Identity Document Analysis
+- `dietterich1998approximate` (1998): Approximate Statistical Tests for Comparing Supervised Classification Learning Algorithms
+- `edwards1948note` (1948): Note on the ``correction for continuity'' in testing the significance of the difference between correlated proportions
+- `efron1993bootstrap` (1993): An Introduction to the Bootstrap
+- `geifman2017selective` (2017): Selective Classification for Deep Neural Networks
+- `gupta2016synthtext` (2016): Synthetic Data for Text Localisation in Natural Images
+- `hendrycks2019benchmarking` (2019): Benchmarking Neural Network Robustness to Common Corruptions and Perturbations
+- `jaderberg2014synthetic` (2014): Synthetic Data and Artificial Neural Networks for Natural Scene Text Recognition
+- `jiang2023union14m` (2023): Revisiting Scene Text Recognition: A Data Perspective
+- `kapoor2024agents` (2024): AI Agents That Matter
+- `kurakin2017physical` (2016): Adversarial examples in the physical world
+- `lewis2018sus` (2018): The System Usability Scale: Past, Present, and Future
+- `mcnemar1947note` (1947): Note on the sampling error of the difference between correlated proportions or percentages
+- `miller2024errorbars` (2024): Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations
+- `nayef2015smartdocqa` (2015): SmartDoc-QA: A Dataset for Quality Assessment of Smartphone Captured Document Images - Single and Multiple Distortions
+- `nosek2018preregistration` (2018): The preregistration revolution
+- `stoyanov2015mars` (2015): Mobile App Rating Scale: A New Tool for Assessing the Quality of Health Mobile Apps
+- `traub2024augrc` (2024): Overcoming Common Flaws in the Evaluation of Selective Classification Systems
+- `urbanski2025quantifying` (2025): Quantifying the Effects of Image Degradation on LVLM Benchmark Results Systematically
+- `usama2025vlmcorruptions` (2025): Analysing the Robustness of Vision-Language-Models to Common Corruptions
+- `wilson1927probable` (1927): Probable Inference, the Law of Succession, and Statistical Inference
+- `yao2024taubench` (2024): $\tau$-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
+- `zhu2025agentic` (2025): Establishing Best Practices in Building Rigorous Agentic Benchmarks

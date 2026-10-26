@@ -1,0 +1,28 @@
+\section{CDSCO Alert Data}
+\label{sec:data}
+
+\subsection{Sources}
+Until mid-2025 CDSCO released its monthly alerts as PDF tables, one for central laboratories and one for state laboratories, with separate lists of spurious drugs for some months. On 28 August 2025 it moved the alerts to an online viewer \cite{cdsco2025nsqlink,cdsco2026nsqpage}. The viewer is embedded from CDSCO's SUGAM portal, and its page script requests the rows for a chosen month from plain JSON endpoints \cite{cdsco2026portal}. The same endpoints serve every month back to January 2019, so the portal is now the most complete machine-readable record of these alerts. Each NSQ row has the product name, a brand name (filled mainly in recent months), batch number, manufacturing and expiry dates, manufacturer, the failed test, the reporting laboratory or state and the reporting month. Rows in the separate spurious-drug feed also carry the regulator's remarks and the reply of the manufacturer named on the label.
+
+We fetched every available month on \SnapshotDate{}, one request every 1.5 seconds, and stored each response with its hash so that every alert row in StripCheck can be traced to a stored source. Legacy PDF lists for 2024 and 2025 serve two secondary purposes: they let the interface show the original table row for a citation, and for months covered by both sources they give an automatic measure of PDF parsing accuracy (Section~\ref{sec:eval}).
+
+\subsection{Size and composition}
+The snapshot holds \NumAlertRows{} rows: \NumNsqRows{} NSQ rows over \NumMonths{} months, from \FirstMonth{} to \LastMonth{}, and \NumSpuriousTabRows{} rows from the spurious-drug feed. A month has between \RowsPerMonthMin{} and \RowsPerMonthMax{} rows (median \RowsPerMonthMedian{}). State laboratories reported \RowsStateLabs{} rows and central laboratories \RowsCentralLabs{}. The yearly count rose from \RowsYearFirst{} in 2019 to \RowsYearTwentyFour{} in 2024 and \RowsYearTwentyFive{} in 2025. \todo{Table: rows per year and level; figure: rows per month. Generated in M1.}
+
+\subsection{Data quality}
+The feed needs cleaning before it can be matched against a pack. Responses are encoded as ISO-8859-1, and characters outside that set, such as dashes inside batch numbers, arrive as question marks. Laboratory and source names are spelled inconsistently. A brand name is present in only \BrandPresentPct\% of NSQ rows; older rows place it in brackets inside the product name. Some batch cells list several batches, carry a GS1 prefix such as \texttt{(10)}, or hold words instead of a code, and \MissingDatePct\% of rows lack a manufacturing date. The feed also includes cosmetics and medical devices. Section~\ref{sec:system} describes how the ingest agent validates, repairs or quarantines such rows.
+
+\subsection{Observations that shape the design}
+\paragraph{Batch numbers collide}
+The index has \DistinctKeys{} distinct normalised batch keys. \RepeatedKeys{} of them appear more than once, and \CollisionKeys{} are shared by products with no name token in common. Short keys are common enough to matter: \ShortKeyPct\% have fewer than four characters. A batch number alone therefore cannot identify a listed batch, and the market as a whole, which the index samples only sparsely, will contain many more collisions.
+
+\paragraph{Listed batches have confusable siblings}
+\NeighbourKeys{} keys (\NeighbourKeysPct\%) have another listed key that differs by one character pair that OCR commonly confuses, and in \SiblingKeys{} cases (\SiblingKeysPct\%) both keys belong to the same manufacturer, for example \texttt{R21119} and \texttt{R21719}, or \texttt{S2FBV33} and \texttt{S2FBV38}. Manufacturers number batches in sequence and the regulator tests only samples, so an unlisted sibling of a listed batch is the ordinary case in a pharmacy. These within-index counts are a lower bound on how often a misread can turn a sibling into a match.
+
+\paragraph{Flagged batches are still on sale}
+For rows with dates, the median time from manufacture to the alert month is \LagMedian{} months (interquartile range \LagQOne{} to \LagQThree{}; 90th percentile \LagPNinety{}). At the time of the alert the median batch has \ShelfMedian{} months of shelf life left, \ShelfTwelvePlusPct\% have at least twelve months left, and only \ExpiredAtAlertPct\% have already expired. People can still buy and take most flagged batches when the alert appears, which motivates both a point-of-use check and re-checking the medicines a person has already saved.
+
+\todo{Replace snapshot numbers with database-backed numbers in M1 (same macros), add the PDF-versus-portal agreement table, and add a figure of alert lag and remaining shelf life.}
+
+\subsection{Use of the data}
+CDSCO's website policy asks that its content be acknowledged and not reproduced without permission. StripCheck keeps the alert index on the user's machine, cites the CDSCO source on every verdict, and this paper reports only derived statistics.

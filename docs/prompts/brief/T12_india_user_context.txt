@@ -1,0 +1,34 @@
+### THEME CARD T12 · india_user_context · Priority 1
+
+**Objective.** Ground the motivation and the interface decisions (phone first, plain language, multilingual verdicts, referral to a pharmacist) in evidence about Indian users.
+
+**Key questions**
+- Q1. Self-medication and over-the-counter purchase in India (meta-analyses), the role and number of retail chemists, generic vs branded use, Jan Aushadhi.
+- Q2. Smartphone and internet penetration and the share of Indian-language internet users (TRAI; IAMAI-Kantar 2024 to 2026); health literacy in India.
+- Q3. What people do when they suspect a bad medicine; trust in pharmacists; reporting channels (the PvPI ADR reporting app).
+- Q4. Digital-health infrastructure and rules for a consumer health app: ABDM, the status of e-pharmacy regulation, accessibility (WCAG 2.2; India's GIGW 3.0).
+- Q5. Design evidence for health information and alerts for low-literacy or multilingual users (plain language, icons, colour, voice output).
+
+**Search hints.** trai.gov.in; IAMAI reports; NFHS-5; mohfw.gov.in; WHO SEARO; BMJ Open; PLOS ONE; Indian Journal of Pharmacology; JMIR; w3.org; guidelines.india.gov.in.
+
+**Already in our verified bibliography** (do not duplicate; this list may be empty):
+- `chandran2022antibiotics` (2022): Sale of antibiotics without prescription in stand-alone pharmacies in Tamil Nadu
+- `dataful2026womeninternet` (2026): Women's Internet Use Nearly Doubles, but Access Gaps Remain
+- `dowse2023pictograms` (2023): Pharmaceutical indication pictograms for low literacy viewers: Health literacy and comprehension
+- `drishti2026abha` (2026): Ayushman Bharat Health Accounts (ABHA)
+- `etv2026pharmacystrike` (2026): 12 Lakh Pharmacies Across India To Shut On May 20 Over E-Pharmacy Concerns
+- `iamai2025internet` (2025): IAMAI-KANTAR Internet in India Report 2024 (PTI news report of the findings)
+- `ians2026janaushadhi` (2026): Jan Aushadhi Kendras grow to over 19,200 from just 84 in 2014: Govt
+- `ipc2018pvpifaq` (2018): PvPI -- Frequently Asked Questions
+- `kumar2026epharmacy` (2026): Evolving Regulatory Framework for E-Pharmacies in India: Challenges & Legal Concern
+- `medhi2007textfree` (2007): Text-Free User Interfaces for Illiterate and Semiliterate Users
+- `medhi2011mobile` (2011): Designing Mobile Interfaces for Novice and Low-Literacy Users
+- `nic2026gigw3` (2026): Guidelines for Indian Government Websites and Apps (GIGW 3.0): Scope and Objective
+- `outlook2025pvpiqr` (2025): DCGI Asks States To Mandate Display Of PvPI QR Code At All Pharmacies
+- `rashid2020selfmed` (2020): Prevalence and Predictors of Self-Medication Practices in India: A Systematic Literature Review and Meta-Analysis
+- `rathi2021generic` (2021): Knowledge, Attitude, and Perception of Indian Population about Generic versus Branded Medicines: A Web-Based Study
+- `reshma2024healthliteracy` (2024): A Cross-Sectional Study on Health Literacy and its associated factors among Adults of a Rural Area of Hooghly Distric...
+- `southfirst2026counterfeit` (2026): A fake medicine can look genuine, survey finds: one in three consumers met a counterfeit healthcare product
+- `thomas2024mhealth` (2024): A systematic review and qualitative evidence synthesis of factors affecting mHealth adoption in India
+- `trai2026pr104` (2026): Press Release No. 104/2026: Highlights of Telecom Subscription Data at the end of June 2026
+- `w3c2024wcag22` (2024): Web Content Accessibility Guidelines (WCAG) 2.2

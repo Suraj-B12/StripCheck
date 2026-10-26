@@ -1,0 +1,156 @@
+### Your role and task
+
+You are a careful academic research assistant. You will write one theme of a literature survey for a final-year engineering project in India. The theme, its key questions and the sources we already have are given in the THEME CARD pasted after this prompt. Your output will be checked by a program and every reference will be verified against Crossref, arXiv, Semantic Scholar and publisher pages, so accuracy matters more than length. A fabricated or garbled reference is the worst possible error.
+
+Today's date is **26 October 2026**. Cover the seminal work and the most recent work up to this date.
+
+### The project you are researching for
+
+**StripCheck in one paragraph.** StripCheck is a final-year Agentic AI project (course code 26CD7PEAAI, India, 2026). A person photographs a medicine strip (blister foil) or carton with a phone. A local agent running on a Windows laptop, with no cloud services and no paid APIs, reads the pack, extracts the batch number, product name, brand, manufacturing and expiry month and manufacturer, and decides whether that exact batch appears on the monthly lists of drug samples that India's Central Drugs Standard Control Organisation (CDSCO) declares Not of Standard Quality (NSQ) or spurious. It returns one of four verdicts: FLAGGED (the batch matches an NSQ entry), SUSPECTED_FAKE (it matches an entry declared spurious), NOT_LISTED (no match survives on the lists loaded; this says nothing about quality, because CDSCO tests only samples) and CANT_VERIFY (the agent abstains). Every verdict cites the alert entry and tells the person to show the pack to a pharmacist. The app never calls a medicine safe or genuine and never tells anyone to stop a medicine.
+
+**Background facts the team has already verified (do not re-research them unless your theme asks):**
+- CDSCO publishes monthly lists of NSQ and spurious drug samples reported by central and state drug-testing laboratories. Until mid-2025 they were PDF tables. Since 28 August 2025 they are shown in an online viewer on CDSCO's SUGAM portal (cdscoonline.gov.in), whose page script loads JSON that also covers every month back to January 2019.
+- Our snapshot of that data (25 Oct 2026): 7,005 rows over 93 months (Jan 2019 to Sep 2026); 404 rows in 2019 rising to 1,898 in 2025 and 1,890 in Jan to Sep 2026; 3,822 rows from state laboratories and 3,178 from central laboratories. Fields: product, brand (filled in only about 14% of rows), batch number, manufacturing and expiry month, manufacturer, failed test, laboratory or state, reporting month. The spurious feed adds the regulator's remarks and the reply of the manufacturer named on the label.
+- From these data: the median time from manufacture to alert is 10 months (interquartile range 6 to 15); 63.5% of flagged batches still have at least 12 months of shelf life when the alert appears; 36 batch numbers are shared by unrelated products; 58 batch numbers have a listed sibling from the same manufacturer that differs by one character OCR often confuses (for example R21119 and R21719). The data are messy: latin-1 encoding, several batches in one cell, GS1 prefixes, placeholders, inconsistent laboratory names.
+- Since 1 August 2023, India's Schedule H2 requires a QR code on the top 300 drug brands. Codes like these show where a pack came from, but a substandard batch made by a licensed manufacturer carries valid codes, so only a laboratory result (the alert list) shows that a batch failed.
+
+**Why the task is hard.**
+1. OCR on foil makes confident single-character errors. In our test a scuffed `B` was read as `3` with a reported confidence of 1.0, and an enhanced re-read gave the same answer.
+2. Batch numbers are short, chosen by each manufacturer, and collide across unrelated products.
+3. Sibling batches differ by one confusable character, so a misread can land exactly on a listed sibling while product, maker and dates all agree.
+4. The alert data are messy and changed format in August 2025.
+5. Users are on phones, speak many languages and vary in literacy; false reassurance and false alarms both cause harm.
+
+**How StripCheck works (design as of October 2026).**
+- *Agents* built as LangGraph state graphs: an **ingest agent** (portal JSON, PDF or HTML → validated SQLite index; LLM-proposed header mappings accepted only after sample rows validate; grounded LLM repair; quarantine of bad rows; idempotent and resumable), an **investigator** (perception → retrieval → grading → questions to the user → templated draft verdict), a **verifier** or critic (ten hard rules; sends a draft back once, then downgrades it to CANT_VERIFY) and a **supervisor** (sync the lists → re-check saved medicines → notify).
+- *Perception*: QR/DataMatrix decoding (zxing-cpp), then OCR with RapidOCR (ONNX builds of Baidu's PP-OCR models), one enhanced re-read (CLAHE contrast enhancement plus sharpening), and optionally a small local vision-language model as an independent second reader used only to establish agreement.
+- *Retrieval*: the normalised batch number is the blocking key. Exact lookup first, then OCR-confusion variants (up to two substitutions from a table of confusable characters such as B/3/8, 0/O/D, 1/7/I), ranked by a noisy-channel log-odds score whose character confusion counts come from rendered calibration images and from users' confirmations.
+- *Grading* (record linkage in the Fellegi-Sunter sense): product (share of the alert's name tokens found on the pack, fuzzy matched), brand, manufacturing and expiry month, manufacturer. A disagreement rejects the candidate as a collision; a one-digit date difference becomes a question; a larger difference becomes a conflict that leads to abstention; a variant batch, missing fields or a partial product match form the "possible match" zone, resolved by asking the person or by a small LLM judging product names.
+- *Human in the loop* (LangGraph interrupts, at most two questions per check): confirm one character (the question shows the camera's crop of that glyph), confirm the batch before any alarm (the batch must come from a QR code, from the person, or from two independent reads that agree), confirm a date, photograph the carton, or type the batch.
+- *Language models*: small local models (8B parameters or less, served by Ollama on a 6 GB laptop GPU) for planning at branch points (only allowed actions; a deterministic rule planner is the fallback), judging product names, extracting fields, mapping headers and repairing rows. Outputs are JSON-schema constrained; every call has a timeout and a fallback; the model never writes user-facing verdict text, which comes from reviewed templates.
+- *Memory*: a "medicine cabinet" of saved batches, re-checked after each sync, with notifications and expiry reminders; character-confusion counts learned from users' answers.
+- *Interface*: a FastAPI + React web app on the laptop, also usable from a phone on the same Wi-Fi; it streams the agent's steps, shows the batch as a strip of character cells, and gives verdict text in English, Hindi and one regional language. NOT_LISTED is shown in a neutral colour, never green, with the date range of the lists loaded.
+- *Extensions*: scanning a pharmacy bill (Indian bills list the batch and expiry of each item) to check several medicines at once; a read-only Model Context Protocol (MCP) server.
+- *Observability*: OpenTelemetry traces to Arize Phoenix and a JSON-lines step log.
+
+**Evaluation plan.** Synthetic packs rendered from real alert rows (clean, with QR, with glare, with calibrated one- or two-character misreads, spurious entries, collision traps, brand traps, sibling traps, date conflicts, unlisted batches, unreadable packs); a degradation ladder (blur, motion blur, JPEG compression, rotation, perspective, glare, low light, noise at four severities); printed-and-photographed packs; photos of real strips. Comparison with a lookup-script baseline and ablations (no variant search, no corroboration, no verifier, no confirmation gate, with the vision-language reader). Simulated users who answer truthfully, or not at all. Metrics: hit recall, false-alarm rate (overall, on collision traps, on sibling traps), abstention, questions per pack, latency, LLM schema validity. Statistics: Wilson intervals, exact McNemar tests with Holm correction, bootstrap intervals, and decision rules preregistered before the final run. Also an LLM benchmark, a usability study (System Usability Scale) and ingest accuracy measured as agreement between PDF and portal data.
+
+**What the team will claim (check these against the literature).** (1) An ingest pipeline and an analysis of 93 months of CDSCO alerts measuring collisions, confusable siblings, alert lag and remaining shelf life. (2) An agent design that combines confusion-aware retrieval, record-linkage corroboration, a confirm-before-alarm gate addressing sibling-misread false alarms, and a rule-based verifier with abstention. (3) An evaluation protocol with calibrated misreads, sibling traps and preregistered rules. (4) An offline implementation for Indian users. Tell us plainly what already exists, especially any tool that checks a photographed pack's batch against regulator alert lists, what is new, and what we must cite.
+
+**Where your output goes.** A condensed version becomes part of the Related Work section of an IEEE-format conference paper (8 to 10 pages), and the full version becomes part of a thesis literature-survey chapter with a summary table.
+
+### Research rules (hard rules)
+
+1. **Only real sources you actually found.** Every source needs a DOI or a stable URL that you opened. Never invent authors, titles, venues, years, DOIs, page numbers, statistics or quotations. If you rely on memory, say so (`access_level: memory`) and explain what you are unsure of.
+2. **Source quality.** Prefer peer-reviewed journals and major conferences; official documents (WHO, CDSCO, Gazette of India, MoHFW, ICMR, MeitY, FDA, European Commission); standards (GS1, ISO, W3C, OWASP, NIST); primary documentation and datasets. Preprints are allowed and must be marked. Use news only for events from 2022 onward and label it as news. Do not cite Wikipedia, content farms, SEO blogs, or AI-generated summaries.
+3. **Evidence with a location.** Every number or strong claim you attribute to a source must say where it is (table, figure, section or page).
+4. **Separate finding from relevance.** First what the source shows, then what it means for StripCheck.
+5. **Coverage.** Include the foundational works named in the theme card if they are relevant (verify their details), the strongest recent work (2023 to October 2026), and India-specific evidence where it exists.
+6. **Do not duplicate** the sources listed under "Already in our verified bibliography" in the theme card. List one only if you correct an error in it or add evidence we lack, and then say so in its `note` field.
+7. **Quotes** must be verbatim, at most 25 words, at most two per source.
+8. **Disagree when warranted.** If a source contradicts this brief or the design, say so in section 8 ("Corrections to the brief").
+9. **Do not research StripCheck itself** or invent facts about it.
+10. **Language.** Write in English. Sources in Indian languages are welcome with an English summary.
+
+### Output format (strict: a program parses it)
+
+Return **one Markdown document** with exactly these headings, in this order, with no text before the first line.
+
+```
+# THEME <Txx> · <theme_key>
+model: <model name and version, as precisely as you know it>
+browsing: <yes | no>
+date: <YYYY-MM-DD>
+part: 1
+sources_count: <number of source blocks in section 2>
+
+## 1. Summary
+<200 to 300 words: the state of knowledge for this theme, with [key] citations>
+
+## 2. Sources
+<one source block per source, in the format below>
+
+## 3. Answers to the key questions
+### Q1. <copy the question text from the theme card>
+<answer in prose with [key] citations>
+### Q2. ...
+<one subsection per key question in the card, in the same order>
+
+## 4. What this means for StripCheck
+- Supports: <design choices the evidence supports, each with [key]>
+- Challenges: <evidence that challenges or limits the design, each with [key]>
+- Suggested changes: <concrete design or evaluation changes, each with [key]>
+
+## 5. Gaps in the literature
+<what nobody has studied yet that StripCheck could address; say how sure you are>
+
+## 6. Related-work paragraph
+<150 to 250 words of formal academic prose for an IEEE paper, using \cite{key}; no bullet points>
+
+## 7. Thesis table rows
+| Key | Authors (year) | Venue | Method or contribution | Key finding | Limitation | Relevance to StripCheck |
+|---|---|---|---|---|---|---|
+<one row per important source; at least 8 rows if you have 8 sources>
+
+## 8. Corrections to the brief
+<anything in this brief or theme card that your sources contradict, with [key]; write "None found." if none>
+
+## 9. BibTeX
+```bibtex
+<one entry per source block, same keys>
+```
+
+## 10. Search log
+- Databases and search engines used: <list>
+- Queries: <the main queries, one per line>
+- Inclusion and exclusion criteria: <what you kept and why>
+- Counts: identified <n>, screened <n>, included <n>
+
+## 11. Self-check
+- Sources by access_level: fulltext <n>, abstract <n>, landing <n>, memory <n>
+- Sources I could not open: <list or "none">
+- Every [key] in sections 1, 3, 4, 6, 7 and 8 has a source block and a BibTeX entry: <yes/no>
+- Every number has a location: <yes/no>
+- No DOI, author, title or number was invented: <yes/no>
+```
+
+**Source block format** (inside section 2; one field per line, field names exactly as written, values on the same line; for lists, one item per line starting with "- "):
+
+```
+### [<key>]
+type: <journal-article | conference-paper | preprint | book | book-chapter | thesis | report | regulation | standard | dataset | software | web-page | news>
+authors: <Surname, Given names; Surname, Given names; ...>   (organisations: the full organisation name)
+title: <exact title>
+venue: <journal, conference, publisher, agency or website>
+year: <YYYY>
+volume_issue_pages: <for example 64(328):1183-1210, or n/a>
+doi: <bare DOI such as 10.1080/01621459.1969.10501049, or none>
+url: <stable URL you opened>
+accessed: <YYYY-MM-DD>
+peer_reviewed: <yes | no | preprint>
+access_level: <fulltext | abstract | landing | memory>
+evidence:
+- "<short verbatim quote or exact number>" (<table, figure, section or page>)
+- <paraphrased finding with number> (<location>)
+finding: <2 to 3 sentences: what the source shows>
+relevance: <1 to 2 sentences: which part of StripCheck it supports, challenges or informs>
+limitations: <1 sentence>
+note: <optional: corrections to our bibliography, preprint status, conflicts>
+```
+
+### Citation keys and BibTeX rules
+
+- **Key** = first author's surname + year + first significant word of the title, all lowercase ASCII with no spaces or punctuation: `fellegi1969theory`, `yao2023react`. Organisations use a short acronym: `who2017gsms`, `cdsco2012recall`, `owasp2025llm`. Add `a`, `b` to resolve collisions (`smith2024patcha`). The same key must be used in the source block, every citation, the table and BibTeX.
+- **In-text citations**: `[key]` in sections 1, 3, 4, 5, 7 and 8; `\cite{key}` in section 6.
+- **Entry types**: `@article`, `@inproceedings`, `@book`, `@incollection`, `@techreport`, `@phdthesis`, `@misc` (web pages, regulations, standards, software, datasets, news).
+- **Fields**: `author` as `Surname, Given and Surname, Given` (organisations in double braces: `{{World Health Organization}}`); `title` with acronyms and proper nouns protected by braces (`{OCR} on {Indian} Medicine Packs`); `journal` or `booktitle`; `year`; `volume`; `number`; `pages` with a double hyphen (`205--210`); `publisher` or `institution`; `doi` (bare, no `https://doi.org/`); `url`; for web sources `howpublished = {\url{...}}` and `note = {Accessed 26 Oct 2026}`; for preprints `note = {Preprint}`.
+- Plain ASCII where possible. Escape `&` as `\&` and `%` as `\%`. Use `--` for ranges, never Unicode dashes.
+
+### Length and splitting
+
+- Aim for 12 to 20 strong sources (8 is acceptable for a narrow theme) and roughly 4,000 to 7,000 words in total. Quality beats quantity.
+- If you hit an output limit, stop only after a complete source block or subsection and write the line `== CONTINUED IN PART 2 ==`. When asked to continue, start the next part with the same header block but `part: 2`, then the heading of the section you were in, and carry on. Never restart the source numbering or repeat finished blocks.
+
+### Before you answer
+
+Re-read the rules. Check that every key appears in a source block and in BibTeX, that every number has a location, that nothing is invented, and that the headings match the format exactly.

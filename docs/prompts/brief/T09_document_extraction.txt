@@ -1,0 +1,48 @@
+### THEME CARD T09 · document_extraction · Priority 2
+
+**Objective.** Background for the ingest agent: table extraction from PDFs and web data, header mapping as schema matching under format drift, validation, grounded repair, quarantine and cross-source agreement.
+
+**Key questions**
+- Q1. Rule-based PDF table tools (pdfplumber, Camelot, Tabula) and comparative evaluations.
+- Q2. Deep table-structure recognition and document understanding (TableNet, Table Transformer/PubTables-1M, DocLayNet, TableFormer, LayoutLM v1-v3, Donut, Nougat, Docling and newer systems).
+- Q3. LLM-based structured extraction with JSON schemas, and checks against hallucinated values.
+- Q4. Schema matching (Rahm and Bernstein 2001) and LLM-based schema matching; detecting schema or layout drift.
+- Q5. Data validation in pipelines (Breck et al. 2019; Deequ; Great Expectations), quarantine patterns, and prior work extracting recall or alert data from regulator documents.
+
+**Search hints.** CVPR; ICDAR; KDD; VLDB; MLSys; arXiv; tool documentation.
+
+**Already in our verified bibliography** (do not duplicate):
+- `adhikari2024comparative` (2024): A Comparative Study of PDF Parsing Tools Across Diverse Document Categories
+- `auer2024docling` (2024): Docling Technical Report
+- `barrow2025safepassage` (2025): SafePassage: High-Fidelity Information Extraction with Black Box LLMs
+- `biester2024llmclean` (2024): LLMClean: Context-Aware Tabular Data Cleaning via LLM-Generated OFDs
+- `blecher2023nougat` (2023): Nougat: Neural Optical Understanding for Academic Documents
+- `breck2019validation` (2019): Data Validation for Machine Learning
+- `camelot2026comparison` (n.d.): How Camelot compares to other tools
+- `cui2025paddleocr` (2025): PaddleOCR 3.0 Technical Report
+- `geng2025jsonschemabench` (2025): JSONSchemaBench: A Rigorous Benchmark of Structured Outputs for Language Models
+- `goel2026langextract` (2026): LangExtract
+- `gx2026core` (2026): GX Core (great\_expectations)
+- `hohpe2003dlc` (n.d.): Dead Letter Channel (Enterprise Integration Patterns)
+- `huang2022layoutlmv3` (2022): LayoutLMv3: Pre-training for Document AI with Unified Text and Image Masking
+- `kim2021donut` (2022): OCR-Free Document Understanding Transformer
+- `liu2025magneto` (2025): Magneto: Combining Small and Large Language Models for Schema Matching
+- `livathinos2025docling` (2025): Docling: An Efficient Open-Source Toolkit for AI-driven Document Conversion
+- `mansour2026axe` (2026): AXE: Low-Cost Cross-Domain Web Structured Information Extraction
+- `msft2026drift` (2026): Detect and manage schema drift
+- `nadeem2023res` (n.d.): Recall Enterprise System (RES) Data Quality Improvements to Address Opioid Epidemic
+- `narayan2022foundation` (2022): Can Foundation Models Wrangle Your Data?
+- `nassar2022tableformer` (2022): TableFormer: Table Structure Understanding with Transformers
+- `nassar2025smoldocling` (2025): SmolDocling: An ultra-compact vision-language model for end-to-end multi-modal document conversion
+- `openfda2026enforcement` (n.d.): openFDA Drug Enforcement Reports API
+- `paliwal2020tablenet` (2019): TableNet: Deep Learning Model for End-to-end Table Detection and Tabular Data Extraction from Scanned Document Images
+- `parciak2024schema` (2024): Schema Matching with Large Language Models: an Experimental Study
+- `pfitzmann2022doclaynet` (2022): DocLayNet: A Large Human-Annotated Dataset for Document-Layout Analysis
+- `plumber2026readme` (n.d.): pdfplumber: Plumb a PDF for detailed information about each char, rectangle, line, et cetera, and easily extract text...
+- `rahm2001survey` (2001): A survey of approaches to automatic schema matching
+- `redica2023rawfda` (2023): Is raw FDA data skewing your analyses?
+- `schelter2018deequ` (2018): Automating large-scale data quality verification
+- `sheetrit2024rematch` (2024): ReMatch: Retrieval Enhanced Schema Matching with LLMs
+- `smock2021pubtables` (2022): PubTables-1M: Towards comprehensive table extraction from unstructured documents
+- `tam2024speak` (2024): Let Me Speak Freely? A Study on the Impact of Format Restrictions on Large Language Model Performance
+- `willard2023outlines` (2023): Efficient Guided Generation for Large Language Models

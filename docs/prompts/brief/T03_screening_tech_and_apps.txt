@@ -1,0 +1,40 @@
+### THEME CARD T03 · screening_tech_and_apps · Priority 2
+
+**Objective.** Position StripCheck against field quality-screening devices, image-based counterfeit detection, consumer verification and recall-check apps, and tools built on CDSCO NSQ data in 2025 and 2026. State clearly what is and is not new.
+
+**Key questions**
+- Q1. Field screening technologies (handheld Raman and NIR spectrometers, the GPHF Minilab, paper analytical devices, FDA CD-3, smartphone spectroscopy and colorimetry): what do systematic reviews conclude about cost, sensitivity, required skill and usability?
+- Q2. Image-based and deep-learning detection of counterfeit medicines or packaging: methods and reported performance.
+- Q3. Consumer verification and recall-check apps worldwide and in India: what do they check (authenticity, quality, recall status)? Are any agentic or LLM-based?
+- Q4. Tools built on CDSCO NSQ data (for example blacklisted.co.in, github.com/pranshurastogi/Nazar, FirstScanIt, other GitHub projects and app-store apps): input type (name search, typed batch, photo/OCR, QR), and whether they handle OCR misreads, batch collisions, corroboration, abstention, human confirmation or re-check notifications.
+- Q5. Which StripCheck capabilities are genuinely new, and which already exist?
+
+**Search hints.** PubMed and Google Scholar systematic reviews; IEEE Xplore; ACM Digital Library; Google Play and App Store listings; GitHub search.
+
+**Already in our verified bibliography** (do not duplicate):
+- `blacklisted2026` (2026): Blacklisted: record of Indian regulatory action on medicines, food, cosmetics and AYUSH
+- `caillet2021comparative` (2021): A comparative field evaluation of six medicine quality screening devices in Laos
+- `cdsco2023faqqr` (2023): FAQs on implementation of GSR 823(E) dated 17th November, 2022 with respect to Bar Code or QR Code on top 300 brands
+- `ciapponi2021mobile` (2021): Mobile apps for detecting falsified and substandard drugs: A systematic review
+- `eca2026whodraft` (2026): WHO Draft Guidance: Selecting the Right Analytical Screening Technologies for Substandard and Falsified Medicines
+- `edegbe2025development` (2025): Development of an AI-based Application for Counterfeit Medicine Detection in the Nigerian Drug Market
+- `garciacotte2024deep` (2024): Deep neural network-based detection of counterfeit products from smartphone images
+- `gs1india2024smart` (2024): The Smart Consumer's Guide to Informed Purchases (Smart Consumer app)
+- `ibnweb32026recallops` (2026): RecallOps India
+- `koponen2024novel` (2024): Novel Deep Learning Application: Recognizing Inconsistent Characters on Pharmaceutical Packaging
+- `kovacs2014technologies` (2014): Technologies for Detecting Falsified and Substandard Drugs in Low and Middle-Income Countries
+- `mackey2017review` (2017): A review of existing and emerging digital technologies to combat the global trade in fake medicines
+- `onmanorama2026qr` (2026): QR codes now mandatory for vaccines, cancer drugs
+- `openfda2026enforcement` (2026): openFDA Drug Recall Enforcement Reports API
+- `rastogi2026nazar` (2026): Nazar
+- `roy2026telma` (2026): CDSCO flags Telma AM batch as purportedly spurious, manufacturer denies making it
+- `shaikfayaz2026medicine` (2026): medicine-scanner-research
+- `shaurya2026safedose` (2026): SafeDose
+- `shayadmeri2026nsq` (2026): nsq (NSQ Platform)
+- `swahub2026nsq` (2026): nsq-medicine-tracker
+- `vickers2018field` (2018): Field detection devices for screening the quality of medicines: a systematic review
+- `who2025report` (2025): Report of existing technologies used to screen and detect substandard and falsified medical products
+- `who2026guidance` (2026): WHO Guidance on the Selection and Use of Technologies to Screen and Detect Substandard/Falsified (SF) Medicines
+- `yaniv2016national` (2016): The National Library of Medicine pill image recognition challenge: An initial report
+- `zakaria2025counterfeit` (2025): Counterfeit Medicine Detection by Visual Inspection of Package Design using Multimodal LLMs with Text and Image Promp...
+- `zeng2017mobiledeeppill` (2017): MobileDeepPill: A Small-Footprint Mobile Deep Learning System for Recognizing Unconstrained Pill Images

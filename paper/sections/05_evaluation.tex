@@ -1,0 +1,35 @@
+\section{Evaluation Methodology}
+\label{sec:eval}
+
+The protocol below is fixed before the final evaluation run. Thresholds are tuned on a development set (seed 1) and never on the evaluation set (seed 7).
+
+\subsection{Test sets}
+\paragraph{Synthetic packs}
+We render carton and foil-strip images from real alert rows with a controlled scenario mix: listed batches (clean, with QR code, with glare, and with one- or two-character misreads calibrated against our OCR), spurious entries, collision traps (a listed batch number printed on a different product or brand), sibling traps (an unlisted sibling of a listed batch, damaged so that OCR reads the listed key), date conflicts, unlisted batches, and unreadable packs. A degradation ladder in the style of corruption benchmarks \cite{hendrycks2019benchmarking} applies blur, motion blur, compression, rotation, perspective, glare, low light and noise at four severities.
+
+\paragraph{Printed and photographed packs}
+Twenty rendered packs are printed and photographed with two phones under two lighting conditions, which measures the gap between rendered and captured images; synthetic text images are standard for training and testing text readers \cite{gupta2016synthtext}.
+
+\paragraph{Real strips}
+Photographs of the team's own medicines serve as real negatives, unless a batch turns out to be listed.
+
+\paragraph{Ingest accuracy}
+For months available both as PDF and as portal JSON, the agent's PDF parse is compared field by field with the JSON. A 50-row hand check covers PDF months without JSON.
+
+\subsection{Systems compared}
+The baseline is a lookup script: QR code, then OCR, then a regular expression for the batch, then exact lookup, with any hit reported as an alarm. We compare it with the agent using the rule planner, the agent using the hybrid planner with each candidate language model, and ablations of the rule agent without variant search, without corroboration, without the verifier, without the confirmation gate, and with the vision-language second reader. Questions are answered by a simulated user who answers truthfully from the ground truth, or are all skipped.
+
+\subsection{Metrics}
+Hit recall (correct label among listed batches), type accuracy, false-alarm rate on unlisted batches and separately on collision and sibling traps, abstention rate, questions per pack, steps, latency (median, mean, 95th percentile), language-model schema validity and fallback rate, and safety violations (banned phrases or alarms without a citation, required to be zero). For the abstaining system we also report risk--coverage curves \cite{geifman2017selective}, and for every arm the latency and model calls, since agent comparisons without cost are misleading \cite{kapoor2024agents}. Our test sets contain far more listed batches than a person's medicine shelf, so we also report the positive predictive value of \textsc{flagged} and the false-reassurance rate of \textsc{not\_listed} at assumed prevalences of 1\% and 0.1\%. At such base rates a small false-alarm rate can produce more false alarms than true ones. Finally, we report the calibration of OCR confidence on batch-code crops \cite{guo2017calibration} and the share of misread packs whose true entry appears among the variant-search candidates, the pair completeness of record-linkage blocking \cite{papadakis2020survey}.
+
+\subsection{Statistics}
+Rates are reported with 95\% Wilson intervals \cite{wilson1927probable,brown2001interval}. Paired comparisons between systems on the same items use the exact McNemar test \cite{mcnemar1947note,dietterich1998approximate}, with Holm correction across the ablation family \cite{holm1979simple}. Latency medians get bootstrap intervals.
+
+\subsection{Preregistered decision rules}
+Three rules were written down before the evaluation run \cite{nosek2018preregistration}. (R-A) The agent replaces the lookup script if its false-alarm rate on collision traps is at least 50\% lower, relative to the baseline, and its hit recall is no more than five points lower. (R-B) The confirmation gate stays if it lowers the false-alarm rate on sibling traps by at least 50\% relative to the agent without it, while hit recall under truthful answers changes by no more than two points. (R-C) The hybrid planner becomes the default only if its accuracy is not significantly lower than the rule planner's and its median latency is at most twice as high. We report the outcome of each rule whether or not it holds.
+
+\subsection{Language-model benchmark}
+Each candidate model is measured on schema validity, latency, agreement with the rule planner on recorded branch-point states, accuracy at judging whether an alert entry and a pack name the same product (200 labelled pairs built from the index), and field extraction from OCR lines.
+
+\subsection{Usability}
+\todo{optional study with 8 to 12 participants: task success, time, System Usability Scale, and one comprehension question on what \textsc{not\_listed} means}

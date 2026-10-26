@@ -1,0 +1,45 @@
+### THEME CARD T04 · packaging_ocr · Priority 2
+
+**Objective.** Background on reading batch numbers and expiry dates from packs, on the PP-OCR family used through RapidOCR, on vision-language models as independent second readers, and on evidence that OCR makes confident misreads that confidence scores and image enhancement do not catch.
+
+**Key questions**
+- Q1. Methods and datasets for recognising expiry dates and lot or batch codes on packages (for example the ExpDate dataset and work by Seker and Ahn 2022; dot-matrix, inkjet and embossed code recognition; industrial OCR/OCV): accuracy, and what makes foil blister strips hard.
+- Q2. Reading medication labels for visually impaired users or for medication safety: systems and evaluations.
+- Q3. Lightweight OCR: PP-OCR (2020) to PP-OCRv5 and the PaddleOCR 3.0 report (2025); scene-text recognition surveys; TrOCR.
+- Q4. Vision-language models used for OCR (GOT-OCR 2.0, Qwen2.5-VL, Qwen3-VL, olmOCR, PaddleOCR-VL, DeepSeek-OCR and newer), especially small local models, and evidence on hallucinated characters in short alphanumeric codes.
+- Q5. Reliability of OCR and neural-network confidence (calibration, for example Guo et al. 2017) and whether contrast enhancement such as CLAHE fixes misreads or only helps with blur and glare.
+
+**Search hints.** arXiv; CVPR, ICCV, ECCV and ICDAR proceedings; Expert Systems with Applications; Pattern Recognition; IJDAR; model technical reports.
+
+**Already in our verified bibliography** (do not duplicate):
+- `bai2025qwen25vl` (2025): Qwen2.5-VL Technical Report
+- `bai2025qwen3vl` (2025): Qwen3-VL Technical Report
+- `chen2021text` (2021): Text Recognition in the Wild: A Survey
+- `cui2025paddleocr` (2025): PaddleOCR 3.0 Technical Report
+- `cui2025paddleocrvl` (2025): PaddleOCR-VL: Boosting Multilingual Document Parsing via a 0.9B Ultra-Compact Vision-Language Model
+- `du2020ppocr` (2020): PP-OCR: A Practical Ultra Lightweight OCR System
+- `du2021ppocrv2` (2021): PP-OCRv2: Bag of Tricks for Ultra Lightweight OCR System
+- `fu2024ocrbenchv2` (2024): OCRBench v2: An Improved Benchmark for Evaluating Large Multimodal Models on Visual Text Localization and Reasoning
+- `guan2026teaching` (2026): Teaching VLMs to Admit Uncertainty in OCR from Lossy Visual Inputs
+- `guo2017calibration` (2017): On Calibration of Modern Neural Networks
+- `he2025seeing` (2025): Seeing is Believing? Mitigating OCR Hallucinations in Multimodal Large Language Models
+- `kim2023implementation` (2023): Implementation of a Mobile Application for Checking Medicines and Pills for the Visually Impaired in Korea
+- `koponen2024novel` (2024): Novel Deep Learning Application: Recognizing Inconsistent Characters on Pharmaceutical Packaging
+- `kuri2025noninvasive` (2025): Non-Invasive Detection of Expired Medicines Using Artificial Intelligence and Image Analysis
+- `li2022ppocrv3` (2022): PP-OCRv3: More Attempts for the Improvement of Ultra Lightweight OCR System
+- `li2023trocr` (2023): TrOCR: Transformer-Based Optical Character Recognition with Pre-trained Models
+- `long2021scene` (2021): Scene Text Detection and Recognition: The Deep Learning Era
+- `peng2023perception` (2023): Perception and Semantic Aware Regularization for Sequential Confidence Calibration
+- `peng2025efficient` (2025): Efficient Expiration Date Recognition in Food Packages for Mobile Applications
+- `pharmacymagazine2022newai` (2022): New AI helps visually impaired
+- `pizer1987adaptive` (1987): Adaptive histogram equalization and its variations
+- `poznanski2025olmocr` (2025): olmOCR: Unlocking Trillions of Tokens in PDFs with Vision Language Models
+- `rapidai2021rapidocr` (2021): Rapid OCR: OCR Toolbox
+- `seker2022generalized` (2022): A generalized framework for recognition of expiration dates on product packages using fully convolutional networks
+- `slossberg2022calibration` (2023): On Calibration of Scene-Text Recognition Models
+- `tavares2024comparison` (2024): Comparison of Image Preprocessing Techniques for Vehicle License Plate Recognition Using OCR: Performance and Accurac...
+- `wei2024general` (2024): General OCR Theory: Towards OCR-2.0 via a Unified End-to-end Model
+- `wei2025deepseekocr` (2025): DeepSeek-OCR: Contexts Optical Compression
+- `yao2025reading` (2025): Reading Between the Lines: Abstaining from VLM-Generated OCR Errors via Latent Representation Probes
+- `zidane2024ladder` (2024): Ladder Bottom-up Convolutional Bidirectional Variational Autoencoder for Image Translation of Dotted Arabic Expiratio...
+- `zuiderveld1994contrast` (1994): Contrast Limited Adaptive Histogram Equalization

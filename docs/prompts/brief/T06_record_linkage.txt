@@ -1,0 +1,32 @@
+### THEME CARD T06 · record_linkage · Priority 2
+
+**Objective.** Frame StripCheck's matching as blocked record linkage: the batch number is the blocking key; product, brand, dates and maker are comparison fields; Fellegi-Sunter match, possible-match and non-match zones, with possible matches sent to a human, as in clerical review.
+
+**Key questions**
+- Q1. Foundations: Fellegi and Sunter 1969; Newcombe 1959; Winkler; Christen's "Data Matching" (2012); Elmagarmid et al. 2007.
+- Q2. Blocking and indexing surveys, and how errors in blocking keys lose true matches.
+- Q3. Clerical review and human-in-the-loop entity resolution (crowdsourcing, active learning).
+- Q4. String similarity for names (edit distance, Jaro-Winkler, token-based measures) and their comparison.
+- Q5. LLM-based entity matching (2022 to 2026) and drug-name matching (brand vs generic, look-alike/sound-alike names, Indian brand-name variability).
+
+**Search hints.** JASA; VLDB; SIGMOD; IEEE TKDE; ACM Computing Surveys; EDBT; drug-name confusion literature.
+
+**Already in our verified bibliography** (do not duplicate):
+- `christen2012data` (2012): Data Matching: Concepts and Techniques for Record Linkage, Entity Resolution, and Duplicate Detection
+- `christen2012survey` (2012): A Survey of Indexing Techniques for Scalable Record Linkage and Deduplication
+- `cohen2003comparison` (2003): A Comparison of String Distance Metrics for Name-Matching Tasks
+- `elmagarmid2007duplicate` (2007): Duplicate Record Detection: A Survey
+- `fellegi1969theory` (1969): A Theory for Record Linkage
+- `jaro1989advances` (1989): Advances in Record-Linkage Methodology as Applied to Matching the 1985 Census of Tampa, Florida
+- `narayan2022foundation` (2022): Can Foundation Models Wrangle Your Data?
+- `neelakantan2024lookalike` (2024): Look-alike, sound-alike (LASA) drugs in India
+- `newcombe1959automatic` (1959): Automatic Linkage of Vital Records
+- `nlm2025rxnorm` (2025): RxNorm Overview
+- `papadakis2020survey` (2020): Blocking and Filtering Techniques for Entity Resolution: A Survey
+- `peeters2025entity` (2025): Entity Matching using Large Language Models
+- `sarawagi2002interactive` (2002): Interactive Deduplication using Active Learning
+- `wang2012crowder` (2012): CrowdER: Crowdsourcing Entity Resolution
+- `wang2025match` (2025): Match, Compare, or Select? An Investigation of Large Language Models for Entity Matching
+- `winkler1990string` (1990): String Comparator Metrics and Enhanced Decision Rules in the Fellegi-Sunter Model of Record Linkage
+- `winkler2006overview` (2006): Overview of Record Linkage and Current Research Directions
+- `zhang2025deep` (2025): A Deep Dive Into Cross-Dataset Entity Matching with Large and Small Language Models

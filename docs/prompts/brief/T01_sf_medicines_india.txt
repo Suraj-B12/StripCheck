@@ -1,0 +1,63 @@
+### THEME CARD T01 · sf_medicines_india · Priority 2
+
+**Objective.** A well-cited account of substandard and falsified (SF) medicines: definitions, measured prevalence, harms, India's legal framework and CDSCO's alert and recall system, and recent incidents. This is the motivation section of the paper.
+
+**Key questions**
+- Q1. How do WHO (the 2017 World Health Assembly definitions) and Indian law (Drugs and Cosmetics Act 1940, Sections 16, 17, 17A, 17B and penalties in Section 27; the 2008 amendment) define substandard, falsified, spurious, adulterated, misbranded and NSQ?
+- Q2. What prevalence of SF medicines has been measured globally (WHO Global Surveillance and Monitoring System 2017; meta-analyses 2018 to 2026) and in India (CDSCO National Drug Survey 2014-16 and other Indian studies), and what are the health and economic harms?
+- Q3. How does CDSCO's NSQ/spurious alert system work: history, central vs state laboratories, monthly volumes 2024 to 2026, the 2025 move to an online portal, and the 2012 "Guidelines on Recall and Rapid Alert System for Drugs"?
+- Q4. Which incidents since 2022 involve substandard medicines made or sold in India (for example the Gambia and Uzbekistan cough syrups in 2022, the 2025 Madhya Pradesh cough-syrup deaths), and what regulatory responses followed (revised Schedule M, export testing rules)?
+- Q5. What is known about consumer or pharmacist awareness of NSQ alerts, and about the delay between manufacture, sampling, test result and alert?
+
+**Search hints.** WHO IRIS; PubMed; BMJ Global Health; JAMA Network Open; cdsco.gov.in; Gazette of India (egazette.gov.in); pib.gov.in; Parliament question answers (sansad.in).
+
+**Already in our verified bibliography** (do not duplicate):
+- `akshitha2026patna` (2026): Delhi Police Bust Fake Drug Factory near Patna, Nine Arrested, Drugs Worth Rs 5 Crore Seized
+- `banerji2023marion` (2023): WHO Alert on Sub-standard Cough Syrups Made by Noida Firm
+- `bohral2025nsqlink` (2025): CDSCO Launches Dedicated Link for NSQ Drug Alerts
+- `cdsco2008nsqguidelines` (n.d.): Regulatory Guidelines for Taking Action on Samples of Drugs Declared Spurious or Not of Standard Quality in the Light...
+- `cdsco2012recall` (2012): Guidelines on Recall and Rapid Alert System for Drugs (Including Biologicals & Vaccines)
+- `cdsco2023qrfaq` (2023): FAQs on Implementation of GSR 823(E) Dated 17th November, 2022 with Respect to Bar Code or QR Code on Top 300 Brands
+- `cdsco2024recall` (2024): Guidelines on Recall and Rapid Alert System for Drugs (Including Biologicals & Vaccines), Version 2024
+- `cdsco2025nsqlink` (2025): Notice: Availability of Not of Standard Quality (NSQ) Alert on New Link in CDSCO Website
+- `cdsco2026latestalerts` (2026): Latest Alerts
+- `cdscospuriousguidance` (n.d.): Guidance for Identification and Verification of Spurious Drugs
+- `dcact1940s17b` (1940): The Drugs and Cosmetics Act, 1940: Sections 16, 17, 17A, 17B and 27 (bare act text)
+- `dinamalar2025sep` (2025): Central Drugs Laboratories Find 52 Drug Samples Not of Standard Quality in September Alert
+- `dtnext2025dec` (2026): CDSCO Labs Flag 167 Drug Samples as Not of Standard Quality in December
+- `etvbharat2026dehradun` (2026): Fake Medicines Worth over Rs 5 Crore Seized from Factory in Uttarakhand Dehradun
+- `etvbharat2026july` (2026): CDSCO Flags 280 Drug Samples as NSQ or Spurious in July
+- `falah2025prevalence` (2025): Prevalence, Experience and Awareness of Substandard and Falsified Medicines among the Public and Healthcare Professio...
+- `fryze2025substandard` (2025): Substandard and Falsified Medicine Recalls in the Legitimate Supply Chain: A Systematic Review of Evidence
+- `goi2008dcamendment` (2008): The Drugs and Cosmetics (Amendment) Act, 2008 (No. 26 of 2008)
+- `healthpolicywatch2023naturcold` (2023): Made in India: Another Cough Syrup Caught by the WHO for Contamination
+- `ians2025nov` (2025): CDSCO Labs Flag 205 Drug Samples as Not of Standard Quality in November
+- `ians2025oct` (2025): CDSCO Labs Flag 211 Drug Samples as Not of Standard Quality in October
+- `khatun2017nds` (2017): 3.16 Percent of Drugs in India Not of Standard Quality, Admits Ministry
+- `lexplosion2025schedulem` (2025): Health Ministry Extends Schedule M Compliance Deadline for Small and Medium Manufacturers with Turnover below Rs 250 ...
+- `mcmanus2020systematic` (2020): A Systematic Review of Substandard, Falsified, Unlicensed and Unregistered Medicine Sampling Studies: A Focus on Cont...
+- `outlook2023coughsyrupexport` (2023): Cough Syrups to Undergo Testing before Export from June 1
+- `ozawa2018prevalence` (2018): Prevalence and Estimated Economic Burden of Substandard and Falsified Medicines in Low- and Middle-Income Countries: ...
+- `ozawa2022characterizing` (2022): Characterizing Medicine Quality by Active Pharmaceutical Ingredient Levels: A Systematic Review and Meta-Analysis acr...
+- `pal2025assessing` (2025): Assessing Knowledge, Attitudes, and Practices and Demand-Side Interventions for Combating Substandard and Falsified M...
+- `pib2025schedulem` (2025): Conditional Extension of Timeline to Small and Medium Pharmaceutical Manufacturers for Compliance with Revised Schedu...
+- `pti2025apr` (2025): Drug Samples Flagged as Not of Standard Quality in April 2025 (Central 60, State 136, one spurious from Bihar)
+- `pti2025feb` (2025): Drug Samples Flagged as Not of Standard Quality in February 2025 (Central Drugs Laboratories 47, State Laboratories 56)
+- `reuters2022gambia` (2022): Gambia Lawmakers Say India-based Drug Maker Maiden to Blame for Child Kidney Injury Deaths
+- `roy2025fiveyears` (2025): Over 14,300 Drug Samples Fail Quality Tests in Five Years: Minister
+- `rusatira2026nearly` (2026): Nearly One in Five Essential Medicines Fail Quality Standards in Africa: A Systematic Review and Meta-Analysis of MNC...
+- `scroll2025coldrif` (2025): WHO Warns against Three Contaminated Indian Cough Syrups after Deaths of 22 Children
+- `singhania2019nds` (2019): More than 10 Percent of Drug Samples from Government Sources Not of Standard Quality
+- `tabernero2023estimating` (2023): Estimating the Prevalence of Poor-Quality Anti-TB Medicines: A Neglected Risk for Global TB Control and Resistance
+- `thakur2023substandard` (2023): Sub-standard or Sub-legal? Distribution, Pharma Dossiers, and Fake-talk in India
+- `thakur2025coldrifletter` (2025): Cough Syrup Deaths: Drug Regulator Flags Lapses in Testing Raw Material
+- `tnm2017nds` (2017): 1,850 Drugs Sold in India Not of Standard Quality: Health Ministry
+- `tribune2025coldriftoll` (2025): MP: Coldrif Cough Syrup Fatality Count Reaches 24 after 2 More Children Die
+- `tribune2025sresanarrest` (2025): Owner of Pharma Firm behind Toxic Coldrif Cough Syrup Arrested in Chennai
+- `who2017definitions` (2017): Definitions of Substandard and Falsified (SF) Medical Products
+- `who2017oneinten` (2017): 1 in 10 Medical Products in Developing Countries Is Substandard or Falsified
+- `who2022alert6` (2022): Medical Product Alert N\textdegree6/2022: Substandard (Contaminated) Paediatric Medicines
+- `who2023alert1` (2023): Medical Product Alert N\textdegree1/2023: Substandard (Contaminated) Liquid Dosage Medicines
+- `who2023alert5` (2023): Medical Product Alert N\textdegree5/2023: Substandard (Contaminated) Syrup Medicines
+- `who2024factsheet` (2024): Substandard and Falsified Medical Products (Fact Sheet)
+- `who2025alert5` (2025): Medical Product Alert N\textdegree5/2025: Substandard (Contaminated) Oral Liquid Medicines

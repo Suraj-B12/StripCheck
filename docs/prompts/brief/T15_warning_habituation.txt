@@ -1,0 +1,14 @@
+### THEME CARD T15 · warning_habituation · Priority 1 (new topic)
+
+**Objective.** StripCheck asks people to confirm a character or a batch number before it raises an alarm. People get used to confirmation dialogs and tap "yes" without looking, which would quietly defeat this safeguard. Survey the evidence and the design remedies.
+
+**Key questions**
+- Q1. Habituation to warnings and confirmation dialogs: behavioural and neural evidence (for example Bravo-Lillo et al. 2013 on attractors in security dialogs; Anderson, Vance and colleagues on habituation measured with fMRI and eye tracking; Akhawe and Felt 2013 on browser warnings; Egelman, Cranor and Hong 2008 on phishing warnings) and remedies (polymorphic warnings, attractors, asking the user to type or select specific content).
+- Q2. How reliably people verify short codes or single characters by eye, including on phone screens: error rates in transcribing and checking alphanumeric codes (for example from verification of licence plates, serial numbers, medication barcodes and two-factor codes).
+- Q3. Design of warnings and of results with uncertainty: warning-design research (for example Wogalter), the meaning of red, amber and green, icons, numeracy, and false reassurance in screening results.
+- Q4. Alert fatigue and override rates in clinical decision support, and what transfers to consumer alerts.
+- Q5. Concrete recommendations for StripCheck's questions: for example, asking the person to read a character aloud or type the last three characters instead of tapping "Yes", showing the camera's crop, limiting how often questions appear, and how to measure whether people actually look.
+
+**Search hints.** SOUPS; CHI; USENIX Security; MIS Quarterly and Information Systems Research (habituation work); Human Factors; Applied Ergonomics; JAMIA.
+
+**Already in our verified bibliography:** none for this theme yet.

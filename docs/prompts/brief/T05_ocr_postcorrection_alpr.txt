@@ -1,0 +1,38 @@
+### THEME CARD T05 · ocr_postcorrection_alpr · Priority 2
+
+**Objective.** Ground StripCheck's confusion-aware variant search and human confirmation in noisy-channel and weighted-edit-distance theory over a closed vocabulary, and in licence-plate recognition (ALPR) practice, where hotlist hits must be visually verified because misreads cause false alarms.
+
+**Key questions**
+- Q1. Noisy-channel spelling and OCR correction (Kernighan, Church and Gale 1990; Brill and Moore 2000; Kolak and Resnik), character confusion matrices, weighted edit distance, lexicon-constrained recognition.
+- Q2. Surveys and benchmarks of post-OCR correction (for example Nguyen et al. 2021; ICDAR 2017 and 2019 competitions) and LLM-based post-OCR correction (2023 to 2026) with its risk of over-correction.
+- Q3. ALPR: confusable characters, syntax-based correction, hotlist matching, documented false positives from misreads, and policies requiring visual verification before acting.
+- Q4. Learning confusion priors from user feedback; human-in-the-loop correction and active learning for OCR.
+- Q5. What is the best formal way to rank candidate true codes given a noisy read and a closed list of valid codes?
+
+**Search hints.** ACL Anthology; ACM DL; IEEE Xplore; court records (CourtListener); police and civil-liberties reports on ALPR.
+
+**Already in our verified bibliography** (do not duplicate):
+- `aclu2013tracked` (2013): You Are Being Tracked: How License Plate Readers Are Being Used to Record Americans' Movements
+- `bourne2024clocrc` (2024): CLOCR-C: Context Leveraging OCR Correction with Pre-trained Language Models
+- `brill2000improved` (2000): An Improved Error Model for Noisy Channel Spelling Correction
+- `chiron2017icdar` (2017): ICDAR2017 Competition on Post-OCR Text Correction
+- `du2013alpr` (2013): Automatic License Plate Recognition (ALPR): A State-of-the-Art Review
+- `ehrmann2026hipe` (2026): ICDAR 2026 HIPE-OCRepair Competition on LLM-Assisted OCR Post-correction for Historical Documents
+- `fink2017profiling` (2017): Profiling of OCR'ed Historical Texts Revisited
+- `green2014ninth` (2014): Green v. City and County of San Francisco, No. 11-17892 (opinion filed 12 May 2014)
+- `kanerva2025ocr` (2025): OCR Error Post-Correction with LLMs in Historical Documents: No Free Lunches
+- `kernighan1990spelling` (1990): A Spelling Correction Program Based on a Noisy Channel Model
+- `kolak2002ocr` (2002): OCR Error Correction Using a Noisy Channel Model
+- `kolak2003generative` (2003): A Generative Probabilistic OCR Model for NLP Applications
+- `kolak2005ocr` (2005): OCR Post-Processing for Low Density Languages
+- `laroca2018robust` (2018): A Robust Real-Time Automatic License Plate Recognition Based on the YOLO Detector
+- `laroca2021efficient` (2021): An Efficient and Layout-Independent Automatic License Plate Recognition System Based on the YOLO Detector
+- `lynch2014ninth` (2014): New Ninth Circuit Opinion Calls into Question Blind Reliance on License Plate Camera IDs
+- `nguyen2021survey` (2021): Survey of Post-OCR Processing Approaches
+- `reul2019ocr4all` (2019): OCR4all -- An Open-Source Tool Providing a (Semi-)Automatic OCR Workflow for Historical Printings
+- `rigaud2019icdar` (2019): ICDAR 2019 Competition on Post-OCR Text Correction
+- `seattleoig2023alpr` (2023): Surveillance Technology Usage Review: Automated License Plate Reader -- Patrol (2021 and 2022)
+- `thomas2024leveraging` (2024): Leveraging LLMs for Post-OCR Correction of Historical Newspapers
+- `vobl2014pocoto` (2014): PoCoTo -- An Open Source System for Efficient Interactive Postcorrection of OCRed Historical Texts
+- `vonahn2008recaptcha` (2008): reCAPTCHA: Human-Based Character Recognition via Web Security Measures
+- `wagner1974string` (1974): The String-to-String Correction Problem

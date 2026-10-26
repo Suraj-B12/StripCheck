@@ -1,0 +1,51 @@
+### THEME CARD T11 · recall_monitoring · Priority 1
+
+**Objective.** Motivate StripCheck's medicine cabinet, which re-checks saved batches whenever a new alert list arrives, and its explicit statement of data freshness.
+
+**Key questions**
+- Q1. Recall effectiveness and consumer awareness: the FDA recall process and effectiveness checks; studies of patient awareness of and response to drug recalls (for example valsartan 2018, ranitidine 2019-2020).
+- Q2. Recall notification channels (pharmacy level, SMS, apps, electronic health record alerts) and their evidence; analogues such as vehicle recall lookup by VIN (NHTSA) and food-recall apps.
+- Q3. India: CDSCO's 2012 recall guidelines and their implementation; reach of NSQ alerts; the Pharmacovigilance Programme of India; WHO Medical Product Alerts; state SMS alert systems for pharmacies (for example Telangana, 2025-2026).
+- Q4. Machine-readable recall data (openFDA) and medication-management apps: engagement and retention evidence.
+- Q5. Published estimates of the delay between manufacture, sampling, test result and public alert, and of how much of a batch is sold or used before an alert.
+
+**Search hints.** fda.gov; nhtsa.gov; WHO; cdsco.gov.in; ipc.gov.in; JAMA; BMJ; Drug Safety; Pharmacoepidemiology and Drug Safety; JMIR mHealth and uHealth.
+
+**Already in our verified bibliography** (do not duplicate; this list may be empty):
+- `acc2019valsartan` (2019): Study Examines Effect of Valsartan Recall
+- `annema2026patient` (2026): Patient perspectives on drug recalls in the Netherlands: a qualitative study
+- `bahizi2024rwanda` (2024): A four-year assessment of the characteristics of Rwandan FDA drug recalls
+- `barma2025recall` (2025): Drug recall, its frequencies and conclusion: a retrospective secondary analysis involving 2-year publicly available d...
+- `begam2021ranitidine` (2021): Awareness about FDA announcement on voluntary recall of ranitidine among physicians and pharmacists in and around Che...
+- `bekele2026recallclass` (2026): Association Between FDA Drug Recall Classification and Product-Related Characteristics
+- `cdsco2012recall` (2012): Guidelines on Recall and Rapid Alert System for Drugs (Including Biologicals and Vaccines), Document No. CDSCO/RRAS V...
+- `cdsco2024recall` (2024): Guidelines on Recall and Rapid Alert System for Drugs, Version 2024, Document No. CDSCO/RRAS Ver. 00, effective 18 Ju...
+- `choi2025ranitidine` (2025): Utilization of Acid Suppressants After Withdrawal of Ranitidine in Korea: An Interrupted Time Series Analysis
+- `devine2024arb` (2024): A Retrospective Cohort Study of the 2018 Angiotensin Receptor Blocker Recalls and Subsequent Drug Shortages in Patien...
+- `devine2024valsartan` (2024): Effects of the valsartan recall on heart failure patients: A nationwide analysis
+- `ecfr2026vin` (2026): 49 CFR 573.15: Public availability of motor vehicle recall information
+- `fda2026cfr742` (2026): 21 CFR 7.42: Recall strategy
+- `fenna2021valsartan` (2021): Extent of a valsartan drug shortage and its effect on antihypertensive drug use in the Canadian population: a nationa...
+- `freifeld2026globe` (2026): The Medicine Quality Monitoring Globe: A public health intelligence system for collecting and curating reports of sub...
+- `fryze2025substandard` (2025): Substandard and falsified medicine recalls in the legitimate supply chain: a systematic review of evidence
+- `gadgil2026automating` (2026): Automating Individualized Notification of Drug Recalls to Patients: Complex Challenges and Qualitative Evaluation
+- `gao2024vehicle` (2024): Vehicle Safety: Opportunities to Improve Repair Rates for Recalled Vehicles
+- `hhsoig2017foodrecall` (2017): The Food and Drug Administration's Food-Recall Process Did Not Always Ensure the Safety of the Nation's Food Supply, ...
+- `jackevicius2020valsartan` (2020): Population Impact of Generic Valsartan Recall
+- `lancet2025tiny` (2025): Tiny lives, big failures: India's drug regulation crisis
+- `livelaw2024zim` (2024): Karnataka High Court Directs Creation Of Online System For Expeditious Testing Of Drug Samples By Govt Analyst, Uploa...
+- `livelaw2026ashwani` (2026): Drugs & Cosmetics Rules | 60-Day Sample Testing Mandatory; Web-Host Reports: Bombay HC Orders Strict Action Against E...
+- `medicaldialogues2019cdscorecall` (2019): CDSCO committee to draft new guidelines for effective recall of substandard drugs
+- `medicaldialogues2026august` (2026): State drug alert: Azithromycin, Cefixime among 191 drug samples flagged by CDSCO for quality failures in August
+- `medicaldialogues2026karnataka` (2026): Karnataka launches real-time portal to freeze NSQ drugs, track NDPS medicine sales
+- `medicaldialogues2026telangana` (2026): Telangana DCA introduces SMS alert system to warn pharmacies about substandard medicines
+- `messner2025adherence` (2025): Exploring the Fit Between the Outputs of Freely Available Medication Adherence Apps and Users' Needs: Mixed Methods S...
+- `meyerowitzkatz2020dropout` (2020): Rates of Attrition and Dropout in App-Based Interventions for Chronic Disease: Systematic Review and Meta-Analysis
+- `morizio2021veterans` (2021): Impact of national valsartan recalls on Veterans' outcomes
+- `nunes2026opioid` (2026): Characteristics of United States Food and Drug Administration Drug Recalls Involving Opioid Medications, 2002--2025
+- `openfda2026enforcement` (2026): openFDA: Drug Enforcement Reports API
+- `pioneer2026august` (2026): 220 drug samples fail quality tests in August
+- `thota2018pvpi` (2018): Drug safety alerts of pharmacovigilance programme of India: A scope for targeted spontaneous reporting in India
+- `verdictum2026ashwani` (2026): Delay Beyond 60 Days in Drug Sample Testing Vitiates Prosecution: Bombay High Court Quashes Case Under Drugs and Cosm...
+- `who2026gsms` (2026): WHO Global Surveillance and Monitoring System for substandard and falsified medical products
+- `yerram2026nitrosamine` (2026): Nitrosamine Contamination in Pharmaceuticals: A Retrospective Regulatory Analysis of USFDA Recalls and Risk Mitigatio...

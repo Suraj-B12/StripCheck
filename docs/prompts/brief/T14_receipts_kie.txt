@@ -1,0 +1,14 @@
+### THEME CARD T14 · receipts_kie · Priority 1 (new topic)
+
+**Objective.** Background for the bill-scan extension: one photo of a pharmacy bill gives the product, batch number and expiry of several medicines, which StripCheck then checks after the user confirms the batch list on one screen.
+
+**Key questions**
+- Q1. Benchmarks and methods for key information extraction from receipts and invoices: SROIE (ICDAR 2019), CORD, FUNSD, XFUND, DocILE (2023), and models such as LayoutLMv3, Donut, LiLT, Pix2Struct and UDOP, with reported scores.
+- Q2. LLM and vision-language parsing of receipts and invoices (2023 to 2026): accuracy, hallucinated fields, grounding and verification techniques.
+- Q3. Extracting line-item tables from receipts and coping with thermal-print fading, crumpling and skew.
+- Q4. Indian pharmacy bills: what the Drugs Rules, 1945 (for example Rule 65) and GST invoicing rules require on retail sale bills (batch number, expiry date, manufacturer), typical layouts, and any Indian receipt datasets or studies.
+- Q5. What this implies for StripCheck's design: accuracy to expect, which fields need user confirmation, and how to evaluate the feature.
+
+**Search hints.** ICDAR proceedings and competitions; arXiv (cs.CV, cs.CL); ACL Anthology; Papers with Code datasets; indiacode.nic.in and cdsco.gov.in for the rules; cbic-gst.gov.in.
+
+**Already in our verified bibliography:** none for this theme yet.

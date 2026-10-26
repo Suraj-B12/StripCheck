@@ -1,0 +1,34 @@
+### THEME CARD T02 · traceability_authentication · Priority 2
+
+**Objective.** Explain what supply-chain authentication and traceability can and cannot establish, with sources that state the key point explicitly: these systems authenticate provenance, but a genuine batch from a licensed maker that fails quality tests carries valid codes.
+
+**Key questions**
+- Q1. India: Schedule H2 QR codes (G.S.R. 823(E), November 2022; effective 1 August 2023; top 300 brands; required data), QR codes on active pharmaceutical ingredients, export track and trace (iVEDA/DAVA), and any 2024 to 2026 moves toward universal track and trace. What does a consumer actually get when scanning an H2 code?
+- Q2. The EU Falsified Medicines Directive 2011/62/EU and Delegated Regulation (EU) 2016/161; the US Drug Supply Chain Security Act (DSCSA) and its 2023 to 2026 milestones; GS1 identifiers and DataMatrix.
+- Q3. Mobile authentication services (Sproxil, mPedigree, Nigeria's NAFDAC MAS, PharmaSecure in India): uptake, effectiveness, and attacks such as code cloning.
+- Q4. Blockchain drug-traceability proposals and pilots: maturity and real-world evidence.
+- Q5. Which sources say explicitly that serialization cannot detect substandard (as opposed to falsified) medicines?
+
+**Search hints.** EUR-Lex; fda.gov; gs1.org; egazette.gov.in; WHO policy paper on traceability (2021); BMJ Global Health; IEEE Access.
+
+**Already in our verified bibliography** (do not duplicate):
+- `bansal2013anticounterfeit` (2013): Anti-Counterfeit Technologies: A Pharmaceutical Industry Perspective
+- `cdsco2023faqqr` (2023): FAQs on Implementation of GSR 823(E) dated 17th November, 2022 with respect to Bar Code or QR Code on Top 300 Brands
+- `cdsco2025spuriousguidance` (2025): Guidance for Identification and Verification of Spurious Drugs
+- `dgft2024pn39` (2024): Public Notice No. 39/2023-DGFT: Track and Trace System for Export of Pharmaceuticals and Drug Consignments
+- `ec2026falsifiedmedicines` (2026): Falsified Medicines
+- `fda2023dscsapilot` (2023): Drug Supply Chain Security Act Pilot Project Program: Final Program Report
+- `fda2026dscsaexemptions` (2026): Exemptions under the Drug Supply Chain Security Act
+- `gs12026ai` (2026): GS1 Application Identifiers
+- `klein2018traceability` (2018): Challenges and Opportunities for the Traceability of (Biological) Medicinal Products
+- `melia2024impact` (2024): The Impact of Global Falsified Medicines Regulation on Healthcare Stakeholders in the Legitimate Pharmaceutical Suppl...
+- `newsonair2026qrexpansion` (2026): Health Ministry Expands QR Code-Based Track and Trace Framework for Medicines
+- `ohearen2026serialized` (2026): The Dark Side: ``Serialized, But Not Secure''
+- `oyetunde2019mobile` (2019): Mobile Authentication Service in Nigeria: An Assessment of Community Pharmacists' Acceptance and Providers' Views of ...
+- `pharmexcil2020iveda` (2020): iVEDA Web Portal, Beta Version Launched and Live for Company Registration and Data Upload
+- `rao2026karnataka` (2026): Karnataka Suspends Pfizer C&F Depot Licence in Fake Drug Case, Warns Consumers over Suspicious Labels and QR Codes
+- `rasheed2018future` (2018): Future Information Technology Tools for Fighting Substandard and Falsified Medicines in Low- and Middle-Income Countries
+- `roy2026qrexpansion` (2026): Health Ministry Brings Vaccines, Antibiotics, Cancer Drugs Under QR Code Tracking Framework
+- `trujillo2024dscsa` (2024): FDA Issues Broad Exemptions from DSCSA Enhanced Drug Distribution Security Requirements
+- `who2021traceability` (2021): Policy Paper on Traceability of Medical Products
+- `zakari2022blockchain` (2022): Blockchain Technology in the Pharmaceutical Industry: A Systematic Review
