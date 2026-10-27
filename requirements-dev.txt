@@ -1,5 +1,2 @@
-# Test and fixture tools (spec v2 §5.1). Optional MCP server (M9): mcp>=2.3,<3
-pytest>=9.1,<10
-hypothesis>=6.170,<7
-reportlab>=5.1,<6
-httpx>=0.28.1,<0.29
+pytest>=8,<10
+httpx>=0.28,<1

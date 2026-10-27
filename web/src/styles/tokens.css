@@ -1,0 +1,56 @@
+:root {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  --paper: #f5f6fa;
+  --card: #fff;
+  --glass: rgba(255, 255, 255, 0.76);
+  --ink: #181c26;
+  --ink-2: #535e72;
+  --muted: #667085;
+  --line: #e3e7ef;
+  --pen: #2459d8;
+  --pen-hover: #1c46af;
+  --pen-soft: #eaf0ff;
+  --on-pen: #fff;
+  --foil: #e0e5ef;
+  --nsq: #a92334;
+  --nsq-soft: #fff0f1;
+  --fake: #7f254b;
+  --fake-soft: #fceaf2;
+  --nl: #40526c;
+  --nl-soft: #edf1f7;
+  --cv: #8b5217;
+  --cv-soft: #fff4e3;
+  --shadow: 0 12px 52px #25386807, 0 2px 8px #25386803;
+  --display: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0e121b;
+  --card: #181e2b;
+  --glass: rgba(25, 32, 46, 0.82);
+  --ink: #f0f3fb;
+  --ink-2: #b7c0d2;
+  --muted: #a4afc3;
+  --line: #303b50;
+  --pen: #8cafff;
+  --pen-hover: #b3caff;
+  --pen-soft: #253653;
+  --on-pen: #0e1d3e;
+  --foil: #334058;
+  --nsq: #ff9ca9;
+  --nsq-soft: #3e222e;
+  --fake: #f3a5c7;
+  --fake-soft: #3c2036;
+  --nl: #c1d0e8;
+  --nl-soft: #253245;
+  --cv: #f3c48c;
+  --cv-soft: #382c20;
+  --shadow: 0 14px 48px #0002;
+}

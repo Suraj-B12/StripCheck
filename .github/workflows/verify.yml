@@ -1,0 +1,55 @@
+name: Verify application
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.14'
+          cache: pip
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock.txt
+      - run: python -m pip check
+      - run: python -m pytest -q
+      - run: python cli.py selftest
+      - run: npm --prefix web ci
+      - run: npm --prefix web test
+      - run: npm --prefix web run lint
+      - run: npm --prefix web run build
+
+  native-build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - run: swift run --package-path ios StripCheckVerify
+      - run: swift test --package-path ios
+      - name: Build iOS simulator application without signing
+        run: >-
+          xcodebuild -project ios/StripCheck.xcodeproj -scheme StripCheck
+          -configuration Debug -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

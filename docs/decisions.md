@@ -26,3 +26,14 @@
 - **P2 · Regional language** besides Hindi for verdict templates (Kannada assumed) and the native-speaker reviewer who signs off translations. Owner: Integrator.
 - **P3 · Team names and institution** for the paper header. Owner: Integrator.
 - **P4 · Freeze the preregistered decision rules** R-A, R-B and R-C (spec v2 §15.10) here, with a date, before the seed-7 evaluation run in M7. Owner: Integrator.
+
+## Local implementation decisions · 2026-10-27
+
+- **D16** User explicitly requested a complete Apple-inspired website, then a native SwiftUI iOS app, and requested continuous work. Use large system type, restrained glass surfaces, a responsive layout and reduced-motion support, retaining exact-batch, source and abstention semantics. Native iOS is an additional client of the same local API.
+- **D17** This is a local Builder delivery. No remote account or GitHub write authorization is assumed. Repository claim is recorded locally; upstream instructions requiring claim push and milestone stops cannot prevent the explicitly requested complete local build. Existing Integrator research and paper files remain untouched.
+- **D18** Use a compact, deterministic resumable engine and SQLite persistence for this runnable release, documenting differences from the research LangGraph/Phoenix architecture. Optional model availability must never block checks. Installed runtime versions are recorded separately; Python 3.14 is available on this machine. Native macOS Vision provides actual local OCR without model downloads; other platforms use optional installed OCR readers. Research experiments and reviewed regional translations cannot be fabricated.
+
+
+## D19 · 2026-10-27 · Reviewed application publication
+
+The user explicitly authorized pushing the completed app to the original main branch after ten or more checks. This supersedes D17's earlier local-only delivery for source publication and the earlier milestone claim/push sequence: no application source is pushed before the requested review checks. Keep all local data, photos, snapshots, installed dependencies and web build output excluded. Use indexed bounded SQL candidates, transactional source identity migration, bounded image processing and request cancellation to improve efficiency without changing the evidence rules. Add reproducible review benchmarks, browser failure/race regressions and pinned GitHub CI for Python/web and an unsigned iOS simulator build. See `docs/RELEASE_CHECKS.md`; full research milestones and device release validation are still separate.

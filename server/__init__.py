@@ -1,0 +1,1 @@
+"""StripCheck HTTP interface."""

@@ -35,6 +35,13 @@ web/.vite/
 *.tsbuildinfo
 npm-debug.log*
 
+# Native build and personal Xcode state
+ios/.build/
+ios/.swiftpm/
+ios/build/
+**/xcuserdata/
+*.xcuserstate
+
 # Secrets and machine-local settings
 .env
 .env.*

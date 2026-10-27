@@ -4,6 +4,43 @@
 
 States: `not started` · `in progress` · `built` (Builder: offline checks pass) · `done` (Integrator: full "Done when" passes on the laptop) · `blocked`.
 
+## Reviewed publication · 2026-10-27
+
+The user authorized publishing the reviewed implementation to `main`. Final local verification: **184 Python tests, 39 web tests, 14 compiled Swift checks, 11/11 synthetic scenarios**, clean web build/lint, live native API integration and more than twenty verification areas in [`RELEASE_CHECKS.md`](RELEASE_CHECKS.md). Full iOS SDK validation is configured in CI; device/signing/research requirements remain separate. Local preview: **http://127.0.0.1:8765**. Data was backed up before the offline parser refresh; source and alert identities were preserved. Git publication and hosted build outcomes are recorded in the newest handoff entry.
+
+## Local implementation session · 2026-10-27
+
+Builder: Codex on collaborator macOS. The requested local website/API is implemented and verified; the native SwiftUI client source and its compiled API contract checks are delivered. A full iOS simulator/device build remains unverified because this machine has no full Xcode/iOS SDK. The user requested the application work in one session, replacing the per-milestone stop. The original research milestone states below remain unchanged: this local delivery is not a claim that every research milestone is complete. Decisions D16–D18 describe the implementation boundaries.
+
+The checked items in this local section mean implemented and verified to the extent stated, not committed or pushed.
+
+- [x] SQLite persistence; official portal sync and offline imports; actual local Apple Vision OCR; deterministic matching, confirmation and verifier; API, SSE, resume, history and cabinet.
+- [x] Apple-inspired responsive web interface; readable typography; browser checks for confirmation, verdict, cabinet save, real alert search and diagnostics.
+- [x] Native SwiftUI client source for camera/photos, typed checks, confirmation, alerts, cabinet and activity; compiled API model/client checks and live local API round-trip.
+- [x] macOS desktop/phone launchers, Windows launcher, fresh-clone setup and documented deviations. The launchers are provided; physical-phone access has not been tested.
+- [ ] Native simulator/device build, camera permissions, VoiceOver interaction and signing, requiring full Xcode/iOS SDK and any necessary device/account authorization.
+- [ ] Remaining research architecture/evaluation and reviewed extras: LangGraph checkpointing, production Phoenix integration, model benchmarking/calibration, the full M7 experiment programme and M9 extras. No research accuracy results are fabricated.
+
+### Recorded verification
+
+| Check | Result |
+|---|---|
+| `.venv/bin/python -m pytest -q` | **88 passed**; one upstream Starlette TestClient/httpx deprecation warning |
+| `.venv/bin/python cli.py selftest` | **11/11** isolated synthetic scenarios passed |
+| `npm --prefix web test` | **22 passed**, including streaming and theme-contrast checks |
+| `npm --prefix web run build` | Passed; approximately **281 KB JavaScript / 41 KB CSS** production output |
+| `npm --prefix web run lint` | Oxlint: **0 warnings** |
+| Native `StripCheckVerify` executable | **8 compiled contract checks passed** |
+| Native URLSession integration | Local check → confirmation/resume → verdict → cabinet save/read/delete round-trip passed |
+| Native source/project validation | SwiftUI syntax and project/plist validation passed; full iOS compilation unverified |
+| In-app browser review | Confirmation/result/save-cabinet, real alert search and diagnostics **11/11** verified; responsive previews at **319 px and 770 px** reviewed |
+| Historical official data | **6,923 active alerts**, **108 source snapshots**, **93 months** from January 2019 through September 2026; **72 quarantined source rows** |
+| Data provenance/idempotence | All 108 archived checksums and official source hostnames verified; no synthetic live alerts; repeated offline import adds **0** rows |
+
+The current website is running at **http://127.0.0.1:8765**, listening on localhost only. Final browser passes also verified the no-match, batch collision, missing-product, ambiguous-character and mismatched-date paths. The delivery archive contains source plus `web/dist`, excluding local data, credentials and installed dependencies; see the final packaging entry in `docs/HANDOFF.md`.
+
+Automatic approval review rejected the attempted LAN launch because binding to other network interfaces would expose local photos and checks without the required authorization. **No LAN access was enabled, and no physical-phone connection was tested.** No GitHub push, public deployment, signing/account operation or App Store publication was performed. Integrator-owned research and paper files were preserved.
+
 ## Milestones (spec v2 §17)
 
 | # | Milestone | State | Owner | Claimed | Last update | Evidence (command → result) |
