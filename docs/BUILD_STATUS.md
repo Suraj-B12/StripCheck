@@ -6,9 +6,11 @@ States: `not started` · `in progress` · `built` (Builder: offline checks pass)
 
 ## Reviewed publication · 2026-10-27
 
-The user authorized publishing the reviewed implementation to `main`. Final local verification: **184 Python tests, 39 web tests, 14 compiled Swift checks, 11/11 synthetic scenarios**, clean web build/lint, live native API integration and more than twenty verification areas in [`RELEASE_CHECKS.md`](RELEASE_CHECKS.md). Full iOS SDK validation is configured in CI; device/signing/research requirements remain separate. Local preview: **http://127.0.0.1:8765**. Data was backed up before the offline parser refresh; source and alert identities were preserved. Git publication and hosted build outcomes are recorded in the newest handoff entry.
+The user authorized publishing the reviewed implementation to `main`. Final local verification: **184 Python tests, 43 web tests, 14 compiled Swift checks, 11/11 synthetic scenarios**, clean web build/lint, live native API integration and more than twenty verification areas in [`RELEASE_CHECKS.md`](RELEASE_CHECKS.md). Implementation commit `691e3da` is published; both hosted jobs passed, including **nine XCTest cases and the full unsigned iOS simulator build**. Device interaction/signing/research requirements remain separate. Local preview: **http://127.0.0.1:8765**. Data was backed up before the offline parser refresh; source and alert identities were preserved. The newest handoff entry records the final review-page fix and publication evidence.
 
-## Local implementation session · 2026-10-27
+## Historical local implementation session · 2026-10-27
+
+This section preserves the earlier local-delivery record. Its test counts and publication statements describe that point in time; the reviewed publication above and newest handoff entry are current.
 
 Builder: Codex on collaborator macOS. The requested local website/API is implemented and verified; the native SwiftUI client source and its compiled API contract checks are delivered. A full iOS simulator/device build remains unverified because this machine has no full Xcode/iOS SDK. The user requested the application work in one session, replacing the per-milestone stop. The original research milestone states below remain unchanged: this local delivery is not a claim that every research milestone is complete. Decisions D16–D18 describe the implementation boundaries.
 

@@ -39,7 +39,7 @@ swift test --package-path ios
 
 On the implementation machine, only Command Line Tools were installed. The package library and executable compiled, and all 14 executable checks passed. A live native URLSession round-trip also passed against the local server: health, all 11 synthetic demo definitions, batch confirmation and resumed verdict, cabinet save/read/delete, activity, and alert decoding. Set `STRIPCHECK_TEST_SERVER=http://127.0.0.1:8000` when running `StripCheckVerify` to repeat that optional check; it creates a synthetic check and removes its temporary cabinet item.
 
-The SwiftUI files passed a syntax parse; the Xcode project, Info.plist and privacy manifest passed `plutil` validation. **An iOS build, simulator run, camera permission test, VoiceOver interaction test and device signing have not been performed.** The command-line toolchain lacks XCTest, so `swift test` cannot run here. This is not a substitute for testing the app in Xcode.
+The SwiftUI files passed a syntax parse; the Xcode project, Info.plist and privacy manifest passed `plutil` validation. [Hosted verification](https://github.com/Suraj-B12/StripCheck/actions/runs/40449407179) subsequently passed all 14 executable checks, all nine XCTest cases and a complete unsigned simulator build with Xcode 16.4 and the iOS 18.5 SDK. The build emitted an App Intents metadata notice because the app has no App Intents dependency. **Simulator interaction, camera permission tests, VoiceOver interaction and device signing remain unverified.** Local Command Line Tools cannot run XCTest; hosted checks do not substitute for those device validations.
 
 For a simulator build on a machine with Xcode:
 

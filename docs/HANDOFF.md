@@ -15,6 +15,16 @@
 
 ---
 
+## 2026-10-27 · Builder · Published implementation and final UI correction · built
+
+- Published: `691e3da` to the original `main`, after pull/rebase and a passing post-sync Python/web test and build run. No data, photos, installed dependencies or generated website output was pushed.
+- Hosted verification: [run 40449407179](https://github.com/Suraj-B12/StripCheck/actions/runs/40449407179) passed both jobs. Linux: **182 Python tests passed, two Apple Vision tests skipped**, with those two covered by the **184-pass** local macOS run. Native: **14 compiled checks, nine XCTest cases and the complete unsigned iOS simulator build passed** with Xcode 16.4/iOS 18.5. App Intents metadata extraction was skipped because no App Intents dependency is used; the build succeeded.
+- Final browser correction: Needs review now decodes stored source rows, shows product/month/source-row details and plain-language explanations, and handles malformed records without exposing internal flags. Four component regressions bring the web total to **43 passed**. Lint and the production build pass; the initial JS stays **264.33 KB**, with **24.36 KB** of secondary-page code loaded on demand. The corrected view was verified against the running local API.
+- Docs: current native build evidence replaces pending-build statements; earlier local-only notes are explicitly historical. The final fix and these records are published in the follow-up commit; its actual CI result is reported with delivery.
+- Still required for distribution: simulator/device interaction, physical camera and Local Network prompts, VoiceOver, signing and App Store preparation. The original research extensions remain documented separately.
+
+---
+
 ## 2026-10-27 · Builder · Efficiency and resilience review · built
 
 - User authorization: publish the finished application to the original `main` after at least ten review checks. D19 records the updated publication scope. Write permission was verified before preparing the push.

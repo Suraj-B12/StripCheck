@@ -2,7 +2,7 @@
 
 ## Reviewed build
 
-The efficiency and crash review passed **184 Python tests, 39 web tests, 14 compiled Swift checks** and all **11 synthetic scenarios**. See [the verification record](docs/RELEASE_CHECKS.md) for more than twenty checked areas, measurements and release limits. GitHub Actions checks the Python API, website and unsigned iOS simulator build on pushes to `main`.
+The efficiency and crash review passed **184 Python tests, 43 web tests, 14 compiled Swift checks** and all **11 synthetic scenarios**. See [the verification record](docs/RELEASE_CHECKS.md) for more than twenty checked areas, measurements and release limits. GitHub Actions checks the Python API, website and unsigned iOS simulator build on pushes to `main`.
 
 ## Run the local app
 
@@ -43,7 +43,7 @@ Open **http://127.0.0.1:8000**. For later Windows launches, run `./start-stripch
 
 Open [`ios/StripCheck.xcodeproj`](ios/StripCheck.xcodeproj) in full Xcode, choose the StripCheck scheme and an iPhone simulator, and run. The native SwiftUI client connects to the same running local API. Follow [`ios/README.md`](ios/README.md) for server address, device signing and pairing setup.
 
-The compiled Swift API verification and live server round-trips pass. This machine has only Command Line Tools, so the complete iOS UI has **not** been built or run on a simulator/device. Camera, Local Network permission, VoiceOver, signing and App Store release checks remain required.
+The compiled Swift API verification and live server round-trips pass. [GitHub verification](https://github.com/Suraj-B12/StripCheck/actions/runs/40449407179) also passed all nine XCTest cases and built the complete application for the iOS simulator with Xcode 16.4 and the iOS 18.5 SDK. Simulator interaction, physical camera, Local Network permission, VoiceOver, signing and App Store release checks remain required.
 
 ### Reproduce the verified dependencies
 

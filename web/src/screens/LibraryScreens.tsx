@@ -32,6 +32,61 @@ import {
   VerdictCard,
 } from "../components/Shared";
 type Props = { toast: (message: string) => void; refreshHealth: () => void };
+function storedValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+function reviewRecord(row: Record<string, unknown>) {
+  const value = storedValue(row.raw_json);
+  const raw =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const text = (value: unknown) =>
+    typeof value === "string" || typeof value === "number"
+      ? String(value).trim()
+      : "";
+  const labels: Record<string, string> = {
+    batch_placeholder: "The source does not provide a clear batch number.",
+    batch_is_date: "The batch entry appears to be a date and needs checking.",
+    ambiguous_multi_batch:
+      "Several batch numbers are written together and need clarification.",
+    maker_missing: "The manufacturer is missing from the source.",
+    product_missing: "The product name is missing from the source.",
+    unsupported_field_shape: "Some source details could not be read reliably.",
+    unknown_row_format: "The source record could not be read reliably.",
+  };
+  const reasons = storedValue(row.reasons);
+  const explanations = Array.isArray(reasons)
+    ? reasons
+        .filter((reason): reason is string => typeof reason === "string")
+        .filter((reason) => reason !== "no_llm")
+        .map(
+          (reason) =>
+            labels[reason] || "The source details need a manual review.",
+        )
+    : [];
+  return {
+    title:
+      text(raw.str_product_name) ||
+      text(raw.product_name_from_dtl) ||
+      text(raw.product) ||
+      "Product name unavailable",
+    context: [
+      text(row.list_month) || text(raw.dt_reporting_month_year),
+      row.row_no ? `Source row ${text(row.row_no)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    explanation:
+      [...new Set(explanations)].join(" ") ||
+      "The source details need a manual review.",
+  };
+}
 function PageTitle({
   eyebrow,
   title,
@@ -428,28 +483,45 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
           </div>
         ) : aux.length ? (
           <div className="source-list">
-            {aux.map((row, i) => (
-              <article key={i}>
-                <FileText size={25} />
-                <div>
-                  <h3>
-                    {String(
-                      row.title || row.file_name || `Record ${row.id || i + 1}`,
+            {tab === "quarantine" && (
+              <p className="page-footnote">
+                These records are excluded from batch checks until their source
+                details can be verified.
+              </p>
+            )}
+            {aux.map((row, i) => {
+              const review = tab === "quarantine" ? reviewRecord(row) : null;
+              return (
+                <article key={String(row.id ?? i)}>
+                  <FileText size={25} />
+                  <div>
+                    <h3>
+                      {review?.title ||
+                        String(
+                          row.title ||
+                            row.file_name ||
+                            `Source ${row.id || i + 1}`,
+                        )}
+                    </h3>
+                    {review ? (
+                      <>
+                        {review.context && <p>{review.context}</p>}
+                        <p>{review.explanation}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          {String(row.list_month || "")} ·{" "}
+                          {Number(row.rows_valid || 0).toLocaleString("en-IN")}{" "}
+                          records
+                        </p>
+                        <code>{String(row.sha256 || "")}</code>
+                      </>
                     )}
-                  </h3>
-                  <p>
-                    {String(row.list_month || "")} ·{" "}
-                    {String(
-                      row.rows_valid ??
-                        row.reasons ??
-                        row.source_type ??
-                        "Source record",
-                    )}
-                  </p>
-                  <code>{String(row.sha256 || "")}</code>
-                </div>
-              </article>
-            ))}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         ) : (
           <Empty
