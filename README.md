@@ -2,7 +2,7 @@
 
 ## Public presentation
 
-A GitHub Pages build is provided for sharing the interface and eleven fictional guided examples. It does not check real medicines or upload photos. [Deployment and preview instructions](docs/GITHUB_PAGES.md) explain the one-time Pages setting and public-site boundaries; the local application below remains the real checking workflow.
+[Open the public demo](https://vsxye.github.io/StripCheck/) to explore the interface and eleven fictional guided examples. It does not check real medicines or upload photos; the local application below provides the real checking workflow. The showcase is hosted in a separate artifact repository. See [hosting and preview instructions](docs/GITHUB_PAGES.md).
 
 ## Reviewed build
 

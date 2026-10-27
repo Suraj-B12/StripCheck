@@ -2,11 +2,13 @@
 
 The Pages build is an interactive presentation of StripCheck for friends, teachers and reviewers. It uses the same visual design and eleven clearly labelled fictional stories. It replays recorded results produced by the Python engine; it does not check real medicines, read photos, fetch CDSCO records or run a classifier in the browser.
 
-The configured project address is **https://suraj-b12.github.io/StripCheck/**. This address becomes available after an authorized repository owner enables GitHub Pages and the deployment workflow succeeds. Follow the latest [Pages workflow](https://github.com/Suraj-B12/StripCheck/actions/workflows/pages.yml) for deployment status.
+The public showcase is live at **[https://vsxye.github.io/StripCheck/](https://vsxye.github.io/StripCheck/)**. The separate [vsxye/StripCheck artifact repository](https://github.com/vsxye/StripCheck) hosts the reviewed static build; [deployment 40452634654](https://github.com/vsxye/StripCheck/actions/runs/40452634654) succeeded, HTTPS is enforced, and the public page was opened successfully in a browser. The application source remains in [Suraj-B12/StripCheck](https://github.com/Suraj-B12/StripCheck), where Pages is still disabled and requires an authorized owner's setup.
 
-## One-time repository setting
+The hosted artifact was built from source commit `d58f7a2` and published as artifact commit `0e974f7`. The live browser check completed guided example 01, saved its result and retained it after a Cabinet reload; the browser console was empty. Source changes do not automatically update this separate hosting repository; publish a freshly tested static artifact there to update the live showcase.
 
-An owner, maintainer or person with permission to manage Pages must open [Settings → Pages](https://github.com/Suraj-B12/StripCheck/settings/pages). Under **Build and deployment**, choose **GitHub Actions** as the **Source**. Ordinary code-write access cannot enable Pages initially. No personal token needs to be copied into the repository.
+## Optional hosting from the original repository
+
+To also host at `https://suraj-b12.github.io/StripCheck/`, an owner, maintainer or person with permission to manage Pages must open [Settings → Pages](https://github.com/Suraj-B12/StripCheck/settings/pages). Under **Build and deployment**, choose **GitHub Actions** as the **Source**. Ordinary code-write access cannot enable Pages initially. No personal token needs to be copied into the repository. This optional setup is not required to use the live showcase above.
 
 After enabling it, use **Run workflow** on the **Publish GitHub Pages showcase** workflow, or rerun a failed deployment. Future changes to the website on `main` trigger a tested build and deployment automatically. The workflow publishes only `web/dist-pages` with the official GitHub Pages actions.
 

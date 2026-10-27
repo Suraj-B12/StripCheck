@@ -4,11 +4,11 @@
 
 States: `not started` · `in progress` · `built` (Builder: offline checks pass) · `done` (Integrator: full "Done when" passes on the laptop) · `blocked`.
 
-## GitHub Pages showcase and manual-check correction · 2026-10-27 · built; publishing blocked
+## GitHub Pages showcase and manual-check correction · 2026-10-27 · built; public showcase live
 
 Builder: Codex. The browser-only showcase and manual-check correction pass **196 Python tests, 75 web tests, lint, both production builds and the static artifact audit**. Demo-derived details are cleared on the first manual edit; restored extra details are visible. An exact batch with missing product or conflicting manufacturer details now requests evidence rather than incorrectly reporting no listing. The live browser found two local records for `TG261185` and requested printed pack details. Historical August 2013 examples remain outside the loaded January 2019–September 2026 index.
 
-The static showcase replays eleven authored fictional cases, with bounded browser-tab storage and working project-subpath routes. No local records or uploaded photos are published. Local app: **http://127.0.0.1:8765**; static preview: **http://127.0.0.1:4173/StripCheck/**. Pages is not enabled; the current account can push code but cannot manage Pages settings. The workflow builds a tested artifact and skips deployment until an owner chooses **Settings → Pages → Source: GitHub Actions**. See [`GITHUB_PAGES.md`](GITHUB_PAGES.md). This is not a claim that the public URL is live.
+The static showcase is live at **[https://vsxye.github.io/StripCheck/](https://vsxye.github.io/StripCheck/)** and replays eleven authored fictional cases, with bounded browser-tab storage and working project-subpath routes. [Deployment 40452634654](https://github.com/vsxye/StripCheck/actions/runs/40452634654) succeeded; Pages reports a public, built site with HTTPS enforced. The live browser check passed homepage → guided example 01 → result → save → Cabinet → reload, with an empty console. The separate artifact repository contains the static showcase, without local records or uploaded photos. Pages on the original `Suraj-B12/StripCheck` source repository remains disabled and owner-gated. Local app: **http://127.0.0.1:8765**; static preview: **http://127.0.0.1:4173/StripCheck/**. See [`GITHUB_PAGES.md`](GITHUB_PAGES.md).
 
 ## Reviewed publication · 2026-10-27
 

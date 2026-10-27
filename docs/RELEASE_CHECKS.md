@@ -8,7 +8,7 @@ The follow-up passes **196 Python tests** (including 12 new incomplete-manual-ev
 
 Actual browser checks verified that a fresh `TG261185` query finds two candidates and asks for printed identity details. The public preview completes a guided check, saves the example, survives a Cabinet hash-route refresh and displays all eleven recorded scenario outcomes. Existing Activity results remain historical snapshots.
 
-The Pages workflow publishes only the separately audited static directory. Publishing awaits the owner's one-time Pages setting; neither the configured public URL nor a successful deployment is claimed before that happens. See [the setup instructions](GITHUB_PAGES.md).
+The audited static showcase is live at **[https://vsxye.github.io/StripCheck/](https://vsxye.github.io/StripCheck/)** through a separate artifact repository. [Deployment 40452634654](https://github.com/vsxye/StripCheck/actions/runs/40452634654) succeeded; Pages reports public visibility, built status and enforced HTTPS. Anonymous HTTPS requests returned **200 for all seven public artifacts**, with SHA-256 hashes matching the reviewed build. The actual public browser check passed homepage → guided example 01 → completed result → save → Cabinet → reload, with an empty console. The original source repository's Pages setting remains disabled and owner-gated; it is not the live hosting repository. See [hosting details](GITHUB_PAGES.md).
 
 ## Earlier publication checks
 

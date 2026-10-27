@@ -15,6 +15,15 @@
 
 ---
 
+## 2026-10-27 · Builder · Alternate public showcase hosting · built
+
+- Published: the reviewed static showcase at **[https://vsxye.github.io/StripCheck/](https://vsxye.github.io/StripCheck/)**, following the user's request for an available public link. The separate [artifact repository](https://github.com/vsxye/StripCheck) contains the build from source commit `d58f7a2`, published as artifact commit `0e974f7`.
+- Verified: [deployment 40452634654](https://github.com/vsxye/StripCheck/actions/runs/40452634654) succeeded; the Pages API reports public visibility, built status and enforced HTTPS. Anonymous HTTPS requests returned **200 for all seven public artifacts**, with SHA-256 hashes matching the reviewed build. The actual public browser check passed homepage → guided example 01 → completed result → save → Cabinet → reload; the console was empty.
+- Boundaries: eleven fictional guided examples only; no real medicine checks, uploaded photos, local databases or official source snapshots are published. The full local application is unchanged. The original `Suraj-B12/StripCheck` repository remains the application source and its Pages setting remains disabled and owner-gated.
+- Updates: future source changes require a freshly tested static artifact to be published to the separate hosting repository. README, Pages instructions, release checks and current build status now identify the live address; D22 records the alternate hosting decision. Earlier publishing blockers below describe the original repository and remain historical records.
+
+---
+
 ## 2026-10-27 · Builder · Public showcase and manual batch-check repair · built
 
 - Changed: separate `/StripCheck/` static build, hash navigation, synthetic replay adapter and deterministic isolated fixture exporter, truthful public-mode labels, Pages workflow and artifact checks. Eleven authored scenarios work without a backend; real photos, checks, sync and source data remain local. D20 records this hosting boundary.
