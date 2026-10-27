@@ -2919,3 +2919,102 @@ th {
     inset 0 -3px 0 #617da859,
     0 1px 1px #7890ad99;
 }
+
+/* Public showcase: unmistakable boundaries, with the same spacious reading scale. */
+.public-demo-banner {
+  max-width: 1160px;
+  margin: 20px auto 0;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--nl-soft);
+  color: var(--nl);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.public-demo-banner p {
+  margin: 0;
+  flex: 1;
+}
+.public-demo-banner a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: inherit;
+  font-weight: 650;
+}
+.public-demo-banner .demo-tag {
+  flex-shrink: 0;
+}
+.demo-intro-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+}
+.demo-intro-panel .panel-topline {
+  margin-bottom: 10px;
+}
+.demo-intro-panel h2 {
+  font-size: clamp(28px, 3vw, 39px);
+  line-height: 1.14;
+  letter-spacing: -0.045em;
+  margin: 0;
+}
+.demo-intro-panel > p {
+  font-size: 17px;
+  line-height: 1.65;
+  margin: 0;
+  color: var(--ink-2);
+}
+.demo-intro-panel .demo-boundary {
+  font-size: 15px;
+  color: var(--muted);
+}
+.demo-intro-panel .private-note {
+  font-size: 14px;
+}
+.public-demo-workspace .capture-panel > .demo-tag {
+  display: inline-flex;
+  margin: 20px auto 4px;
+}
+.guided-example > .demo-tag {
+  margin-bottom: 14px;
+}
+.guided-answer {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 800px) {
+  .public-demo-banner {
+    margin: 14px 20px 0;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+  }
+  .public-demo-banner p {
+    flex-basis: calc(100% - 150px);
+  }
+  .public-demo-banner a {
+    margin-left: 0;
+  }
+}
+@media (max-width: 480px) {
+  .public-demo-banner {
+    margin: 12px 12px 0;
+    padding: 14px;
+    font-size: 14px;
+  }
+  .public-demo-banner p {
+    flex-basis: 100%;
+  }
+  .demo-intro-panel {
+    gap: 20px;
+  }
+}

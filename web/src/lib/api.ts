@@ -1,4 +1,5 @@
 import { requestScope } from "./runtime";
+import { PUBLIC_DEMO } from "./environment";
 export type Fields = {
   batch: string;
   product: string;
@@ -95,6 +96,13 @@ async function responseError(res: Response): Promise<Error> {
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const scope = requestScope(init?.signal);
   try {
+    if (PUBLIC_DEMO) {
+      const demo = await import("./publicDemo");
+      return await demo.publicDemoApi<T>(url, {
+        ...init,
+        signal: scope.signal,
+      });
+    }
     const res = await fetch(url, { ...init, signal: scope.signal });
     if (!res.ok) throw await responseError(res);
     return await res.json();
@@ -131,6 +139,14 @@ export async function stream(
     void reader?.cancel().catch(() => {});
   };
   try {
+    if (PUBLIC_DEMO) {
+      const demo = await import("./publicDemo");
+      return await demo.publicDemoStream(
+        url,
+        { ...init, signal: scope.signal },
+        onEvent,
+      );
+    }
     const res = await fetch(url, { ...init, signal: scope.signal });
     if (!res.ok) throw await responseError(res);
     if (res.headers.get("content-type")?.includes("application/json")) {

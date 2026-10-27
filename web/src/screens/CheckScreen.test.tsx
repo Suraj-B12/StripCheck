@@ -122,3 +122,158 @@ describe("check screen races and complete stream consumption", () => {
     expect(localStorage.getItem("stripcheck.current")).toBe(result.thread_id);
   });
 });
+
+describe("demo fields never leak into a real manual check", () => {
+  it("clears all inherited synthetic fields once, then retains the newly typed batch and product", async () => {
+    localStorage.setItem("stripcheck.current", "synthetic-old");
+    const old = {
+      ...restoredCheck(),
+      thread_id: "synthetic-old",
+      demo: true,
+      fields: {
+        ...emptyFields,
+        batch: "LM2408B",
+        product: "Lumera Tablets",
+        brand: "Lumera",
+        maker: "Example Laboratories",
+        mfg: "2024-08",
+        exp: "2027-07",
+        source: "ocr",
+        confirmed: false,
+      },
+    };
+    let submitted: Record<string, unknown> | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (url === "/api/checks/synthetic-old")
+          return Promise.resolve(
+            new Response(JSON.stringify(old), {
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        submitted = JSON.parse(String(init?.body));
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              thread_id: "new-real-check",
+              status: "done",
+              fields: submitted,
+              history: [],
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }),
+    );
+    render(<CheckScreen health={null} toast={() => {}} />);
+    expect(
+      (
+        (await screen.findByDisplayValue(
+          "Example Laboratories",
+        )) as HTMLInputElement
+      ).value,
+    ).toBe("Example Laboratories");
+    expect(screen.getByDisplayValue("2024-08")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Batch number/), {
+      target: { value: "TG261185" },
+    });
+    fireEvent.change(screen.getByLabelText(/Medicine or product name/), {
+      target: { value: "New user product" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check this batch" }));
+    await waitFor(() => expect(submitted).toBeDefined());
+    expect(submitted).toEqual({
+      mode: "text",
+      batch: "TG261185",
+      product: "New user product",
+      brand: "",
+      maker: "",
+      mfg: "",
+      exp: "",
+    });
+    expect(JSON.stringify(submitted)).not.toMatch(
+      /Example Laboratories|2024-08|2027-07|Lumera|ocr/,
+    );
+  });
+});
+
+it("keeps the manufacturer input open and focused while replacing demo details", async () => {
+  localStorage.setItem("stripcheck.current", "manufacturer-demo");
+  const old = {
+    ...restoredCheck(),
+    thread_id: "manufacturer-demo",
+    demo: true,
+    fields: {
+      ...emptyFields,
+      batch: "LM2408B",
+      product: "Lumera Tablets",
+      brand: "Lumera",
+      maker: "Example Laboratories",
+      mfg: "2024-08",
+      exp: "2027-07",
+    },
+  };
+  let submitted: Record<string, unknown> | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      if (url === "/api/checks/manufacturer-demo")
+        return Promise.resolve(
+          new Response(JSON.stringify(old), {
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      submitted = JSON.parse(String(init?.body));
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            thread_id: "manual-maker-check",
+            status: "done",
+            fields: submitted,
+            history: [],
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }),
+  );
+  render(<CheckScreen health={null} toast={() => {}} />);
+  const maker = (await screen.findByLabelText(
+    "Manufacturer",
+  )) as HTMLInputElement;
+  maker.focus();
+  fireEvent.change(maker, { target: { value: "User" } });
+  expect(screen.getByLabelText("Manufacturer")).toBe(maker);
+  expect(document.activeElement).toBe(maker);
+  expect((screen.getByLabelText("Brand") as HTMLInputElement).value).toBe("");
+  expect(
+    (screen.getByLabelText("Manufactured") as HTMLInputElement).value,
+  ).toBe("");
+  expect((screen.getByLabelText("Expires") as HTMLInputElement).value).toBe("");
+  expect(
+    (screen.getByLabelText(/Batch number/) as HTMLInputElement).value,
+  ).toBe("");
+  expect(
+    (screen.getByLabelText(/Medicine or product name/) as HTMLInputElement)
+      .value,
+  ).toBe("");
+  fireEvent.change(maker, { target: { value: "User Manufacturer" } });
+  fireEvent.change(screen.getByLabelText(/Batch number/), {
+    target: { value: "NEW456" },
+  });
+  fireEvent.change(screen.getByLabelText(/Medicine or product name/), {
+    target: { value: "User product" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Check this batch" }));
+  await waitFor(() => expect(submitted).toBeDefined());
+  expect(submitted).toEqual({
+    mode: "text",
+    batch: "NEW456",
+    product: "User product",
+    maker: "User Manufacturer",
+    brand: "",
+    mfg: "",
+    exp: "",
+  });
+});

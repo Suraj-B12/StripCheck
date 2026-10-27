@@ -20,6 +20,7 @@ import {
   Download,
   CircleHelp,
 } from "lucide-react";
+import { PUBLIC_DEMO, PROJECT_URL, appHref } from "../lib/environment";
 import { createRequestGate, storage } from "../lib/runtime";
 import { api, json, readableDate, stream } from "../lib/api";
 import type { AlertRow, Snapshot, Stats } from "../lib/api";
@@ -233,25 +234,43 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
   return (
     <div className="inner-page page-enter">
       <PageTitle
-        eyebrow="THE SOURCE OF EVERY CHECK"
+        eyebrow={
+          PUBLIC_DEMO
+            ? "THE FICTIONAL EXAMPLE COLLECTION"
+            : "THE SOURCE OF EVERY CHECK"
+        }
         title="Evidence you can explore."
-        description="Official records. Exact batches. The details behind the result."
+        description={
+          PUBLIC_DEMO
+            ? "Invented records used in the guided stories. No official alert data is published here."
+            : "Official records. Exact batches. The details behind the result."
+        }
         action={
-          <button className="button primary" onClick={sync} disabled={syncing}>
-            <RefreshCw size={18} className={syncing ? "spin" : ""} />
-            {syncing ? "Updating lists…" : "Sync with CDSCO"}
-          </button>
+          PUBLIC_DEMO ? (
+            <a className="button primary" href={appHref("/")}>
+              Try a demo pack <ArrowRight size={18} />
+            </a>
+          ) : (
+            <button
+              className="button primary"
+              onClick={sync}
+              disabled={syncing}
+            >
+              <RefreshCw size={18} className={syncing ? "spin" : ""} />
+              {syncing ? "Updating lists…" : "Sync with CDSCO"}
+            </button>
+          )
         }
       />
       <div className="stats-row">
         <div>
-          <span>Loaded records</span>
+          <span>{PUBLIC_DEMO ? "Fictional records" : "Loaded records"}</span>
           <strong>
             {Number(stats.alerts || data.total).toLocaleString("en-IN")}
           </strong>
         </div>
         <div>
-          <span>Months covered</span>
+          <span>{PUBLIC_DEMO ? "Example months" : "Months covered"}</span>
           <strong>
             {Number(
               stats.month_count ||
@@ -263,12 +282,18 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
           </strong>
         </div>
         <div>
-          <span>Latest list</span>
-          <strong>{readableDate(stats.latest_month)}</strong>
+          <span>{PUBLIC_DEMO ? "Data source" : "Latest list"}</span>
+          <strong>
+            {PUBLIC_DEMO
+              ? "Authored examples"
+              : readableDate(stats.latest_month)}
+          </strong>
         </div>
         <div>
-          <span>Last updated</span>
-          <strong>{readableDate(stats.last_sync)}</strong>
+          <span>{PUBLIC_DEMO ? "Live sync" : "Last updated"}</span>
+          <strong>
+            {PUBLIC_DEMO ? "Local app only" : readableDate(stats.last_sync)}
+          </strong>
         </div>
       </div>
       {typeof stats.coverage_warning === "string" && (
@@ -291,7 +316,7 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
         <div className="table-toolbar">
           <div className="segmented">
             {[
-              ["entries", "Alert records"],
+              ["entries", PUBLIC_DEMO ? "Example records" : "Alert records"],
               ["sources", "Sources"],
               ["quarantine", "Needs review"],
             ].map(([id, label]) => (
@@ -311,11 +336,16 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
           </div>
           <a
             className="text-link"
-            href="https://cdscoonline.gov.in/CDSCO/viewPublicNSQDrug"
+            href={
+              PUBLIC_DEMO
+                ? PROJECT_URL
+                : "https://cdscoonline.gov.in/CDSCO/viewPublicNSQDrug"
+            }
             target="_blank"
             rel="noreferrer"
           >
-            Official portal <ArrowUpRight size={16} />
+            {PUBLIC_DEMO ? "About the local project" : "Official portal"}{" "}
+            <ArrowUpRight size={16} />
           </a>
         </div>
         {tab === "entries" ? (
@@ -324,8 +354,16 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
               <div className="search-field">
                 <Search size={20} />
                 <input
-                  aria-label="Search alert records"
-                  placeholder="Search a batch, medicine or manufacturer"
+                  aria-label={
+                    PUBLIC_DEMO
+                      ? "Search example records"
+                      : "Search alert records"
+                  }
+                  placeholder={
+                    PUBLIC_DEMO
+                      ? "Search fictional example records"
+                      : "Search a batch, medicine or manufacturer"
+                  }
                   value={q}
                   onChange={(e) => {
                     setQ(e.target.value);
@@ -405,8 +443,12 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
                               className={`record-kind ${row.entry_type === "SPURIOUS" ? "spurious" : ""}`}
                             >
                               {row.entry_type === "SPURIOUS"
-                                ? "Spurious"
-                                : "Quality alert"}
+                                ? PUBLIC_DEMO
+                                  ? "Example spurious"
+                                  : "Spurious"
+                                : PUBLIC_DEMO
+                                  ? "Example quality alert"
+                                  : "Quality alert"}
                             </span>
                           </td>
                           <td>
@@ -454,15 +496,19 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
                 title={
                   q
                     ? "No records match this search."
-                    : "Start with the official lists."
+                    : PUBLIC_DEMO
+                      ? "No example records loaded."
+                      : "Start with the official lists."
                 }
                 description={
                   q
                     ? "Try a different batch number, product name or manufacturer."
-                    : "Sync with CDSCO to load the available records. Once stored, batch checks work offline."
+                    : PUBLIC_DEMO
+                      ? "Reload this page to retrieve the fictional example collection."
+                      : "Sync with CDSCO to load the available records. Once stored, batch checks work offline."
                 }
                 action={
-                  !q ? (
+                  !q && !PUBLIC_DEMO ? (
                     <button
                       className="button primary"
                       onClick={sync}
@@ -540,13 +586,17 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
         )}
       </section>
       <p className="page-footnote">
-        Source: Central Drugs Standard Control Organisation, Government of
-        India. A listing applies to the named batch, not every product from a
-        brand.
+        {PUBLIC_DEMO
+          ? "All records on this page are synthetic teaching examples. They do not describe real products, manufacturers or official alerts."
+          : "Source: Central Drugs Standard Control Organisation, Government of India. A listing applies to the named batch, not every product from a brand."}
       </p>
       {selected && (
         <Modal
-          title="The original record."
+          title={
+            PUBLIC_DEMO
+              ? "The fictional example record."
+              : "The original record."
+          }
           onClose={() => setSelected(null)}
           wide
         >
@@ -577,17 +627,24 @@ export function ListsScreen({ toast, refreshHealth }: Props) {
                   </div>
                 ))}
             </dl>
-            <a
-              className="button primary"
-              href={String(
-                selected.source_url ||
-                  "https://cdscoonline.gov.in/CDSCO/viewPublicNSQDrug",
-              )}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open official source <ArrowUpRight size={18} />
-            </a>
+            {PUBLIC_DEMO ? (
+              <p className="notice demo-notice">
+                This record was authored for the demonstration. It is not an
+                official drug alert.
+              </p>
+            ) : (
+              <a
+                className="button primary"
+                href={String(
+                  selected.source_url ||
+                    "https://cdscoonline.gov.in/CDSCO/viewPublicNSQDrug",
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open official source <ArrowUpRight size={18} />
+              </a>
+            )}
           </div>
         </Modal>
       )}
@@ -668,17 +725,23 @@ export function CabinetScreen({ toast }: Props) {
     <div className="inner-page page-enter">
       <PageTitle
         eyebrow="A LITTLE LESS TO KEEP TRACK OF"
-        title="Your personal cabinet."
-        description="Saved packs, their latest checks, and a little peace of organisation."
+        title={PUBLIC_DEMO ? "Your example cabinet." : "Your personal cabinet."}
+        description={
+          PUBLIC_DEMO
+            ? "Keep examples from this visit together. Saved in this browser tab for this visit."
+            : "Saved packs, their latest checks, and a little peace of organisation."
+        }
         action={
-          <button
-            className="button primary"
-            disabled={!items.length || busy}
-            onClick={recheck}
-          >
-            <RefreshCw size={18} className={busy ? "spin" : ""} />
-            {busy ? "Rechecking…" : "Recheck all packs"}
-          </button>
+          !PUBLIC_DEMO && (
+            <button
+              className="button primary"
+              disabled={!items.length || busy}
+              onClick={recheck}
+            >
+              <RefreshCw size={18} className={busy ? "spin" : ""} />
+              {busy ? "Rechecking…" : "Recheck all packs"}
+            </button>
+          )
         }
       />
       {error && <div className="notice error-notice">{error}</div>}
@@ -704,9 +767,12 @@ export function CabinetScreen({ toast }: Props) {
       <section className="glass-card cabinet-card">
         <div className="table-toolbar">
           <h2>
-            Saved packs <span className="count-chip">{items.length}</span>
+            {PUBLIC_DEMO ? "Saved examples" : "Saved packs"}{" "}
+            <span className="count-chip">{items.length}</span>
           </h2>
-          <span className="muted">Stored on this computer</span>
+          <span className="muted">
+            {PUBLIC_DEMO ? "In this browser tab" : "Stored on this computer"}
+          </span>
         </div>
         {loading ? (
           <div className="loading-state">
@@ -744,7 +810,7 @@ export function CabinetScreen({ toast }: Props) {
                       )}
                     </div>
                     <span className="muted">
-                      Checked{" "}
+                      {PUBLIC_DEMO ? "Saved" : "Checked"}{" "}
                       {readableDate(item.last_checked_at || item.added_at)}
                       {item.exp || fields.exp
                         ? ` · Expires ${readableDate(item.exp || fields.exp)}`
@@ -770,11 +836,20 @@ export function CabinetScreen({ toast }: Props) {
         ) : (
           <Empty
             icon={<Bookmark size={32} />}
-            title="A home for the packs you check."
-            description="After checking a pack, choose “Save to cabinet”. Its batch, details and result will be waiting here."
+            title={
+              PUBLIC_DEMO
+                ? "A place for your favourite examples."
+                : "A home for the packs you check."
+            }
+            description={
+              PUBLIC_DEMO
+                ? "Finish a guided example and choose “Save example”. Its recorded result will appear here for this visit."
+                : "After checking a pack, choose “Save to cabinet”. Its batch, details and result will be waiting here."
+            }
             action={
-              <a href="/" className="button primary">
-                Check your first pack <ArrowRight size={18} />
+              <a href={appHref("/")} className="button primary">
+                {PUBLIC_DEMO ? "Try a demo pack" : "Check your first pack"}{" "}
+                <ArrowRight size={18} />
               </a>
             }
           />
@@ -783,19 +858,28 @@ export function CabinetScreen({ toast }: Props) {
       <div className="quiet-note">
         <FingerprintIcon />
         <p>
-          Saved details stay with this local StripCheck installation. Rechecking
-          uses the official lists currently loaded.
+          {PUBLIC_DEMO
+            ? "This cabinet contains only fictional examples. It does not monitor real packs, refresh official lists or persist beyond this browser-tab session."
+            : "Saved details stay with this local StripCheck installation. Rechecking uses the official lists currently loaded."}
         </p>
       </div>
       {remove && (
-        <Modal title="Remove this saved pack?" onClose={() => setRemove(null)}>
+        <Modal
+          title={
+            PUBLIC_DEMO
+              ? "Remove this saved example?"
+              : "Remove this saved pack?"
+          }
+          onClose={() => setRemove(null)}
+        >
           <p>
-            The pack will leave your cabinet. Its original check remains in your
-            activity.
+            {PUBLIC_DEMO
+              ? "The example will leave this cabinet. Its recorded steps remain in your activity for this visit."
+              : "The pack will leave your cabinet. Its original check remains in your activity."}
           </p>
           <div className="button-row">
             <button className="button danger" onClick={deleteItem}>
-              Remove pack
+              {PUBLIC_DEMO ? "Remove example" : "Remove pack"}
             </button>
             <button
               className="button secondary"
@@ -807,7 +891,11 @@ export function CabinetScreen({ toast }: Props) {
         </Modal>
       )}
       {selected && (
-        <Modal title="Your saved check." onClose={closeSelected} wide>
+        <Modal
+          title={PUBLIC_DEMO ? "Your saved example." : "Your saved check."}
+          onClose={closeSelected}
+          wide
+        >
           {selected.final ? (
             <VerdictCard
               snapshot={selected}
@@ -865,7 +953,11 @@ export function ActivityScreen({ toast }: Props) {
       <PageTitle
         eyebrow="NOTHING HIDDEN IN THE PROCESS"
         title="Follow every step."
-        description="A clear record of your checks, the questions asked, and the evidence considered."
+        description={
+          PUBLIC_DEMO
+            ? "The guided stories you explored in this browser tab, with their recorded questions and outcomes."
+            : "A clear record of your checks, the questions asked, and the evidence considered."
+        }
       />
       {error && <div className="notice error-notice">{error}</div>}
       <div className="glass-card">
@@ -909,11 +1001,20 @@ export function ActivityScreen({ toast }: Props) {
         ) : (
           <Empty
             icon={<Activity size={32} />}
-            title="Your checks will leave a trail."
-            description="Each check records its steps here, including the source of every decision."
+            title={
+              PUBLIC_DEMO
+                ? "Your examples will leave a trail."
+                : "Your checks will leave a trail."
+            }
+            description={
+              PUBLIC_DEMO
+                ? "Explore a demo pack to see its recorded steps here. Activity stays in this browser tab for this visit."
+                : "Each check records its steps here, including the source of every decision."
+            }
             action={
-              <a className="button primary" href="/">
-                Start a check <ArrowRight size={18} />
+              <a className="button primary" href={appHref("/")}>
+                {PUBLIC_DEMO ? "Try a demo pack" : "Start a check"}{" "}
+                <ArrowRight size={18} />
               </a>
             }
           />
@@ -949,12 +1050,13 @@ export function ActivityScreen({ toast }: Props) {
           ) : (
             <a
               className="button primary"
-              href="/"
+              href={appHref("/")}
               onClick={() =>
                 storage.set("stripcheck.current", selected.thread_id)
               }
             >
-              Continue this check <ArrowRight size={18} />
+              {PUBLIC_DEMO ? "Continue this example" : "Continue this check"}{" "}
+              <ArrowRight size={18} />
             </a>
           )}
           <StepTimeline steps={selected.history || []} />
@@ -981,7 +1083,11 @@ export function EvaluationScreen({ toast }: Props) {
         if (event === "final" || event === "report") setReport(d);
       });
       setReport(await api("/api/eval/latest"));
-      toast("Diagnostic checks completed");
+      toast(
+        PUBLIC_DEMO
+          ? "Authored scenarios replayed"
+          : "Diagnostic checks completed",
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -998,8 +1104,16 @@ export function EvaluationScreen({ toast }: Props) {
     <div className="inner-page page-enter">
       <PageTitle
         eyebrow="BUILT TO BE QUESTIONED"
-        title="Put the checks to the test."
-        description="Run the built-in scenarios and inspect how the checking rules behave."
+        title={
+          PUBLIC_DEMO
+            ? "Eleven stories. Clear outcomes."
+            : "Put the checks to the test."
+        }
+        description={
+          PUBLIC_DEMO
+            ? "Review recorded outcomes from the authored examples. No classifier or diagnostic test runs in this public demo."
+            : "Run the built-in scenarios and inspect how the checking rules behave."
+        }
         action={
           <button className="button primary" onClick={run} disabled={busy}>
             {busy ? (
@@ -1007,15 +1121,22 @@ export function EvaluationScreen({ toast }: Props) {
             ) : (
               <Play size={18} />
             )}{" "}
-            {busy ? "Running diagnostics…" : "Run diagnostic checks"}
+            {PUBLIC_DEMO
+              ? busy
+                ? "Replaying examples…"
+                : "Replay all examples"
+              : busy
+                ? "Running diagnostics…"
+                : "Run diagnostic checks"}
           </button>
         }
       />
       <div className="notice demo-notice">
         <FlaskConical size={20} />
         <p>
-          These are synthetic software diagnostics. They do not measure
-          performance on real medicine photographs or certify any medicine.
+          {PUBLIC_DEMO
+            ? "These are prerecorded results for fictional scenarios. They do not measure this website’s performance, run live diagnostics or certify any medicine."
+            : "These are synthetic software diagnostics. They do not measure performance on real medicine photographs or certify any medicine."}
         </p>
       </div>
       {error && <div className="notice error-notice">{error}</div>}
@@ -1030,13 +1151,19 @@ export function EvaluationScreen({ toast }: Props) {
             </div>
             <div>
               <h2>
-                {passed === total
-                  ? "All diagnostic scenarios passed."
-                  : "Some scenarios need attention."}
+                {PUBLIC_DEMO
+                  ? "Recorded scenario outcomes."
+                  : passed === total
+                    ? "All diagnostic scenarios passed."
+                    : "Some scenarios need attention."}
               </h2>
-              <p>Expected outcomes compared with the actual checking engine.</p>
+              <p>
+                {PUBLIC_DEMO
+                  ? "Expected outcomes beside results recorded when the examples were prepared."
+                  : "Expected outcomes compared with the actual checking engine."}
+              </p>
               <span className="muted">
-                Last run{" "}
+                {PUBLIC_DEMO ? "Replayed" : "Last run"}{" "}
                 {readableDate(
                   report.created_at || report.ran_at || report.finished_at,
                 )}
@@ -1068,7 +1195,7 @@ export function EvaluationScreen({ toast }: Props) {
                   <tr>
                     <th>Scenario</th>
                     <th>Expected</th>
-                    <th>Actual</th>
+                    <th>{PUBLIC_DEMO ? "Recorded outcome" : "Actual"}</th>
                     <th>Result</th>
                   </tr>
                 </thead>
@@ -1090,7 +1217,11 @@ export function EvaluationScreen({ toast }: Props) {
                         <span
                           className={`diagnostic-status ${r.passed ? "passed" : "failed"}`}
                         >
-                          {r.passed ? "Passed" : "Review needed"}
+                          {PUBLIC_DEMO
+                            ? "Recorded"
+                            : r.passed
+                              ? "Passed"
+                              : "Review needed"}
                         </span>
                       </td>
                     </tr>
@@ -1104,24 +1235,35 @@ export function EvaluationScreen({ toast }: Props) {
         <section className="glass-card">
           <Empty
             icon={<FlaskConical size={34} />}
-            title="Confidence in the process starts with testing."
-            description="Exercise exact matches, misread characters, conflicting details and missing evidence. Every test has an explicit expected result."
+            title={
+              PUBLIC_DEMO
+                ? "Every example tells a story."
+                : "Confidence in the process starts with testing."
+            }
+            description={
+              PUBLIC_DEMO
+                ? "Explore recorded examples of exact matches, misread characters, conflicting details and missing evidence."
+                : "Exercise exact matches, misread characters, conflicting details and missing evidence. Every test has an explicit expected result."
+            }
             action={
               <button className="button primary" onClick={run} disabled={busy}>
                 <Play size={18} />
-                Run the scenarios
+                {PUBLIC_DEMO ? "Replay the examples" : "Run the scenarios"}
               </button>
             }
           />
         </section>
       )}
       <div className="evaluation-note">
-        <h3>What these checks tell you</h3>
+        <h3>
+          {PUBLIC_DEMO
+            ? "What this replay shows"
+            : "What these checks tell you"}
+        </h3>
         <p>
-          The diagnostic suite verifies the application’s rules using invented
-          records. Research evaluation, accuracy on real photos, and human
-          review of regional translations require separate datasets and
-          validation.
+          {PUBLIC_DEMO
+            ? "The public website illustrates the project’s behaviour with authored examples. It is not a benchmark. Install the local project to run the actual diagnostic suite; real-world accuracy requires separate datasets and validation."
+            : "The diagnostic suite verifies the application’s rules using invented records. Research evaluation, accuracy on real photos, and human review of regional translations require separate datasets and validation."}
         </p>
       </div>
     </div>

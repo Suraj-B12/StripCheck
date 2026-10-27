@@ -33,10 +33,13 @@ jobs:
       - run: python -m pip check
       - run: python -m pytest -q
       - run: python cli.py selftest
+      - run: python scripts/export_public_demo.py --check
       - run: npm --prefix web ci
       - run: npm --prefix web test
       - run: npm --prefix web run lint
       - run: npm --prefix web run build
+      - run: npm --prefix web run build:pages
+      - run: node scripts/check_pages_build.mjs
 
   native-build:
     runs-on: macos-15

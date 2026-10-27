@@ -4,6 +4,12 @@
 
 States: `not started` · `in progress` · `built` (Builder: offline checks pass) · `done` (Integrator: full "Done when" passes on the laptop) · `blocked`.
 
+## GitHub Pages showcase and manual-check correction · 2026-10-27 · built; publishing blocked
+
+Builder: Codex. The browser-only showcase and manual-check correction pass **196 Python tests, 75 web tests, lint, both production builds and the static artifact audit**. Demo-derived details are cleared on the first manual edit; restored extra details are visible. An exact batch with missing product or conflicting manufacturer details now requests evidence rather than incorrectly reporting no listing. The live browser found two local records for `TG261185` and requested printed pack details. Historical August 2013 examples remain outside the loaded January 2019–September 2026 index.
+
+The static showcase replays eleven authored fictional cases, with bounded browser-tab storage and working project-subpath routes. No local records or uploaded photos are published. Local app: **http://127.0.0.1:8765**; static preview: **http://127.0.0.1:4173/StripCheck/**. Pages is not enabled; the current account can push code but cannot manage Pages settings. The workflow builds a tested artifact and skips deployment until an owner chooses **Settings → Pages → Source: GitHub Actions**. See [`GITHUB_PAGES.md`](GITHUB_PAGES.md). This is not a claim that the public URL is live.
+
 ## Reviewed publication · 2026-10-27
 
 The user authorized publishing the reviewed implementation to `main`. Final local verification: **184 Python tests, 43 web tests, 14 compiled Swift checks, 11/11 synthetic scenarios**, clean web build/lint, live native API integration and more than twenty verification areas in [`RELEASE_CHECKS.md`](RELEASE_CHECKS.md). Implementation commit `691e3da` is published; both hosted jobs passed, including **nine XCTest cases and the full unsigned iOS simulator build**. Device interaction/signing/research requirements remain separate. Local preview: **http://127.0.0.1:8765**. Data was backed up before the offline parser refresh; source and alert identities were preserved. The newest handoff entry records the final review-page fix and publication evidence.

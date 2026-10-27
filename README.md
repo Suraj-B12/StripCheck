@@ -1,5 +1,9 @@
 # StripCheck
 
+## Public presentation
+
+A GitHub Pages build is provided for sharing the interface and eleven fictional guided examples. It does not check real medicines or upload photos. [Deployment and preview instructions](docs/GITHUB_PAGES.md) explain the one-time Pages setting and public-site boundaries; the local application below remains the real checking workflow.
+
 ## Reviewed build
 
 The efficiency and crash review passed **184 Python tests, 43 web tests, 14 compiled Swift checks** and all **11 synthetic scenarios**. See [the verification record](docs/RELEASE_CHECKS.md) for more than twenty checked areas, measurements and release limits. GitHub Actions checks the Python API, website and unsigned iOS simulator build on pushes to `main`.
@@ -135,3 +139,5 @@ Deviations of the code from `StripCheck_Build_Spec_v2.md` are listed here, each 
 - **D18:** On macOS, bounded Apple Vision OCR and barcode reading provide real image extraction. Tesseract and already-installed RapidOCR weights are fallbacks. Character crops use proportional character boundaries; they are visual evidence aids, not calibrated segmentation measurements. Local verification on macOS must run with access to the OS recognition service.
 - **D18:** The official JSON portal is the supported end-to-end ingestion route. Grounded PDF table/text extraction helpers exist, but a complete PDF repair pipeline, state-source feeds and CSV/HTML/XLSX schema repair remain research extensions. A normal refresh covers the most recent three published months; `--full` imports historical coverage. On managed Macs, the native HTTPS client uses the system certificate store with verification enabled.
 - **D18:** The built-in diagnostic cases are eleven authored synthetic scenarios with expected answers. Their results are software checks, not clinical accuracy, a calibrated medicine classifier, or the preregistered M7 research evaluation. Regional-language review, optional model benchmarking and paper results remain Integrator work.
+- **D20:** The public GitHub Pages build replays authored synthetic examples because Pages cannot host the Python API. It uses separate build output and hash navigation and publishes no local runtime data.
+- **D21:** Manual editing after a demo clears inherited fictional fields. An exact batch with missing or conflicting supporting details stays incomplete and asks for printed evidence; independent product/brand collisions still reject, and acceptance thresholds are unchanged.

@@ -11,6 +11,7 @@ import {
   Bookmark,
   Download,
 } from "lucide-react";
+import { PUBLIC_DEMO } from "../lib/environment";
 import { labelName, readableDate } from "../lib/api";
 import type { Snapshot, Step, Verdict } from "../lib/api";
 export function Modal({
@@ -224,7 +225,11 @@ export function VerdictCard({
     <section className={`verdict verdict-${result.label}`}>
       <div className="verdict-overline">
         <ShieldCheck size={20} />
-        {snapshot.demo ? "DEMONSTRATION RESULT" : "YOUR BATCH CHECK"}
+        {PUBLIC_DEMO
+          ? "RECORDED FICTIONAL EXAMPLE"
+          : snapshot.demo
+            ? "DEMONSTRATION RESULT"
+            : "YOUR BATCH CHECK"}
       </div>
       <h2>{result.headline}</h2>
       <p className="verdict-explanation">{result.explanation}</p>
@@ -241,7 +246,8 @@ export function VerdictCard({
                 {c.list_month ? `· ${readableDate(c.list_month)}` : ""}{" "}
                 {c.row_no ? `· Row ${c.row_no}` : ""}
               </span>
-              {typeof (c.url || c.source_url) === "string" &&
+              {!PUBLIC_DEMO &&
+                typeof (c.url || c.source_url) === "string" &&
                 /^https:\/\//.test(String(c.url || c.source_url)) && (
                   <a
                     href={String(c.url || c.source_url)}
@@ -258,7 +264,7 @@ export function VerdictCard({
       <div className="button-row">
         <button className="button primary" onClick={onSave}>
           <Bookmark size={18} />
-          Save to cabinet
+          {PUBLIC_DEMO ? "Save example" : "Save to cabinet"}
         </button>
         <button
           className="icon-button bordered"

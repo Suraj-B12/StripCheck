@@ -12,7 +12,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED = {'.git', '.venv', 'venv', 'node_modules', '.build', '.swiftpm', '__pycache__',
             '.pytest_cache', '.mypy_cache', '.ruff_cache', '.vite', '.idea', '.vscode',
-            'xcuserdata', 'data', 'runs', '.claude', '.codex', '.agents', '.aws', '.config'}
+            'xcuserdata', 'data', 'runs', 'dist-pages', '.claude', '.codex', '.agents', '.aws', '.config'}
 
 
 def main():

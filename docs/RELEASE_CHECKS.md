@@ -2,7 +2,15 @@
 
 The user requested an efficiency and crash review, at least ten checks, local hosting and a push to the original repository. Three independent code reviews covered the API/database, ingestion/image reading, and matching/native app; a fourth review checked the browser changes. The list below records distinct verification areas rather than repeating the same test to inflate a count.
 
-## Results before publication
+## Latest follow-up: Pages showcase and manual checks
+
+The follow-up passes **196 Python tests** (including 12 new incomplete-manual-evidence regressions) and **75 web tests across seven files**. The web suite covers demo-to-manual field isolation, all eleven public guided paths with no network calls, project-subpath navigation, bounded storage and malformed persisted state. Lint, local and Pages production builds, deterministic synthetic fixture comparison and the seven-file static artifact audit pass. Local JavaScript is **264.86 KB** plus **24.38 KB** loaded for secondary pages; Pages uses **256.23 KB**, **23.51 KB** for secondary pages and **62.45 KB** for its lazy fixture adapter. CSS is **42.30 KB**. No dependency was added.
+
+Actual browser checks verified that a fresh `TG261185` query finds two candidates and asks for printed identity details. The public preview completes a guided check, saves the example, survives a Cabinet hash-route refresh and displays all eleven recorded scenario outcomes. Existing Activity results remain historical snapshots.
+
+The Pages workflow publishes only the separately audited static directory. Publishing awaits the owner's one-time Pages setting; neither the configured public URL nor a successful deployment is claimed before that happens. See [the setup instructions](GITHUB_PAGES.md).
+
+## Earlier publication checks
 
 | # | Verification area | Evidence |
 |---|---|---|

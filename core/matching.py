@@ -65,8 +65,12 @@ def grade(entry, f):
         ev["maker"] = "match" if fuzz.token_set_ratio(entry["maker_name"].lower(), maker_name(f["maker"]).lower()) >= 85 else "mismatch"
     entry_has_dates = bool(entry.get("mfg") or entry.get("exp"))
     conf = "high"
-    if "mismatch" in (ev["product"], ev["maker"], ev["brand"]):
+    if "mismatch" in (ev["product"], ev["brand"]):
         st = "reject"                                    # batch collision or a different product: never flag
+    elif ev["batch"] in ("exact", "confirmed") and (ev["product"] == "unknown" or ev["maker"] == "mismatch"):
+        st = "needs_more_evidence"                       # missing/conflicting details do not erase an exact batch record
+    elif ev["maker"] == "mismatch":
+        st = "reject"
     elif ev["dates"] == "mismatch":
         if ev["product"] == "match" and ev["batch"] in ("exact", "confirmed"):
             small = all(_digit_diff(a, b) <= DATE_ASK_MAX_DIGITS for _, a, b in diffs)

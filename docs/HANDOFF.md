@@ -15,6 +15,20 @@
 
 ---
 
+## 2026-10-27 · Builder · Public showcase and manual batch-check repair · built
+
+- Changed: separate `/StripCheck/` static build, hash navigation, synthetic replay adapter and deterministic isolated fixture exporter, truthful public-mode labels, Pages workflow and artifact checks. Eleven authored scenarios work without a backend; real photos, checks, sync and source data remain local. D20 records this hosting boundary.
+- Fixed: editing a demo into a manual check clears inherited fictional manufacturer/brand/dates; restored extra fields are expanded. Exact batch candidates with missing product or conflicting maker details request additional evidence instead of disappearing into NOT_LISTED. Independent product/brand collisions still reject; no batch-only alert is accepted. D21 records the correction.
+- Ran: full `.venv/bin/python -m pytest -q` → **196 passed**, no skips, one upstream Starlette/httpx deprecation warning; `npm --prefix web test` → **75 passed**; lint → **0 warnings**; local and Pages builds passed; `node scripts/check_pages_build.mjs` → **7 static files passed**; deterministic fixture comparison and CLI selftest **11/11** passed. A separate 48-case synthetic batch-only safeguard matrix produced zero flagged outcomes.
+- Browser: clean manual `TG261185` check found two candidates and requested printed pack details with no fictional metadata. Public example confirmation/result/save, Cabinet persistence after hash-route refresh, and eleven recorded scenario outcomes were verified in the actual browser. Regression tests additionally exercise all eleven guided UI paths without network calls.
+- Data investigation: the three 2023/2026 example batches exist in the local index; the two August 2013 examples do not, because coverage starts January 2019. Relevant archived source hashes were verified. No real records, screenshots of checks or runtime data were added to Git.
+- Publishing blocker: repository API reports Pages disabled and the signed-in collaborator has push permission, not Pages administration. The workflow builds/uploads a reviewed site artifact and explicitly skips publishing until the repository owner enables GitHub Actions in Pages settings. Public URL availability must be confirmed after that setting and a successful deployment; it is not currently claimed.
+- ACTION (repository owner): enable **Settings → Pages → Source: GitHub Actions**, then run **Publish GitHub Pages showcase**. No personal access token belongs in the repository.
+- Local preview: **http://127.0.0.1:8765** runs the corrected backend and frontend; **http://127.0.0.1:4173/StripCheck/** previews the shareable showcase. Existing Activity results are historical snapshots; start a new check to use the correction.
+- Native: source unchanged this update. The earlier hosted unsigned simulator build and nine XCTest cases passed; device interaction, signing and App Store distribution remain separate release work.
+
+---
+
 ## 2026-10-27 · Builder · Published implementation and final UI correction · built
 
 - Published: `691e3da` to the original `main`, after pull/rebase and a passing post-sync Python/web test and build run. No data, photos, installed dependencies or generated website output was pushed.

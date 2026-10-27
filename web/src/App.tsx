@@ -1,6 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { storage } from "./lib/runtime";
 import {
+  PUBLIC_DEMO,
+  PROJECT_URL,
+  appHref,
+  currentPath,
+} from "./lib/environment";
+import {
   Activity,
   ArrowRight,
   Bookmark,
@@ -43,14 +49,29 @@ import { Modal } from "./components/Shared";
 import "./styles/tokens.css";
 import "./styles/app.css";
 const nav = [
-  { path: "/", name: "Check a pack", short: "Check", icon: ScanLine },
-  { path: "/lists", name: "Alert lists", short: "Lists", icon: ListChecks },
+  {
+    path: "/",
+    name: PUBLIC_DEMO ? "Try an example" : "Check a pack",
+    short: PUBLIC_DEMO ? "Explore" : "Check",
+    icon: ScanLine,
+  },
+  {
+    path: "/lists",
+    name: PUBLIC_DEMO ? "Example records" : "Alert lists",
+    short: "Lists",
+    icon: ListChecks,
+  },
   { path: "/cabinet", name: "Cabinet", short: "Cabinet", icon: Bookmark },
   { path: "/traces", name: "Activity", short: "Activity", icon: Activity },
-  { path: "/eval", name: "Diagnostics", short: "Tests", icon: FlaskConical },
+  {
+    path: "/eval",
+    name: PUBLIC_DEMO ? "Scenarios" : "Diagnostics",
+    short: PUBLIC_DEMO ? "Scenarios" : "Tests",
+    icon: FlaskConical,
+  },
 ];
 function App() {
-  const [path, setPath] = useState(window.location.pathname);
+  const [path, setPath] = useState(currentPath);
   const [health, setHealth] = useState<Health | null>(null);
   const [online, setOnline] = useState(true);
   const [toastMessage, setToast] = useState("");
@@ -70,11 +91,13 @@ function App() {
   useEffect(() => {
     refreshHealth();
     const id = setInterval(refreshHealth, 60000);
-    const pop = () => setPath(window.location.pathname);
+    const pop = () => setPath(currentPath());
     window.addEventListener("popstate", pop);
+    window.addEventListener("hashchange", pop);
     return () => {
       clearInterval(id);
       window.removeEventListener("popstate", pop);
+      window.removeEventListener("hashchange", pop);
     };
   }, []);
   useEffect(() => {
@@ -96,7 +119,7 @@ function App() {
   const navigate = (e: React.MouseEvent<HTMLAnchorElement>, target: string) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
     e.preventDefault();
-    history.pushState({}, "", target);
+    history.pushState({}, "", appHref(target));
     setPath(target);
     window.scrollTo({ top: 0, behavior: "instant" });
   };
@@ -109,13 +132,23 @@ function App() {
   const lanUrl = String(lan?.url || lan?.lan_url || health?.lan_url || "");
   return (
     <>
-      <a className="skip-link" href="#main">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(event) => {
+          if (PUBLIC_DEMO) {
+            event.preventDefault();
+            document.getElementById("main")?.focus();
+            document.getElementById("main")?.scrollIntoView();
+          }
+        }}
+      >
         Skip to content
       </a>
       <header className="site-header">
         <a
           className="brand"
-          href="/"
+          href={appHref("/")}
           onClick={(e) => navigate(e, "/")}
           aria-label="StripCheck home"
         >
@@ -129,7 +162,7 @@ function App() {
         <nav className="desktop-nav" aria-label="Main navigation">
           {nav.map((n) => (
             <a
-              href={n.path}
+              href={appHref(n.path)}
               key={n.path}
               aria-current={active === n.path ? "page" : undefined}
               onClick={(e) => navigate(e, n.path)}
@@ -146,27 +179,58 @@ function App() {
           >
             {theme === "light" ? <Moon size={18} /> : <Sun size={19} />}
           </button>
-          <button
-            className="phone-button"
-            aria-label="Use your phone"
-            onClick={() => setPhone(true)}
-          >
-            <Smartphone size={18} />
-            <span>Use your phone</span>
-          </button>
+          {PUBLIC_DEMO ? (
+            <a
+              className="phone-button"
+              href={PROJECT_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink size={18} />
+              <span>Get the app</span>
+            </a>
+          ) : (
+            <button
+              className="phone-button"
+              aria-label="Use your phone"
+              onClick={() => setPhone(true)}
+            >
+              <Smartphone size={18} />
+              <span>Use your phone</span>
+            </button>
+          )}
         </div>
       </header>
+      {PUBLIC_DEMO && (
+        <aside
+          className="public-demo-banner"
+          aria-label="Public demonstration notice"
+        >
+          <span className="demo-tag">PUBLIC DEMO</span>
+          <p>
+            Explore fictional packs and guided examples. Real medicine checks
+            and photo uploads are unavailable here.
+          </p>
+          <a href={PROJECT_URL} target="_blank" rel="noreferrer">
+            Run the full app locally <ArrowRight size={16} />
+          </a>
+        </aside>
+      )}
       <div className="system-strip">
         <span className={`connection-dot ${!online ? "offline" : ""}`} />
         <span>
-          {!online
-            ? "Server unavailable — reconnect to continue"
-            : latest
-              ? `Lists through ${readableDate(latest)}`
-              : "Local workspace"}
+          {PUBLIC_DEMO
+            ? online
+              ? "Interactive showcase · Fictional data"
+              : "Demo content unavailable — refresh to retry"
+            : !online
+              ? "Server unavailable — reconnect to continue"
+              : latest
+                ? `Lists through ${readableDate(latest)}`
+                : "Local workspace"}
         </span>
-        {latest && <span className="system-divider">/</span>}
-        {latest && (
+        {!PUBLIC_DEMO && latest && <span className="system-divider">/</span>}
+        {!PUBLIC_DEMO && latest && (
           <span>
             {Number(health?.db?.alerts || 0).toLocaleString("en-IN")} records
           </span>
@@ -176,8 +240,9 @@ function App() {
       </div>
       {!online && (
         <div role="alert" className="connection-warning">
-          The local server is not responding. Start StripCheck and refresh this
-          page.
+          {PUBLIC_DEMO
+            ? "The example content could not be loaded. Refresh this page to try again."
+            : "The local server is not responding. Start StripCheck and refresh this page."}
           <button onClick={refreshHealth} className="text-button">
             Retry connection
           </button>
@@ -209,7 +274,7 @@ function App() {
         <div>
           <a
             className="brand footer-brand"
-            href="/"
+            href={appHref("/")}
             onClick={(e) => navigate(e, "/")}
           >
             <span className="brand-mark">
@@ -222,9 +287,14 @@ function App() {
         <div className="footer-advisory">
           <p>
             An independent student project. Not a CDSCO service.
-            <br />A batch check is advisory and does not certify a medicine.
             <br />
-            Discuss questions about your pack with your pharmacist.
+            {PUBLIC_DEMO
+              ? "Fictional examples only. This website does not check real medicines."
+              : "A batch check is advisory and does not certify a medicine."}
+            <br />
+            {PUBLIC_DEMO
+              ? "Saved examples stay in this browser tab for this visit."
+              : "Discuss questions about your pack with your pharmacist."}
           </p>
           <button className="text-button" onClick={() => setAbout(true)}>
             About this project <ChevronRight size={14} />
@@ -234,7 +304,7 @@ function App() {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {nav.map((n) => (
           <a
-            href={n.path}
+            href={appHref(n.path)}
             key={n.path}
             aria-current={active === n.path ? "page" : undefined}
             onClick={(e) => navigate(e, n.path)}
@@ -257,7 +327,7 @@ function App() {
           </button>
         </div>
       )}
-      {phone && (
+      {!PUBLIC_DEMO && phone && (
         <Modal
           title="A closer look. On your phone."
           onClose={() => setPhone(false)}
@@ -322,6 +392,13 @@ function App() {
         <Modal title="A little context." onClose={() => setAbout(false)}>
           <div className="about-copy">
             <ShieldCheck size={34} />
+            {PUBLIC_DEMO && (
+              <p className="notice demo-notice">
+                This public website replays 11 authored scenarios using
+                fictional data. It does not run photo recognition, query
+                official lists or check real medicines.
+              </p>
+            )}
             <h3>Evidence comes first.</h3>
             <p>
               StripCheck compares the exact batch printed on a medicine pack
@@ -333,21 +410,24 @@ function App() {
               “No listing found” describes only the records currently loaded. It
               is not a statement about the medicine’s quality.
             </p>
-            <h3>Designed to stay local.</h3>
+            <h3>
+              {PUBLIC_DEMO
+                ? "A preview of the local app."
+                : "Designed to stay local."}
+            </h3>
             <p>
-              Photos, checks and saved packs are stored on the computer running
-              StripCheck. Only the explicit list-sync action contacts the
-              official data source. Native iPhone checks send photos to your
-              configured StripCheck computer.
+              {PUBLIC_DEMO
+                ? "To check a real pack, install and run the full project on your own computer. This showcase stores only example activity and saved examples in your browser tab for this visit."
+                : "Photos, checks and saved packs are stored on the computer running StripCheck. Only the explicit list-sync action contacts the official data source. Native iPhone checks send photos to your configured StripCheck computer."}
             </p>
             <p>
-              Demonstrations use invented data and are always labelled.
-              Diagnostics test software behaviour; research validation is a
-              separate task.
+              {PUBLIC_DEMO
+                ? "Scenario results are recorded examples, not a live diagnostic run or a measure of accuracy on real medicine photographs."
+                : "Demonstrations use invented data and are always labelled. Diagnostics test software behaviour; research validation is a separate task."}
             </p>
             <a
               className="text-link"
-              href="https://github.com/Suraj-B12/StripCheck"
+              href={PROJECT_URL}
               target="_blank"
               rel="noreferrer"
             >

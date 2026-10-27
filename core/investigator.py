@@ -272,7 +272,7 @@ def investigate(fields, alerts, context=None, answer=None):
         elif pending_rows and (not accepted or any(c["status"] == "needs_confirm_field" for c in pending_rows)):
             top = next((candidate for candidate in pending_rows if candidate["status"] == "needs_confirm_field"), pending_rows[0])
             kind = {"needs_confirm_char": "confirm_char", "needs_confirm_field": "confirm_field", "needs_more_evidence": "box_photo", "adjudicate": "box_photo"}[top["status"]]
-            if can_ask and kind not in state["declined"] and (not text_mode or kind == "confirm_field"):
+            if can_ask and kind not in state["declined"] and (not text_mode or kind in {"confirm_field", "box_photo"}):
                 pending = question(kind, fields, top, [sub[0] + 1 for sub in top.get("subs", [])])
                 pending["subs"] = top.get("subs", [])
                 _log(state, "ask_user", "A printed detail needs your confirmation.")

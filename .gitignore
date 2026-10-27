@@ -31,6 +31,7 @@ htmlcov/
 # Node / web build
 node_modules/
 web/dist/
+web/dist-pages/
 web/.vite/
 *.tsbuildinfo
 npm-debug.log*

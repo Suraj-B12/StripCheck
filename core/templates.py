@@ -86,6 +86,9 @@ def render_verdict(label, fields, entry=None, context=None, reason="", batch_evi
             differences = entry.get("date_diffs", [])
             detail = "; ".join(f"{key}: list {listed}, pack {pack}" for key, listed, pack in differences)
             explanation = f"StripCheck could not verify this pack: the alert for batch {clean_text(entry.get('batch_key'))} has different dates ({clean_text(detail)}). Ask your pharmacist to check the printed dates and batch against the cited alert."
+        elif entry.get("evidence", {}).get("batch") in {"exact", "confirmed"}:
+            record = "A synthetic demonstration record" if demo else "A stored alert record"
+            explanation = f"{record} shares batch {clean_text(entry.get('batch_raw') or entry.get('batch_key'))}, but the printed details do not establish that it applies to this pack. Check the product name, manufacturer and printed dates against the cited record."
         else:
             explanation = f"StripCheck could not verify this pack: {clean_text(reason) or 'the available details do not establish a matching record'}. Ask your pharmacist to check the batch number against CDSCO's alerts."
         advice = "Ask your pharmacist to check the batch number and printed details. Do not stop any prescribed medicine without medical advice."
@@ -117,5 +120,8 @@ def question(kind, fields, entry=None, positions=None):
         human = "expiry" if name == "exp" else "manufacturing"
         base.update(question=f"Your pack's {human} date reads {pack}; the alert lists {listed}. Which is printed?", field=name, pack=pack, listed=listed, options=[listed, pack, "Can't tell"])
     else:
-        base.update(question="A batch number alone cannot establish a match. Add the product name and the manufacturer or printed dates from the pack or carton.", options=["Add printed details", "Can't tell"], fields=["product", "brand", "maker", "mfg", "exp"])
+        prompt = "A batch number alone cannot establish a match. Add the product name and the manufacturer or printed dates from the pack or carton."
+        if entry.get("evidence", {}).get("batch") in {"exact", "confirmed"}:
+            prompt = f"A record shares batch {clean_text(entry.get('batch_raw') or entry.get('batch_key'))}. To check whether it applies to this pack, add the product name and manufacturer or printed dates exactly as shown on the pack or carton. Review any details already entered."
+        base.update(question=prompt, options=["Add printed details", "Can't tell"], fields=["product", "brand", "maker", "mfg", "exp"])
     return base
