@@ -1052,7 +1052,7 @@ export default function CheckScreen({
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <h3>{d.name || d.title || d.id.replaceAll("_", " ")}</h3>
+                    <h3>{d.name || d.title || String(d.id ?? "").replaceAll("_", " ")}</h3>
                     <p>{d.description}</p>
                   </div>
                   <ChevronRight size={19} />

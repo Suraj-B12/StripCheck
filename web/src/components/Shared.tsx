@@ -147,6 +147,11 @@ export function Empty({
     </div>
   );
 }
+// Older or server-side steps may name themselves with `node` instead of `action`; never crash the timeline on either.
+function stepLabel(step: Step): string {
+  const raw = (step as Step & { node?: unknown }).action ?? (step as Step & { node?: unknown }).node ?? "step";
+  return String(raw).replaceAll("_", " ");
+}
 export function StepTimeline({ steps }: { steps: Step[] }) {
   return (
     <ol className="timeline">
@@ -154,7 +159,7 @@ export function StepTimeline({ steps }: { steps: Step[] }) {
         <li key={`${i}-${step.action}`}>
           <span className="step-index">{String(i + 1).padStart(2, "0")}</span>
           <div>
-            <strong>{step.action.replaceAll("_", " ")}</strong>
+            <strong>{stepLabel(step)}</strong>
             <p>{step.summary}</p>
           </div>
           <span className="step-source">

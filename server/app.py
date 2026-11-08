@@ -409,7 +409,7 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
                     image_fields = {}
                     reader_batches = []
                     for image_path in images:
-                        emit("step", {"node": "perception", "summary": "Reading the printed pack details locally.", "source": "ocr"})
+                        emit("step", {"action": "read_pack", "node": "perception", "summary": "Reading the printed pack details locally.", "source": "ocr"})
                         reading = read_pack(image_path)
                         from core.textutils import batch_key
                         observed = batch_key(reading.get("fields", {}).get("batch", ""))
