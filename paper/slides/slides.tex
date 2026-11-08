@@ -31,6 +31,17 @@
 \newif\ifresults
 \IfFileExists{../generated/results.tex}{\input{../generated/results}\resultstrue}{\resultsfalse}
 \newcommand{\res}[1]{\ifcsname #1\endcsname\csname #1\endcsname\else\textcolor{brick}{[pending]}\fi}
+% Run 1 (before the D25 fixes): the only hand-typed results, copied from commit e283407.
+\input{../run1_results}
+% Rule R-C from generated macros (same test as main.tex).
+\newif\ifRCholds
+\def\RCheld{held}
+\ifcsname ResHybridOracleLatMedian\endcsname
+  \edef\RCfour{\ResPredictionFour}
+  \ifx\RCfour\RCheld
+    \ifdim\ResHybridOracleLatMedian pt>\dimexpr\ResRulesOracleLatMedian pt*2\relax\else\RCholdstrue\fi
+  \fi
+\fi
 \newcommand{\pending}[1]{\begin{center}\fcolorbox{brick}{bricksoft}{\parbox{0.8\textwidth}{\centering\color{brick}\textbf{Results pending.} #1}}\end{center}}
 \newcommand{\V}[1]{\textsc{\lowercase{#1}}}
 \newcommand{\bignum}[2]{\begin{minipage}[t]{0.3\textwidth}\centering{\fontsize{20}{22}\selectfont\color{teal}\textbf{#1}}\\[2pt]{\small\color{muted}#2}\end{minipage}}
@@ -57,28 +68,29 @@
 \centering
 \small
 {\color{muted}\res{ResN} rendered packs, eval seed \res{ResSeed}, index of \res{ResAlertCount} alerts}\\[3mm]
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
- & Lookup & Agent (rules) & Agent (rules) \\
-Metric & oracle & oracle & questions skipped \\
+ & Lookup & Agent (rules) & Agent (hybrid) & Agent (rules) \\
+Metric & oracle & oracle & oracle & questions skipped \\
 \midrule
-Hit recall & \res{ResBaseOracleHitRecallK} & \res{ResRulesOracleHitRecallK} & \res{ResRulesSkipHitRecallK} \\
-False alarms, collisions & \textcolor{brick}{\res{ResBaseOracleFARCollisionK}} & \textcolor{teal}{\res{ResRulesOracleFARCollisionK}} & \res{ResRulesSkipFARCollisionK} \\
-False alarms, siblings & \textcolor{brick}{\res{ResBaseOracleFARSiblingK}} & \textcolor{teal}{\res{ResRulesOracleFARSiblingK}} & \res{ResRulesSkipFARSiblingK} \\
-False alarms, all unlisted & \res{ResBaseOracleFARK} & \res{ResRulesOracleFARK} & \res{ResRulesSkipFARK} \\
-Abstentions & \res{ResBaseOracleAbstainK} & \res{ResRulesOracleAbstainK} & \res{ResRulesSkipAbstainK} \\
-Overall accuracy & \res{ResBaseOracleAccuracyK} & \res{ResRulesOracleAccuracyK} & \res{ResRulesSkipAccuracyK} \\
-Questions per pack & \res{ResBaseOracleQuestions} & \res{ResRulesOracleQuestions} & \res{ResRulesSkipQuestions} \\
-Median latency (s) & \res{ResBaseOracleLatMedian} & \res{ResRulesOracleLatMedian} & \res{ResRulesSkipLatMedian} \\
-Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \res{ResRulesSkipSafety} \\
+Hit recall & \res{ResBaseOracleHitRecallK} & \res{ResRulesOracleHitRecallK} & \res{ResHybridOracleHitRecallK} & \res{ResRulesSkipHitRecallK} \\
+False alarms, collisions & \textcolor{brick}{\res{ResBaseOracleFARCollisionK}} & \textcolor{teal}{\res{ResRulesOracleFARCollisionK}} & \textcolor{teal}{\res{ResHybridOracleFARCollisionK}} & \res{ResRulesSkipFARCollisionK} \\
+False alarms, siblings & \textcolor{brick}{\res{ResBaseOracleFARSiblingK}} & \textcolor{teal}{\res{ResRulesOracleFARSiblingK}} & \textcolor{teal}{\res{ResHybridOracleFARSiblingK}} & \res{ResRulesSkipFARSiblingK} \\
+False alarms, all unlisted & \res{ResBaseOracleFARK} & \res{ResRulesOracleFARK} & \res{ResHybridOracleFARK} & \res{ResRulesSkipFARK} \\
+Abstentions & \res{ResBaseOracleAbstainK} & \res{ResRulesOracleAbstainK} & \res{ResHybridOracleAbstainK} & \res{ResRulesSkipAbstainK} \\
+Overall accuracy & \res{ResBaseOracleAccuracyK} & \res{ResRulesOracleAccuracyK} & \res{ResHybridOracleAccuracyK} & \res{ResRulesSkipAccuracyK} \\
+Questions per pack & \res{ResBaseOracleQuestions} & \res{ResRulesOracleQuestions} & \res{ResHybridOracleQuestions} & \res{ResRulesSkipQuestions} \\
+Latency median / p95 (s) & \res{ResBaseOracleLatMedian} / \res{ResBaseOracleLatPNinetyFive} & \res{ResRulesOracleLatMedian} / \res{ResRulesOracleLatPNinetyFive} & \res{ResHybridOracleLatMedian} / \res{ResHybridOracleLatPNinetyFive} & \res{ResRulesSkipLatMedian} / \res{ResRulesSkipLatPNinetyFive} \\
+Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \res{ResHybridOracleSafety} & \res{ResRulesSkipSafety} \\
 \bottomrule
-\end{tabular}
+\end{tabular}\\[2mm]
+{\scriptsize\color{amber}Run 2, after three general fixes made once run 1 had been seen: optimistic (see backup).}
 }
 \newcommand{\OutcomeText}{
-\textbf{\color{teal}Decision (oracle user):} \res{ResRulesOracleDecision} the agent.\\
-McNemar $p=\res{ResRulesOracleMcNemarP}$.\\[1mm]
-\textbf{Prediction:} collisions \res{ResPredictionTwo}; clean packs \res{ResPredictionOne}; misreads \res{ResPredictionThree}.\\[1mm]
-\textbf{Surprise:} clean + QR recall \res{ResBaseOracleHitRecallCleanQRK} (lookup) vs \res{ResRulesOracleHitRecallCleanQRK} (agent): stricter evidence costs some true hits. With questions skipped the agent abstains instead of guessing.
+\textbf{\color{teal}R-A (oracle user):} \res{ResRulesOracleDecision} the agent, McNemar $p={}$\res{ResRulesOracleMcNemarP}. Questions skipped: \res{ResRulesSkipDecision}; the agent abstains on \res{ResRulesSkipAbstainK}.\\[1mm]
+\textbf{R-C:} \ifRCholds holds: the hybrid planner gives the same labels at median \res{ResHybridOracleLatMedian}\,s vs \res{ResRulesOracleLatMedian}\,s, but p95 \res{ResHybridOracleLatPNinetyFive}\,s vs \res{ResRulesOracleLatPNinetyFive}\,s.\else does not hold; rules stay the default.\fi\\[1mm]
+\textbf{Prediction:} clean \res{ResPredictionOne}; collisions \res{ResPredictionTwo}; misreads \res{ResPredictionThree}; hybrid = rules \res{ResPredictionFour}.\\[1mm]
+\textbf{\color{amber}Run 1 (\RunOneCommit):} hit recall \RunOneRulesOracleHitRecallK, clean \RunOneRulesOracleCleanK, misreads \RunOneRulesOracleMisreadK, also \RunOneRulesOracleDecision. Three code defects fixed after it, so run 2 is optimistic.
 }
 \else
 \newcommand{\ResultsSlide}{
@@ -112,7 +124,7 @@ McNemar $p=\res{ResRulesOracleMcNemarP}$.\\[1mm]
 \end{itemize}
 \vfill
 \begin{center}
-\bignum{\NumAlertRows}{alert rows, \FirstMonth{} to \LastMonth}\hfill
+\bignum{\NumAlertRows}{published rows, \FirstMonth{} to \LastMonth; \res{ResAlertCount} indexed after cleaning}\hfill
 \bignum{\RowsYearTwentyFive}{rows in 2025 alone}\hfill
 \bignum{\ShelfTwelvePlusPct\%}{of flagged batches still have $\geq$12 months of shelf life at the alert}
 \end{center}
@@ -262,7 +274,7 @@ Concept & In StripCheck & Evidence \\
 Tool use & QR, OCR, extract, search, grade, ask, draft & one trace step per call \\
 Agentic RAG & exact $\rightarrow$ variants $\rightarrow$ grade 5 fields $\rightarrow$ re-query or abstain & candidates and grades in the check \\
 Planning & planner loop; hybrid LLM picks among allowed actions & \emph{source} of each step \\
-Observability & JSONL trace per check, live timeline & \texttt{data/traces/<check>.jsonl} \\
+Observability & JSONL trace per check, live timeline; optional OpenTelemetry export to Phoenix & \texttt{data/traces/<check>.jsonl} and a Phoenix trace \\
 Multi-agent & supervisor, ingest, investigator, verifier & re-check report, rule results \\
 Memory & cabinet re-check; confirmed confusions as a prior & ``Prior confirmed corrections: 8 to B: 1'' \\
 HITL + guardrails & five question kinds, templates, banned phrases & question and resumed answer \\
@@ -304,7 +316,7 @@ Experimentation & lookup vs agent (rules) vs agent (hybrid) & A/B tables \\
 \begin{column}{0.5\textwidth}
 \textbf{Test sets}
 \begin{itemize}
-\item Packs rendered from real alert rows: clean, QR, glare, misread, spurious, collision, unlisted.
+\item \res{ResN} cartons rendered from real alert rows: \res{ResMixClean} each of clean, QR, glare, misread, spurious, collision, unlisted; \res{ResMixSibling} sibling.
 \item Tuned on seed 1 only; reported on seed 7.
 \item Eleven authored diagnostic scenarios run offline in the test suite.
 \end{itemize}
@@ -330,12 +342,12 @@ Wilson 95\% intervals; exact McNemar for paired arms.
 \end{frame}
 
 % 10
-\begin{frame}{Results (oracle user)}
+\begin{frame}{Results on the evaluation set}
 \ResultsSlide
 \end{frame}
 
 % 11
-\begin{frame}{A/B decision, surprises and limitations}
+\begin{frame}{A/B decision and limitations}
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
 \footnotesize
@@ -351,6 +363,7 @@ Adopt the agent if collision false alarms drop by $\geq$50\% (relative) and hit 
 \item all packs are synthetic; no real strip photos yet; English labels only
 \item the oracle answers perfectly; real people may not
 \item small packs per scenario; laptop CPU latency
+\item reported run follows fixes made after run 1 on the same seed
 \end{itemize}
 \end{column}
 \end{columns}
@@ -384,8 +397,12 @@ trace timeline \textperiodcentered{} cabinet notification}
 \end{tabular}
 \end{frame}
 
-\begin{frame}{Backup: per-scenario counts (generated)}
-\IfFileExists{../generated/results_tables.tex}{\ShowGeneratedTables{3,4}}{\pending{Per-scenario counts come from \texttt{paper/generated/results\_tables.tex}.}}
+\begin{frame}{Backup: per-scenario counts, oracle user (generated)}
+\IfFileExists{../generated/results_tables.tex}{\ShowGeneratedTables[0.8]{3}}{\pending{Per-scenario counts come from \texttt{paper/generated/results\_tables.tex}.}}
+\end{frame}
+
+\begin{frame}{Backup: per-scenario counts, questions skipped (generated)}
+\IfFileExists{../generated/results_tables.tex}{\ShowGeneratedTables[0.8]{4}}{\pending{Per-scenario counts come from \texttt{paper/generated/results\_tables.tex}.}}
 \end{frame}
 
 \begin{frame}{Backup: registered predictions and outcomes (generated)}
@@ -397,7 +414,7 @@ trace timeline \textperiodcentered{} cabinet notification}
 \begin{tabularx}{\textwidth}{@{}l X@{}}
 \toprule
 R1 & label is one of the four verdicts \\
-R2 & alarm needs accepted candidate, exact or confirmed batch, gate evidence, product match, no mismatch \\
+R2 & alarm needs accepted candidate, exact or confirmed batch, gate evidence, product match (or partial match with dates and maker matching), no mismatch \\
 R3 & \V{SUSPECTED\_FAKE} only for spurious entries; \V{FLAGGED} only for NSQ-type entries \\
 R4 & \V{NOT\_LISTED} needs grounded batch, both searches, nothing pending, data loaded \\
 R5 & traceable citation; no banned phrase (safe, genuine, authentic, stop taking \ldots) \\
@@ -416,13 +433,48 @@ A draft that breaks any rule becomes \V{CANT\_VERIFY}, with the rule identifiers
 Design & As built \\
 \midrule
 LangGraph + checkpoints & bounded custom engine; whole check state as a JSON document in SQLite \\
-Arize Phoenix & JSONL trace per check and live timeline; tracer optional \\
+Arize Phoenix & JSONL trace per check and live timeline; OpenTelemetry export to Phoenix is opt-in \\
 Streamlit & FastAPI + React web app, plus a native iOS client \\
 PDF parsing first & portal JSON end to end; PDF helpers only \\
 VLM second reader & not shipped; QR or two agreeing photos count as independent \\
 Send back once & only when the LLM planner drafts too early; otherwise failing draft becomes \V{CANT\_VERIFY} \\
+Engine of run 1 & three defects fixed after run 1 (D25): full product text graded, R2 accepts partial matches that grading accepts, every look-alike position asked \\
 \bottomrule
 \end{tabularx}
+\end{frame}
+
+\begin{frame}{Backup: run 1, the three fixes and run 2}
+\small
+\begin{columns}[T]
+\begin{column}{0.44\textwidth}
+\footnotesize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Agent (rules), oracle & Run 1 & Run 2 \\
+\midrule
+Hit recall & \RunOneRulesOracleHitRecallK & \res{ResRulesOracleHitRecallK} \\
+Clean + QR recall & \RunOneRulesOracleHitRecallCleanQRK & \res{ResRulesOracleHitRecallCleanQRK} \\
+Collision false alarms & \RunOneRulesOracleFARCollisionK & \res{ResRulesOracleFARCollisionK} \\
+Overall accuracy & \RunOneRulesOracleAccuracyK & \res{ResRulesOracleAccuracyK} \\
+McNemar \textit{p} & \RunOneRulesOracleMcNemarP & \res{ResRulesOracleMcNemarP} \\
+Decision (R-A) & \RunOneRulesOracleDecision & \res{ResRulesOracleDecision} \\
+Clean tie & \RunOnePredictionOne & \res{ResPredictionOne} \\
+Misread recovery & \RunOnePredictionThree & \res{ResPredictionThree} \\
+\bottomrule
+\end{tabular}\\[1mm]
+{\scriptsize\color{muted}Run 1: commit \texttt{\RunOneCommit}, typed from its generated files.}
+\end{column}
+\begin{column}{0.53\textwidth}
+\footnotesize
+All \RunOneRulesOracleMisses{} misses of run 1 had a brand line above the generic name.
+\begin{enumerate}
+\item grading saw only product and brand; now the full product text
+\item R2 demanded a full product match; now it accepts the partial match grading accepts
+\item the batch confirmation asked two look-alike positions; now every one
+\end{enumerate}
+General code defects, no item-specific rule. \textbf{\color{amber}But the fixes came after seeing run 1 on the evaluation seed, so run 2 is optimistic.} A fresh seed and real photos are the next test.
+\end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}{Backup: team contributions}

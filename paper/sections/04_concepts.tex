@@ -68,7 +68,7 @@ The verifier is independent of the drafting code: it re-checks the draft against
 Rule & Requirement \\
 \midrule
 R1 & The label is one of the four verdicts \\
-R2 & An alarm needs an accepted candidate, an exact or confirmed batch, gate evidence, a product match and no field mismatch \\
+R2 & An alarm needs an accepted candidate, an exact or confirmed batch, gate evidence, a product match (or a partial match when dates and maker both match) and no field mismatch \\
 R3 & \SFAKE{} only for spurious entries, \FLAGGED{} only for NSQ-type entries \\
 R4 & \NLISTED{} needs a grounded batch, both searches, no pending or accepted candidate, loaded data and no truncation \\
 R5 & An alarm cites a traceable source; no text contains a banned phrase \\
@@ -82,4 +82,4 @@ R10 & Only reviewed languages are shown \\
 \end{table}
 
 \subsection{Feedback loop and memory}
-When a person corrects a character on a photographed pack, the server stores the pair (read character, printed character) in a confusion table, once per answer. On the next check the prior reorders the variant candidates by the channel score of Section~\ref{sec:impl} and chooses which characters the confirmation asks about, and the trace says so (Table~\ref{tab:concepts}, memory row). The question itself adds, from a template: ``Earlier checks on this computer confirmed that the photo reader read B as 8 once. Please still check the printed character yourself.'' The prior never skips the question, because two batches of one product from one maker can differ by exactly the character in doubt. The cabinet is the second memory: after each sync the supervisor runs every saved pack through the same investigator without questions and creates a notification when one now matches a listed entry, or when its printed expiry month is less than 30 days away.
+When a person corrects a character on a photographed pack, the server stores the pair (read character, printed character) in a confusion table, once per answer. On the next check the prior reorders the variant candidates by the channel score of Section~\ref{sec:impl} and orders the characters the confirmation asks about, and the trace says so (Table~\ref{tab:concepts}, memory row). The question itself adds, from a template: ``Earlier checks on this computer confirmed that the photo reader read B as 8 once. Please still check the printed character yourself.'' The prior never skips the question, because two batches of one product from one maker can differ by exactly the character in doubt. The cabinet is the second memory: after each sync the supervisor runs every saved pack through the same investigator without questions and creates a notification when one now matches a listed entry, or when its printed expiry month is less than 30 days away.

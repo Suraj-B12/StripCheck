@@ -29,12 +29,17 @@ Median latency (s) & \res{ResBaseOracleLatMedian} & \res{ResRulesOracleLatMedian
 \bottomrule
 \end{tabularx}
 \end{table}
-Table~\ref{tab:decision} collects the numbers rule R-A uses, on \res{ResN} packs of evaluation seed \res{ResSeed} checked against an index of \res{ResAlertCount} alerts. With the oracle user the decision under R-A is: \textbf{\res{ResRulesOracleDecision}}. The exact McNemar test on overall correctness gives $p = \res{ResRulesOracleMcNemarP}$ (discordant packs: \res{ResRulesOracleMcNemarB} where only the agent is correct, \res{ResRulesOracleMcNemarC} where only the baseline is). With every question skipped the decision is: \res{ResRulesSkipDecision}. The agent's hit recall then falls to \res{ResRulesSkipHitRecall} (\res{ResRulesSkipHitRecallK}) and its abstention rate rises to \res{ResRulesSkipAbstain}, while its false-alarm rate stays at \res{ResRulesSkipFAR}. The agent does not guess when nobody confirms the batch; it abstains, so its recall depends on the person answering.
+Table~\ref{tab:decision} collects the numbers rule R-A uses, on \res{ResN} packs of evaluation seed \res{ResSeed} checked against an index of \res{ResAlertCount} alerts. With the oracle user the decision under R-A is: \textbf{\res{ResRulesOracleDecision}}. The exact McNemar test on overall correctness gives $p = {}$\res{ResRulesOracleMcNemarP} (discordant packs: \res{ResRulesOracleMcNemarB} where only the agent is correct, \res{ResRulesOracleMcNemarC} where only the baseline is). With every question skipped the decision is: \res{ResRulesSkipDecision}. The agent's hit recall then falls to \res{ResRulesSkipHitRecall} (\res{ResRulesSkipHitRecallK}) and its abstention rate rises to \res{ResRulesSkipAbstain}, while its false-alarm rate stays at \res{ResRulesSkipFAR}. When nobody confirms the batch, the agent abstains, so its recall depends on the person answering. The packs it still gets right without answers are those whose batch came from a QR code and the collision and unlisted packs (Table~\ref{tab:scenario-none}).
 
-\emph{The registered prediction.} The collision part \res{ResPredictionTwo}. The clean-pack part \res{ResPredictionOne}, and the misread part \res{ResPredictionThree}; Table~\ref{tab:predictions} gives the counts. The baseline was correct on more clean and QR packs than the agent: hit recall on clean and QR packs was \res{ResBaseOracleHitRecallCleanQRK} for the baseline and \res{ResRulesOracleHitRecallCleanQRK} for the agent. We report this as a cost of the stricter evidence rules; finding the exact cause of each lost pack needs a per-pack review of the traces. The agent paid \res{ResRulesOracleQuestions} questions per pack and a median latency of \res{ResRulesOracleLatMedian}\,s against \res{ResBaseOracleLatMedian}\,s for the baseline, most of which is OCR time in both arms. No arm produced a safety violation.
+\emph{The registered prediction.} Table~\ref{tab:predictions} gives each part with its counts. The clean-pack part \res{ResPredictionOne}, the collision part \res{ResPredictionTwo}, the misread part \res{ResPredictionThree} and the part on hybrid and rule labels \res{ResPredictionFour}. A further check, whether the hybrid planner does better on partial product matches, was \res{ResPredictionFive}, because no evaluation pack produced a partial product match. Hit recall on clean and QR packs was \res{ResBaseOracleHitRecallCleanQRK} for the baseline and \res{ResRulesOracleHitRecallCleanQRK} for the agent. The agent paid \res{ResRulesOracleQuestions} questions per pack and a median latency of \res{ResRulesOracleLatMedian}\,s against \res{ResBaseOracleLatMedian}\,s for the baseline, most of which is OCR time in both arms. No arm produced a safety violation.
 
 \ifcsname ResHybridOracleHitRecall\endcsname
-The hybrid planner reached hit recall \res{ResHybridOracleHitRecall} and collision false alarms \res{ResHybridOracleFARCollision}, with median latency \res{ResHybridOracleLatMedian}\,s; rule R-C decides whether it becomes the default.
+\emph{Rule R-C.} The hybrid planner consulted the local model on \res{ResHybridOracleLLMSteps} steps with \res{ResHybridOracleFallbackSteps} fallbacks to rules. It reached hit recall \res{ResHybridOracleHitRecall} and collision false alarms \res{ResHybridOracleFARCollisionK}, and the prediction that it matches the rule planner on every label \res{ResPredictionFour}. Its median latency was \res{ResHybridOracleLatMedian}\,s against \res{ResRulesOracleLatMedian}\,s for the rule planner.
+\ifRCholds
+Identical labels leave no discordant pair, so its accuracy is not lower, and its median latency is within the factor of two that R-C allows. R-C therefore holds, and by the registered rule the hybrid planner may be the default wherever a local model runs. The median hides the cost in the tail. The 95th-percentile latency was \res{ResHybridOracleLatPNinetyFive}\,s against \res{ResRulesOracleLatPNinetyFive}\,s, because each model call takes seconds on a laptop CPU. On these packs the model changed no verdict; it adds a written reason for each branch decision to the trace.
+\else
+On these numbers R-C does not hold, so the rule planner remains the default. The 95th-percentile latency was \res{ResHybridOracleLatPNinetyFive}\,s against \res{ResRulesOracleLatPNinetyFive}\,s.
+\fi
 \else
 The generated results contain no hybrid-planner arm, so rule R-C could not be applied and the rule planner remains the default.
 \fi
@@ -42,5 +47,35 @@ The generated results contain no hybrid-planner arm, so rule R-C could not be ap
 \pendingbox{The outcome of rules R-A and R-C, the comparison with the registered prediction and the cost of each arm are written from \texttt{paper/generated/results.tex} once the evaluation has run.}
 \fi
 
+\subsection{A first run and three fixes}
+\label{sec:runs}
+The evaluation seed was run twice, and the tables above are from the second run. The first run (commit \texttt{\RunOneCommit}) used the same packs, arms and decision rules. It also gave \textbf{\RunOneRulesOracleDecision} under R-A: with the oracle user the agent reached hit recall \RunOneRulesOracleHitRecall{} (\RunOneRulesOracleHitRecallK) with \RunOneRulesOracleFARCollisionK{} collision false alarms, and McNemar gave $p = \RunOneRulesOracleMcNemarP$ (\RunOneRulesOracleMcNemarB{} packs where only the agent was correct, \RunOneRulesOracleMcNemarC{} where only the baseline was). Two parts of the prediction failed: the agent was correct on \RunOneRulesOracleCleanK{} clean packs and on \RunOneRulesOracleMisreadK{} misread packs. Table~\ref{tab:runs} sets the two runs side by side.
+
+The \RunOneRulesOracleMisses{} alarms the agent missed in the first run were all on cartons that print a brand line above the generic name. Reading their traces, and reviewing the code for the project guide, showed three defects. (1) The investigator kept only the product and brand fields for grading, so a brand line could hide the generic name and a listed batch was rejected as a collision; grading now sees the whole product text the reader returned. (2) Verifier rule R2 demanded a full product match, while grading accepts a partial match when dates and maker both match, so a person could answer every question and still receive \CANTV; R2 now accepts what grading accepts. (3) The batch confirmation asked only the first two look-alike positions, so a misread at a third position could confirm the wrong batch; it now asks every look-alike position. The fixes are recorded as decision D25. Each one changes a general rule of the engine, and none refers to a pack, batch or threshold of the evaluation set. They were still made after we had seen the first run on the evaluation seed, so the second run is no longer a held-out test, and its numbers are optimistic. A fresh seed and real photos are needed for an unbiased estimate.
+
+\begin{table}[t]
+\centering
+\caption{Agent with the rule planner on seed 7 before and after the D25 fixes (oracle user unless stated)}
+\label{tab:runs}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}X cc@{}}
+\toprule
+Metric & Run 1 (\texttt{\RunOneCommit}) & Run 2 (reported) \\
+\midrule
+Hit recall & \RunOneRulesOracleHitRecallK & \res{ResRulesOracleHitRecallK} \\
+Hit recall, clean and QR & \RunOneRulesOracleHitRecallCleanQRK & \res{ResRulesOracleHitRecallCleanQRK} \\
+False alarms, collisions & \RunOneRulesOracleFARCollisionK & \res{ResRulesOracleFARCollisionK} \\
+Overall accuracy & \RunOneRulesOracleAccuracyK & \res{ResRulesOracleAccuracyK} \\
+Questions per pack & \RunOneRulesOracleQuestions & \res{ResRulesOracleQuestions} \\
+McNemar $p$ against lookup & \RunOneRulesOracleMcNemarP & \res{ResRulesOracleMcNemarP} \\
+Decision under R-A & \RunOneRulesOracleDecision & \res{ResRulesOracleDecision} \\
+Prediction: clean tie & \RunOnePredictionOne & \res{ResPredictionOne} \\
+Prediction: misread recovery & \RunOnePredictionThree & \res{ResPredictionThree} \\
+Hit recall, questions skipped & \RunOneRulesSkipHitRecallK & \res{ResRulesSkipHitRecallK} \\
+Abstentions, questions skipped & \RunOneRulesSkipAbstainK & \res{ResRulesSkipAbstainK} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \subsection{What the decision informed}
-The decision rule fixes the default configuration of the released system. If R-A holds, the agent replaces the lookup in every client and the lookup survives only as the baseline arm. If R-C does not hold, the rule planner stays the default and the language model remains an optional component that the system never needs, which is also the configuration that runs on any laptop with no model installed.
+The decision rule fixes the default configuration of the released system. Because R-A holds, the agent replaces the lookup in every client, and the lookup survives only as the baseline arm. The engine's built-in setting is the rule planner, which is also what runs on a laptop with no model installed; the hybrid planner is switched on per check or through a setting, and an unreachable model falls back to rules within one timeout. The language model therefore remains an optional component that the system never needs to reach a verdict.

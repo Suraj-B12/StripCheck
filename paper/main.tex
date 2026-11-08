@@ -27,6 +27,18 @@
 \IfFileExists{generated/results.tex}{\input{generated/results}\resultstrue}{\resultsfalse}
 % \res{MacroName} prints a generated result, or a red marker while results are pending.
 \newcommand{\res}[1]{\ifcsname #1\endcsname\csname #1\endcsname\else\textcolor{red}{[pending]}\fi}
+% Run 1 (before the D25 fixes): the only hand-typed results, copied from commit e283407.
+\input{run1_results}
+% Rule R-C from the generated macros: hybrid labels identical to rules (prediction four held)
+% and hybrid median latency at most twice the rule planner's.
+\newif\ifRCholds
+\def\RCheld{held}
+\ifcsname ResHybridOracleLatMedian\endcsname
+  \edef\RCfour{\ResPredictionFour}
+  \ifx\RCfour\RCheld
+    \ifdim\ResHybridOracleLatMedian pt>\dimexpr\ResRulesOracleLatMedian pt*2\relax\else\RCholdstrue\fi
+  \fi
+\fi
 \newcommand{\pendingbox}[1]{\par\noindent\fcolorbox{red}{red!4}{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textcolor{red}{\textbf{Results pending.}} #1}}\par}
 
 \newcommand{\lbl}[1]{\textsc{\MakeLowercase{#1}}}
@@ -39,7 +51,7 @@
 
 \title{StripCheck: A Verifier-Gated Agent for Checking Medicine Packs Against India's Drug Quality Alerts}
 
-\author{\IEEEauthorblockN{Aryanraj S Singh (1BM23CD008), Richik Chaudhuri (1BM23CD050), Suraj B (1BM23CD061, team lead), Sushanth Deo (1BM23CD062)}
+\author{\IEEEauthorblockN{Aryanraj S Singh (1BM23CD008), Richik Chaudhuri (1BM23CD050),\\ Suraj B (1BM23CD061, team lead), Sushanth Deo (1BM23CD062)}
 \IEEEauthorblockA{Department of Computer Science and Engineering (Data Science), BMS College of Engineering (BMSCE), Bengaluru\\
 B.E.\ CSE (Data Science), Semester VII\\
 Agentic AI (26CD7PEAAI) mini-project report. Instructor: Dr.\ Kalyan Nagaraj}}

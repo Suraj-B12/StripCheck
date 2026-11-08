@@ -65,6 +65,7 @@ p{margin:.6em 0;max-width:72ch}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.grid2>*,.grid3>*,.grid4>*{min-width:0}
 .card{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
 .card h4{margin:0 0 .3em;font:680 16px/1.25 var(--disp);font-stretch:92%}
 .card p{margin:.3em 0;font-size:14.5px}
@@ -324,8 +325,8 @@ svg .ahp{fill:var(--pen)}
 <text x="36" y="508" class="s mo" style="font-size:11.5px">sources · alerts · quarantine · documents(checks, cabinet, notifications, evaluation) · confusions · kv</text>
 <!-- optional -->
 <rect x="20" y="540" width="232" height="48" rx="8" class="bx"/><text x="34" y="560" style="font-weight:700;font-size:12.5px">Step traces</text><text x="34" y="577" class="xs mo">data/traces/&lt;thread&gt;.jsonl</text>
-<rect x="266" y="540" width="232" height="48" rx="8" class="bxd"/><text x="280" y="560" style="font-weight:700;font-size:12.5px">Ollama (optional, local)</text><text x="280" y="577" class="xs">helper in core/llm.py; not on check path</text>
-<rect x="512" y="540" width="234" height="48" rx="8" class="bxd"/><text x="526" y="560" style="font-weight:700;font-size:12.5px">LangGraph / Phoenix</text><text x="526" y="577" class="xs">research design; not in runnable build</text>
+<rect x="266" y="540" width="232" height="48" rx="8" class="bxd"/><text x="280" y="560" style="font-weight:700;font-size:12.5px">Ollama (optional, local)</text><text x="280" y="577" class="xs">hybrid planner: 2 branch points</text>
+<rect x="512" y="540" width="234" height="48" rx="8" class="bxd"/><text x="526" y="560" style="font-weight:700;font-size:12.5px">Phoenix (optional)</text><text x="526" y="577" class="xs">OTel export, STRIPCHECK_TRACING=1</text>
 </svg>
 </figure>
 
@@ -340,7 +341,7 @@ svg .ahp{fill:var(--pen)}
   <p><b>SQLite</b>: alerts with provenance, quarantine, checks (paused state lives here), cabinet, notifications, learned confusions.</p>
   <p><b>Traces</b>: one JSONL file per check for the step log.</p></div>
 </div>
-<div class="honest"><b>Design vs runnable build.</b> The spec (v2 §4) draws LangGraph graphs with SqliteSaver checkpoints, an LLM planner and Phoenix tracing. Decision D18 replaced them in the runnable release with a compact deterministic engine: <code>investigate()</code> returns a JSON snapshot that is stored and resumed, every step is chosen by rules, and traces are local JSONL. Say this plainly in the viva: the agent loop is real, the LLM is optional and currently not on the check path.</div>
+<div class="honest"><b>Design vs runnable build.</b> The spec (v2 §4) draws LangGraph graphs with SqliteSaver checkpoints, an LLM planner and Phoenix tracing. Decision D18 replaced LangGraph in the runnable release with a compact engine: <code>investigate()</code> returns a JSON snapshot that is stored and resumed, and traces are local JSONL. The LLM and Phoenix came back as options (D23). In hybrid mode (<code>--planner hybrid</code> or <code>STRIPCHECK_PLANNER=hybrid</code>) the local model picks the next action at two branch points, and with <code>STRIPCHECK_TRACING=1</code> each check is also exported to Phoenix as one OpenTelemetry trace. Say this plainly in the viva: the agent loop is real, the default planner is rules, and the LLM is an option that never decides a verdict.</div>
 </section>
 
 <!-- ============================== 3 ============================== -->
@@ -698,7 +699,7 @@ r = read char, t = true char, α = 1</pre>
 <p>exact empty → search variants · variant hit → ask the character · exact hit but OCR-only → ask you to type characters · product missing → ask for the carton · 1-digit date difference → ask the date · bigger date difference → abstain · everything rejected and the search complete → NOT_LISTED.</p></div>
 <div class="card"><h4>Rules vs LLM planner</h4>
 <p><b>Design (spec §10.3):</b> a fixed priority list (<code>rule_next</code>) picks the action; in hybrid mode a local LLM may choose at branch points, but only from the <code>allowed</code> set. Any timeout, invalid JSON or out-of-set answer falls back to rules, logged as <code>rules(fallback)</code>.</p>
-<p><b>Build:</b> <code>core/llm.py</code> has that contract (<code>choose_action</code>, 15 s, 2 tries, localhost only) but <code>investigate()</code> uses rules alone. <code>--planner</code> is accepted and stored; it does not change behaviour yet.</p></div>
+<p><b>Build:</b> the default is rules. With <code>--planner hybrid</code> (or <code>STRIPCHECK_PLANNER=hybrid</code>) <code>investigate()</code> calls <code>llm.plan_decision</code> at two branch points: (a) the exact search came back empty, (b) a candidate needs a person. The model returns <code>{thought, action}</code> under a JSON schema whose action enum is the allowed set; 15 s per try, 2 tries, localhost only, 30 s pause after a connection error. The step's <code>source</code> shows <code>llm</code> or <code>rules(fallback)</code>, and the thought is kept in the trace only.</p></div>
 </div>
 
 <h3>Bounds that make the loop finish</h3>
@@ -724,7 +725,7 @@ r = read char, t = true char, α = 1</pre>
 <thead><tr><th>Kind</th><th>When</th><th>What you do</th><th>Effect</th></tr></thead>
 <tbody>
 <tr><td class="mono">type_batch</td><td>no batch read, or two photos disagree</td><td>type the printed batch</td><td>evidence <code>user_typed</code></td></tr>
-<tr><td class="mono">confirm_batch</td><td>an accepted match, batch only from OCR</td><td>type the characters at two positions (or the whole batch)</td><td>same chars → <code>user_confirmed</code>; different → read rejected, new key searched</td></tr>
+<tr><td class="mono">confirm_batch</td><td>an accepted match, batch only from OCR</td><td>type the characters at every look-alike position (or the whole batch)</td><td>same chars → <code>user_confirmed</code>; different → read rejected, new key searched</td></tr>
 <tr><td class="mono">confirm_char</td><td>a variant hit</td><td>pick the batch that is printed: listed or read</td><td>listed → batch replaced, confirmed; read → candidate rejected</td></tr>
 <tr><td class="mono">confirm_field</td><td>exact match, one date differs by one digit</td><td>pick the printed date</td><td>listed → field updated; printed → date_conflict → CANT_VERIFY</td></tr>
 <tr><td class="mono">box_photo</td><td>product, maker or dates missing</td><td>add details or a carton photo</td><td>new fields with provenance; regrade</td></tr>
@@ -743,17 +744,17 @@ r = read char, t = true char, α = 1</pre>
 <path d="M30 24L340 204" style="stroke:var(--fl);stroke-width:2;opacity:.55"/>
 <rect x="400" y="14" width="340" height="200" rx="16" class="bxp"/>
 <text x="420" y="42" class="xs mo pn">STRIPCHECK</text>
-<text x="420" y="66" style="font-weight:700;font-size:12.5px">Look at the printed batch. Type the</text><text x="420" y="84" style="font-weight:700;font-size:12.5px">characters at positions 6 and 7.</text>
+<text x="420" y="66" style="font-weight:700;font-size:12.5px">Look at the printed batch. Type the</text><text x="420" y="84" style="font-weight:700;font-size:12.5px">characters at positions 1 and 3 to 7.</text>
 <g class="mo" style="font-size:20px">
-<rect x="420" y="100" width="34" height="42" rx="5" class="bx"/><text x="437" y="128" text-anchor="middle" class="s" style="font-size:18px">L</text>
+<rect x="420" y="100" width="34" height="42" rx="5" class="bx" style="stroke:var(--pen);stroke-width:2.4"/><text x="437" y="128" text-anchor="middle" class="pn">_</text>
 <rect x="458" y="100" width="34" height="42" rx="5" class="bx"/><text x="475" y="128" text-anchor="middle" class="s" style="font-size:18px">M</text>
-<rect x="496" y="100" width="34" height="42" rx="5" class="bx"/><text x="513" y="128" text-anchor="middle" class="s" style="font-size:18px">2</text>
-<rect x="534" y="100" width="34" height="42" rx="5" class="bx"/><text x="551" y="128" text-anchor="middle" class="s" style="font-size:18px">4</text>
-<rect x="572" y="100" width="34" height="42" rx="5" class="bx"/><text x="589" y="128" text-anchor="middle" class="s" style="font-size:18px">0</text>
+<rect x="496" y="100" width="34" height="42" rx="5" class="bx" style="stroke:var(--pen);stroke-width:2.4"/><text x="513" y="128" text-anchor="middle" class="pn">_</text>
+<rect x="534" y="100" width="34" height="42" rx="5" class="bx" style="stroke:var(--pen);stroke-width:2.4"/><text x="551" y="128" text-anchor="middle" class="pn">_</text>
+<rect x="572" y="100" width="34" height="42" rx="5" class="bx" style="stroke:var(--pen);stroke-width:2.4"/><text x="589" y="128" text-anchor="middle" class="pn">_</text>
 <rect x="610" y="100" width="34" height="42" rx="5" class="bx" style="stroke:var(--pen);stroke-width:2.4"/><text x="627" y="128" text-anchor="middle" class="pn">_</text>
 <rect x="648" y="100" width="34" height="42" rx="5" class="bx" style="stroke:var(--pen);stroke-width:2.4"/><text x="665" y="128" text-anchor="middle" class="pn">_</text>
 </g>
-<text x="420" y="166" class="s">You must read the pack to answer. Positions</text><text x="420" y="184" class="s">are the ones the confusion counts rate most</text><text x="420" y="202" class="s">doubtful. "Type the whole batch" · "Can't tell".</text>
+<text x="420" y="166" class="s">You must read the pack to answer. Every</text><text x="420" y="184" class="s">look-alike position is asked, most doubtful</text><text x="420" y="202" class="s">first. "Type the whole batch" · "Can't tell".</text>
 </svg>
 </figure>
 
@@ -761,7 +762,7 @@ r = read char, t = true char, α = 1</pre>
 <div class="card"><h4>Budgets</h4>
 <p>At most <b>2 questions</b> per check (<code>MAX_ASKS</code>); every answer, including "Can't tell", uses one. A declined kind is never asked again. Cabinet re-checks never ask. Typed-batch checks (text mode) ask only <code>confirm_field</code> or <code>box_photo</code>, because a typed batch has no OCR doubt.</p>
 <p>Typical cost: misread pack 1 question; clean OCR flag 1; QR flag 0.</p></div>
-<div class="honest" style="margin:0"><b>Known limit, worth knowing for the viva.</b> With no learned counts yet, <code>confirmation_positions</code> simply takes the first two confusable characters. If the misread is elsewhere (for example the 4th character of <span class="k">R21719</span> read as <span class="k">R21119</span>), typing only those two would not catch it. "Type the whole batch" does. An improvement is to also ask where a candidate sibling differs.</div>
+<div class="honest" style="margin:0"><b>Fixed gap, worth knowing for the viva.</b> <code>confirmation_positions</code> used to ask only the first two confusable characters. If the misread was elsewhere (for example the 4th character of <span class="k">R21719</span> read as <span class="k">R21119</span>), typing those two could confirm the wrong batch. Since D25 it asks <b>every</b> look-alike position, ordered by the confusion counts; "Type the whole batch" still works.</div>
 </div>
 </section>
 
@@ -785,7 +786,7 @@ r = read char, t = true char, α = 1</pre>
 <path d="M502 112H560" class="ln" marker-end="url(#ah)"/><text x="510" y="132" class="xs">fail</text>
 <rect x="562" y="30" width="188" height="46" rx="8" class="bx"/><text x="576" y="58" style="font-weight:700">verdict as drafted</text>
 <rect x="562" y="88" width="188" height="46" rx="8" class="bxc"/><text x="576" y="110" style="font-weight:700" class="cvt">CANT_VERIFY</text><text x="576" y="126" class="xs">+ "verification": [rules]</text>
-<text x="10" y="164" class="xs">No send-back loop in the build: one pass, then downgrade. The drafter applies the batch gate itself, so R2 is a safety net.</text>
+<text x="10" y="164" class="xs">One send-back only if the LLM planner drafted before the variant search; otherwise one pass, then downgrade. R2 is a safety net.</text>
 </svg>
 </figure>
 
@@ -793,7 +794,7 @@ r = read char, t = true char, α = 1</pre>
 <thead><tr><th>Rule</th><th>Checks (as coded)</th></tr></thead>
 <tbody>
 <tr><td class="mono">R1</td><td>label is one of the four</td></tr>
-<tr><td class="mono">R2</td><td>a flag needs: candidate status accept, batch exact or confirmed, batch evidence in {qr, dual_read, user_typed, user_confirmed}, product match, no mismatch anywhere, pack batch key = alert batch key</td></tr>
+<tr><td class="mono">R2</td><td>a flag needs: candidate status accept, batch exact or confirmed, batch evidence in {qr, dual_read, user_typed, user_confirmed}, product match (or partial match when dates and maker both match, the same rule <code>grade()</code> uses; aligned in D25), no mismatch anywhere, pack batch key = alert batch key</td></tr>
 <tr><td class="mono">R3</td><td>SUSPECTED_FAKE if and only if the alert is SPURIOUS</td></tr>
 <tr><td class="mono">R4</td><td>NOT_LISTED needs a grounded batch, exact and variant searches done, no pending or accepted candidate, data loaded, not truncated</td></tr>
 <tr><td class="mono">R5</td><td>a flag cites the alert with a source URL or snapshot hash; no banned phrase in headline, explanation or advice</td></tr>
@@ -808,9 +809,9 @@ r = read char, t = true char, α = 1</pre>
 <div class="tw"><table>
 <thead><tr><th>Situation</th><th>Behaviour in the code</th></tr></thead>
 <tbody>
-<tr><td>Ollama off</td><td>Nothing changes: no check calls it. <code>/api/health</code> reports it as optional, not connected.</td></tr>
+<tr><td>Ollama off</td><td>Rules mode (the default) never calls it. In hybrid mode the branch point falls back to the rule choice, logged <code>rules(fallback)</code>, and the model is skipped for 30 s, so the check still finishes in about the rules time. <code>/api/health</code> reports it as optional, not connected.</td></tr>
 <tr><td>No OCR engine, or OCR fails</td><td>Readers fall through (Vision → Tesseract → RapidOCR); with no text the warning says to enter the batch, and the agent asks <code>type_batch</code>. No model is downloaded during a check.</td></tr>
-<tr><td>Phoenix off</td><td>Not a dependency: traces go to <code>data/traces/*.jsonl</code>; tracing errors are swallowed.</td></tr>
+<tr><td>Phoenix off</td><td>Not a dependency: traces always go to <code>data/traces/*.jsonl</code>. The OpenTelemetry export runs only with <code>STRIPCHECK_TRACING=1</code>, probes the collector for 0.25 s and is skipped when it is down; tracing errors are swallowed.</td></tr>
 <tr><td>No internet</td><td>The check path never touches the network. Sync keeps stored snapshots and reports "partial" or "error"; <code>sync --offline</code> re-ingests from disk.</td></tr>
 <tr><td>No lists loaded</td><td>CANT_VERIFY "Alert data has not been loaded", never NOT_LISTED.</td></tr>
 <tr><td>Bad snapshot</td><td>Checksum mismatch, wrong shape or over limits → refused; existing alerts retained.</td></tr>
@@ -862,8 +863,8 @@ r = read char, t = true char, α = 1</pre>
 <div class="grid2">
 <div class="card"><h4>A · Built-in diagnostics (implemented)</h4>
 <p><code>cli.py eval --quick</code> or the Evaluation page runs 11 authored synthetic scenarios through <code>investigate()</code> with scripted answers and compares the label. These are software checks, not accuracy on real medicines.</p></div>
-<div class="card"><h4>B · Research evaluation (planned, spec §15)</h4>
-<p>A preregistered A/B comparison on a seeded golden set, with paired statistics and frozen decision rules. Integrator-owned; results land in <code>paper/generated/</code>.</p></div>
+<div class="card"><h4>B · Research evaluation (run for R4)</h4>
+<p>A preregistered A/B comparison on the golden set: 60 cartons rendered from real alert rows (seed 7), each marked as a demo prop, with paired statistics and frozen decision rules. <code>cli.py eval</code> writes the results to <code>docs/results/</code> and <code>paper/generated/</code>.</p></div>
 </div>
 
 <div class="tw wide"><table>
@@ -887,23 +888,24 @@ r = read char, t = true char, α = 1</pre>
 <svg viewBox="0 0 760 250" role="img" aria-labelledby="f12t">
 <title id="f12t">Golden set feeds several arms; paired metrics; preregistered decision rules.</title>
 <rect x="10" y="20" width="200" height="200" rx="10" class="bx"/>
-<text x="24" y="44" class="hd">Golden set</text><text x="24" y="62" class="xs mo">props --eval --n 200 --seed 7</text>
+<text x="24" y="44" class="hd">Golden set</text><text x="24" y="62" class="xs mo">60 cartons, seed 7</text>
 <g class="s" style="font-size:11.5px">
-<text x="24" y="86">flagged 30%</text><text x="24" y="104">suspected fake 10%</text><text x="24" y="122">collision traps 15%</text><text x="24" y="140">sibling traps 10%</text><text x="24" y="158">date conflicts 5%</text><text x="24" y="176">not listed 25%</text><text x="24" y="194">unreadable 5%</text>
+<text x="24" y="86">clean 8 · glare 8</text><text x="24" y="104">misread 8 · QR 8</text><text x="24" y="122">spurious 8</text><text x="24" y="140">collision traps 8</text><text x="24" y="158">not listed 8</text><text x="24" y="176">sibling traps 4</text>
 </g>
-<text x="24" y="212" class="xs">tuned on seed 1, reported on seed 7</text>
+<text x="24" y="200" class="xs">real alert rows; OCR error simulated</text>
+<text x="24" y="214" class="xs">tuned on seed 1, reported on seed 7</text>
 <path d="M210 120H246" class="ln" marker-end="url(#ah)"/>
 <rect x="248" y="20" width="240" height="200" rx="10" class="bxp"/>
 <text x="262" y="44" class="hd">Arms (same items)</text>
-<g class="mo" style="font-size:11.5px"><text x="262" y="68">baseline (lookup script)</text><text x="262" y="86">agent_rules</text><text x="262" y="104">agent_hybrid@model</text><text x="262" y="122">agent_llm@best</text></g>
-<text x="262" y="146" class="s" style="font-weight:700">ablations of agent_rules</text>
-<g class="mo" style="font-size:11.5px"><text x="262" y="164">-variants  -corroboration</text><text x="262" y="182">-verifier  -confirm_gate  +vlm</text></g>
-<text x="262" y="206" class="xs">HITL: oracle answers vs none</text>
+<g class="mo" style="font-size:11.5px"><text x="262" y="68">baseline (lookup script)</text><text x="262" y="86">agent_rules</text><text x="262" y="104">agent_hybrid (qwen2.5:3b)</text></g>
+<text x="262" y="132" class="s" style="font-weight:700">planned, not run</text>
+<g class="mo" style="font-size:11.5px"><text x="262" y="150">agent_llm, ablations</text><text x="262" y="168">(-confirm_gate, +vlm ...)</text></g>
+<text x="262" y="200" class="xs">HITL: oracle answers vs none</text>
 <path d="M488 120H524" class="ln" marker-end="url(#ah)"/>
 <rect x="526" y="20" width="224" height="200" rx="10" class="bx"/>
 <text x="540" y="44" class="hd">Metrics</text>
-<g class="s" style="font-size:11.5px"><text x="540" y="68">hit recall · false-alarm rate</text><text x="540" y="86">trap / sibling false alarms</text><text x="540" y="104">questions per pack</text><text x="540" y="122">risk vs coverage</text><text x="540" y="140">PPV at 1% and 0.1% prevalence</text><text x="540" y="158">latency p50 / p95</text></g>
-<text x="540" y="182" class="xs">Wilson 95% intervals · exact McNemar</text><text x="540" y="198" class="xs">bootstrap latency · Holm correction</text>
+<g class="s" style="font-size:11.5px"><text x="540" y="68">hit recall · type accuracy</text><text x="540" y="86">false alarms: all, traps, siblings</text><text x="540" y="104">abstention rate</text><text x="540" y="122">questions per pack</text><text x="540" y="140">latency median / p95</text><text x="540" y="158">safety violations</text></g>
+<text x="540" y="182" class="xs">Wilson 95% intervals</text><text x="540" y="198" class="xs">exact McNemar vs baseline</text>
 </svg>
 </figure>
 
@@ -911,15 +913,59 @@ r = read char, t = true char, α = 1</pre>
 <thead><tr><th>Decision rule (frozen before the seed-7 run)</th><th>Adopt if</th></tr></thead>
 <tbody>
 <tr><td class="mono">R-A agent vs script</td><td>trap false-alarm rate at least 50% (relative) lower than baseline, and hit recall at most 5 points lower</td></tr>
-<tr><td class="mono">R-B confirm gate</td><td>sibling-trap false alarms drop at least 50% vs <code>-confirm_gate</code>, oracle hit recall within 2 points</td></tr>
+<tr><td class="mono">R-B confirm gate</td><td>sibling-trap false alarms drop at least 50% vs <code>-confirm_gate</code>, oracle hit recall within 2 points (not run: the ablation arm was not built)</td></tr>
 <tr><td class="mono">R-C hybrid planner</td><td>accuracy not significantly lower than rules (McNemar, α = 0.05) and median latency at most 2× rules</td></tr>
 </tbody></table></div>
 <p class="cap">Report whatever happens, including rules that fail. Numbers in the paper come only from <code>paper/generated/*.tex</code>.</p>
 
 <div class="placeholder" id="eval-results">
-  <div class="eyebrow">Results go here · to be filled by agent B</div>
-  <p><b>Table A (arms)</b>, <b>Table C (ablations)</b> and the R-A / R-B / R-C outcomes. Nothing is reported on this page until the measured numbers exist in <code>runs/</code> and <code>paper/generated/</code>.</p>
-  <!-- AGENT-B-RESULTS: replace this paragraph with the measured tables and the decision for each rule -->
+  <div class="eyebrow">Measured results · seed 7 · 60 cartons · run 2</div>
+  <!-- AGENT-B-RESULTS: copied from docs/results/eval_seed7.md and paper/generated/results.tex (run 2, after D25). Keep in sync if the eval is rerun. -->
+  <div class="grid4" style="margin:10px 0">
+    <div class="card"><h4>Collision false alarms</h4><p><b style="color:var(--fl)">8/8</b> lookup<br><b>0/8</b> agent</p></div>
+    <div class="card"><h4>Hit recall, oracle</h4><p><b>32/40</b> lookup<br><b>40/40</b> agent</p></div>
+    <div class="card"><h4>Questions per pack</h4><p><b>0</b> lookup<br><b>0.60</b> agent</p></div>
+    <div class="card"><h4>Safety violations</h4><p><b>0</b> in every arm</p></div>
+  </div>
+
+  <h3 style="margin-top:.8em">Table A · person answers every question (oracle)</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Metric</th><th>Lookup</th><th>Agent, rules</th><th>Agent, hybrid</th></tr></thead>
+  <tbody>
+  <tr><td>Hit recall</td><td class="mono">32/40</td><td class="mono">40/40</td><td class="mono">40/40</td></tr>
+  <tr><td>Hit recall, clean + QR</td><td class="mono">16/16</td><td class="mono">16/16</td><td class="mono">16/16</td></tr>
+  <tr><td>False alarms, all unlisted</td><td class="mono">12/20</td><td class="mono">0/20</td><td class="mono">0/20</td></tr>
+  <tr><td>False alarms, collisions</td><td class="mono">8/8</td><td class="mono">0/8</td><td class="mono">0/8</td></tr>
+  <tr><td>False alarms, siblings</td><td class="mono">4/4</td><td class="mono">0/4</td><td class="mono">0/4</td></tr>
+  <tr><td>Abstentions</td><td class="mono">0/60</td><td class="mono">0/60</td><td class="mono">0/60</td></tr>
+  <tr><td>Overall accuracy</td><td class="mono">40/60</td><td class="mono">60/60</td><td class="mono">60/60</td></tr>
+  <tr><td>Latency median / p95 (s)</td><td class="mono">1.33 / 1.82</td><td class="mono">1.39 / 1.86</td><td class="mono">1.51 / 8.96</td></tr>
+  </tbody></table></div>
+
+  <h3>Table B · every question skipped (no person)</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Metric</th><th>Lookup</th><th>Agent, rules</th><th>Agent, hybrid</th></tr></thead>
+  <tbody>
+  <tr><td>Hit recall</td><td class="mono">32/40</td><td class="mono">8/40</td><td class="mono">8/40</td></tr>
+  <tr><td>False alarms, collisions</td><td class="mono">8/8</td><td class="mono">0/8</td><td class="mono">0/8</td></tr>
+  <tr><td>Abstentions</td><td class="mono">0/60</td><td class="mono">36/60</td><td class="mono">36/60</td></tr>
+  <tr><td>Overall accuracy</td><td class="mono">40/60</td><td class="mono">24/60</td><td class="mono">24/60</td></tr>
+  </tbody></table></div>
+
+  <h3>Decisions</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Rule</th><th>Outcome</th></tr></thead>
+  <tbody>
+  <tr><td class="mono">R-A, oracle</td><td><b>adopt</b> the agent. Collision false alarms 100% lower, hit recall 20 points higher. McNemar p = 2e-06 (20 packs only the agent got right, 0 only the lookup).</td></tr>
+  <tr><td class="mono">R-A, no person</td><td><b>do not adopt</b>. Hit recall falls to 8/40 because the agent abstains (CANT_VERIFY) when nobody confirms the batch; it still raises no false alarm. McNemar p = 0.007.</td></tr>
+  <tr><td class="mono">R-B</td><td>not run (no <code>-confirm_gate</code> arm).</td></tr>
+  <tr><td class="mono">R-C</td><td>holds on its own terms: same label as rules on 60/60 packs, median 1.51 s vs 1.39 s (within 2×). The tail is the cost: p95 8.96 s vs 1.86 s. The built-in default stays rules; hybrid is an option.</td></tr>
+  </tbody></table></div>
+
+  <h3>Registered predictions</h3>
+  <p>Clean packs tie: <b>held</b> (8/8 each) · collisions, lookup always alarms and agent at most 10%: <b>held</b> (8/8 vs 0/8) · misreads recovered with the oracle: <b>held</b> (8/8 at 1 question per pack) · hybrid = rules: <b>held</b> (60/60) · hybrid better on partial product matches: not evaluable (no item had one).</p>
+
+  <div class="honest" style="margin-bottom:0"><b>Run 1 and the fixes.</b> The first run on the same seed (commit <code>e283407</code>) gave the agent hit recall 33/40 (0.82), 0/8 collision false alarms and also <b>adopt</b> (McNemar p = 0.0106); the clean-tie and misread predictions did not hold (7/8 and 6/8). All 7 misses were cartons with a brand line above the generic name. Three general code defects were then fixed (D25: full product text graded, R2 aligned with partial-match grading, every look-alike position asked) and all arms rerun. The fixes came after seeing run 1 on the evaluation seed, so the run-2 numbers above are optimistic.</div>
 </div>
 </section>
 
@@ -944,7 +990,7 @@ r = read char, t = true char, α = 1</pre>
 <tr><td>Local OCR (Vision, Tesseract, RapidOCR)</td><td>cloud OCR</td><td>Photos never leave the machine; no paid API; works offline.</td></tr>
 <tr><td>Local Ollama</td><td>cloud LLM API</td><td>No cost, no data leaving the laptop, no outage risk in the demo.</td></tr>
 <tr><td>SQLite in WAL mode</td><td>a server database</td><td>One file, zero setup, readers do not block the writer; enough for one laptop.</td></tr>
-<tr><td>Local JSONL traces</td><td>Phoenix as a dependency</td><td>Tracing must never break a check; a file append cannot go down.</td></tr>
+<tr><td>Local JSONL traces, Phoenix optional</td><td>Phoenix as a dependency</td><td>Tracing must never break a check; a file append cannot go down. The OpenTelemetry export to Phoenix is switched on with <code>STRIPCHECK_TRACING=1</code>.</td></tr>
 <tr><td>Server-sent events</td><td>WebSockets or polling</td><td>Steps flow one way, over plain HTTP, and work through the phone pairing.</td></tr>
 <tr><td>Data kept local, git-ignored</td><td>commit the lists</td><td>CDSCO copyright; publish only derived statistics.</td></tr>
 <tr><td>Native iOS client on the same API</td><td>a second engine on the phone</td><td>One source of truth for verdicts; the app never writes a verdict itself.</td></tr>
@@ -962,7 +1008,7 @@ r = read char, t = true char, α = 1</pre>
 
 <details open><summary>2. Where is the planning loop?</summary><div class="ans">
 <p>In <code>investigate()</code> (<code>core/investigator.py</code>). After each tool result it picks the next action, can pause for a question and resume from the saved state. Every step is logged with action, source, summary and time.</p>
-<p>In the build every step's source is <code>rules</code>. The spec's LangGraph planner node with an optional LLM is the research design (D18).</p></div></details>
+<p>With the default planner every step's source is <code>rules</code>. In hybrid mode the local model chooses at two branch points (empty exact search; a candidate that needs a person), only from the allowed actions, and those steps show <code>source: llm</code> with a one-line thought. The spec's LangGraph graph was replaced by this engine (D18).</p></div></details>
 
 <details open><summary>3. What makes the retrieval "agentic RAG"?</summary><div class="ans">
 <p>The agent chooses the queries: the exact key, its confusion variants, and new keys after your answer (a typed or corrected batch). It grades every candidate on product, brand, dates and maker, and re-queries after new evidence.</p>
@@ -989,17 +1035,17 @@ r = read char, t = true char, α = 1</pre>
 
 <details open><summary>8. What does the LLM do, and what if it's off?</summary><div class="ans">
 <p>Design: it plans at branch points, extracts fields when regex fails, adjudicates partial product matches, maps changed headers and repairs rows, always with a rules fallback.</p>
-<p>Build: none of these are on the check path. <code>core/llm.py</code> provides <code>choose_action</code> (localhost only, 15 s, 2 tries, falls back to rules), but checks are rules-only. With Ollama off, nothing changes.</p></div></details>
+<p>Build: only planning is on the check path, and only in hybrid mode. <code>llm.plan_decision</code> (localhost only, 15 s, 2 tries, JSON schema with the allowed actions as an enum) picks the next action at two branch points and writes a thought into the trace. On the 60-carton evaluation it gave the same label as rules on every pack, with p95 latency 8.96 s vs 1.86 s. Field extraction, adjudication and header repair by LLM are not built. With Ollama off, the planner falls back to rules (<code>rules(fallback)</code>) and the check finishes normally.</p></div></details>
 
 <details open><summary>9. How do you stop the LLM hallucinating?</summary><div class="ans">
 <p>In the build no model writes a field or a sentence. Fields come from QR, OCR or the person, each with provenance (verifier R8). All user text comes from <code>templates.py</code>, and the <code>BANNED</code> filter plus R5 block assurance words.</p>
-<p>The optional helper forces a JSON schema and an enumerated action set, and treats pack text as untrusted data.</p></div></details>
+<p>The hybrid planner forces a JSON schema and an enumerated action set, treats pack text as untrusted data, and its thought only goes to the trace; a thought with a banned word is withheld.</p></div></details>
 
 <details open><summary>10. How are loops bounded?</summary><div class="ans">
 <ul><li>Per check: 16 steps (the plan said 12), 2 questions, 1 enhanced re-read per image, 2 substitutions per variant, 2,000 variant lookups, 20 candidates.</li>
 <li>Time limits: OCR 60 s per image, QR 20 s, network 20 s × 3, LLM 15 s × 2.</li>
 <li>Ingest: 16 MB and 100,000 rows per snapshot, 1,000 files per run.</li></ul>
-<p>The verifier has no send-back in the build: a violation becomes CANT_VERIFY at once.</p></div></details>
+<p>The verifier sends a draft back once only when the LLM planner drafted before the variant search; any other violation becomes CANT_VERIFY at once.</p></div></details>
 
 <details open><summary>11. What are the agents?</summary><div class="ans">
 <ul><li><b>Supervisor</b>: background work: sync, ingest, re-check the cabinet, notify.</li>
@@ -1023,19 +1069,20 @@ r = read char, t = true char, α = 1</pre>
 <p>The <code>confusions</code> table holds learned corrections from your answers. They are used to rank variants and pick question positions, and are shown in the trace.</p></div></details>
 
 <details open><summary>15. How was the golden set built, and why trust it?</summary><div class="ans">
-<p>Plan: real CDSCO entries rendered onto synthetic cartons in fixed proportions, deterministic from a seed; tuned on seed 1, reported on seed 7; real photos reported separately because rendered packs are easier for OCR.</p>
-<p>The build ships 11 authored diagnostic scenarios, not the golden set. See section 12.</p></div></details>
+<p>60 cartons rendered from real CDSCO alert rows in the local index, deterministic from seed 7 (seed 1 for development): 8 each of clean, glare, misread, QR, spurious, collision and unlisted, plus 4 sibling traps. Every image carries the banner "DEMO PROP - NOT A MEDICINE". Misread and sibling cartons print the misread string, so OCR error is simulated, and the oracle answers from the intended batch.</p>
+<p>Why trust it: every row is a real alert, the OCR read matched the rendered text on 60/60 images, and the generator is seeded and rerunnable. Why not trust it too far: rendered cartons are easier than foil, and there are no real strip photos. The 11 authored diagnostics still run in the test suite (section 12).</p></div></details>
 
 <details open><summary>16. What was the A/B result and decision?</summary><div class="ans">
-<p>Answer from Tables A and C and rules R-A, R-B and R-C in section 12 once the numbers are filled in, including anything that did not go as predicted. Do not quote numbers that are not in <code>paper/generated/</code>.</p></div></details>
+<p>With the person answering, the agent removed every collision and sibling false alarm (lookup 8/8 and 4/4, agent 0/8 and 0/4) and found 40/40 listed batches against 32/40 for the lookup, at 0.60 questions per pack. R-A: <b>adopt</b> (McNemar p = 2e-06). With nobody answering it abstains on 36/60 packs, hit recall drops to 8/40, and R-A says do not adopt: the questions carry the recall. R-C holds on its terms, but hybrid adds tail latency and changed no label, so rules stay the default.</p>
+<p>Say the honest part too: the first run on the same seed gave 33/40 and also adopt; two predictions failed. Three general bugs were fixed after that run (section 12), so the second run's numbers are optimistic.</p></div></details>
 
 <details open><summary>17. Biggest limitation?</summary><div class="ans">
 <ul><li>The answer is only as current as the lists loaded; a normal sync covers the latest 3 months, and history needs <code>--full</code>.</li>
 <li>CDSCO tests only sampled batches.</li>
 <li>Labels and templates are English-only.</li>
-<li>The evaluation so far is synthetic.</li>
+<li>The evaluation is synthetic (rendered cartons, no real strip photos), and the reported run came after fixes made on the same seed, so its numbers are optimistic.</li>
 <li>OCR on shiny foil is hard.</li>
-<li>Without learned counts, the batch gate asks the first two confusable positions (section 9).</li></ul></div></details>
+<li>Asking every look-alike position (the D25 fix for a gap in section 9) is safer but makes some questions longer.</li></ul></div></details>
 
 <details open><summary>18. Ethics?</summary><div class="ans">
 <ul><li>Advisory wording only. It flags the listed batch, never a brand, and cites the source.</li>
@@ -1077,14 +1124,14 @@ r = read char, t = true char, α = 1</pre>
 <dt>SSE</dt><dd>Server-sent events: the server streams each agent step to the page over HTTP.</dd>
 <dt>Ollama</dt><dd>Local runner for open LLMs; optional in StripCheck.</dd>
 <dt>VLM</dt><dd>Vision-language model; designed as an optional second reader, never sole evidence.</dd>
-<dt>LangGraph / Phoenix</dt><dd>Agent-graph framework and tracing tool in the research design; replaced by the deterministic engine and JSONL traces in the build (D18).</dd>
+<dt>LangGraph / Phoenix</dt><dd>Agent-graph framework and tracing tool in the research design. LangGraph was replaced by the resumable engine (D18); Phoenix stays as an optional OpenTelemetry export next to the JSONL traces (D23).</dd>
 <dt>Golden set</dt><dd>Seeded, labelled synthetic packs used for the preregistered evaluation.</dd>
 <dt>McNemar test</dt><dd>Paired test for two systems on the same items: counts where only one of them is right.</dd>
 <dt>Wilson interval</dt><dd>A 95% confidence interval for a rate that behaves well near 0% and 100%.</dd>
 <dt>PPV</dt><dd>Positive predictive value: of all FLAGGED results, the share that are truly listed; falls sharply when listed packs are rare.</dd>
 </dl>
 <footer>
-<p>Built from the code at commit <code>17d74d6</code> and spec v2. Data facts are from the 25 Oct 2026 snapshot analysis; the paper's numbers come only from <code>cli.py stats</code> and <code>cli.py eval</code>. Alert data: Central Drugs Standard Control Organisation, Government of India. Advisory only, not medical advice.</p>
+<p>Built from the code at commit <code>17d74d6</code> and spec v2; updated for the hybrid planner, Phoenix export and D25 fixes at <code>6b69280</code>, with evaluation results from run 2 (<code>docs/results/eval_seed7.md</code>). Data facts are from the 25 Oct 2026 snapshot analysis; the paper's numbers come only from <code>cli.py stats</code> and <code>cli.py eval</code>. Alert data: Central Drugs Standard Control Organisation, Government of India. Advisory only, not medical advice.</p>
 </footer>
 </section>
 

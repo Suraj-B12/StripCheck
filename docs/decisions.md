@@ -61,3 +61,7 @@ The preregistered evaluation uses 60 rendered cartons (seed 7; seed 1 for develo
 ## D25 · 2026-11-08 · Fixes found by the evaluation and guide review
 
 (1) The investigator keeps the reader's full product text for grading, so a brand line printed above the generic name no longer rejects a listed batch. (2) Verifier rule R2 accepts the partial product match that `grade()` already accepts when dates and maker both match; before this, a person could answer a question and still get CANT_VERIFY. (3) The batch confirmation asks every look-alike position, not only the first two, because a misread at an unasked position could confirm the wrong batch. All evaluation arms were rerun after these fixes.
+
+## D26 · 2026-11-08 · Keep the rule planner as the default
+
+Registered rule R-C allows the hybrid planner as the default when it matches the rule planner's verdicts and its median latency is at most twice as high. On seed 7 it held (60/60 identical labels, median 1.51 s against 1.39 s), but the hybrid tail latency was much higher (p95 about 9 s against 1.9 s) and the model changed no verdict. The default stays `STRIPCHECK_PLANNER=rules`; hybrid remains available per check and is shown in the demo and traces.
