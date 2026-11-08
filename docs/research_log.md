@@ -85,3 +85,9 @@ Run 3 of the literature survey (`wf_f1defe68-0ca`) was stopped deliberately. Eve
 
 ### Snapshot statistics (preliminary, regenerated in M1)
 7,005 rows over 93 months; 63.5% of flagged batches still have at least 12 months of shelf life when the alert appears (median lag 10 months); 36 batch keys shared by unrelated products; 58 same-maker confusable sibling pairs (e.g. R21119/R21719).
+
+## 2026-11-08 · Final push (R3/R4)
+- Done: Windows OCR (11/11 demo packs), hybrid planner and Phoenix export, feedback-loop prior in trace and question (docs/trace/), R4 evaluation, final report (paper/), beamer slides (paper/slides/), visual guide (docs/guide/index.html), Cloudflare tunnel demo.
+- Evaluation run 1 (commit e283407): agents missed 7/40 listed cartons (brand-line bug). Fixes D25 (commit e8d70e4). Run 2 (commit 6b69280): oracle hit recall 1.00 vs 0.80, collision FAR 0/8 vs 8/8, all four evaluable predictions held; no HITL: do not adopt. The report gives both runs because the fixes followed run 1 on the evaluation seed.
+- Resume: `python cli.py props --eval --n 60 --seed 7`, then `python cli.py eval --arms baseline,agent_rules --hitl oracle,none --seed 7` and `python cli.py eval --arms agent_hybrid --hitl oracle,none --seed 7` (needs Ollama with qwen2.5:3b; falls back to rules otherwise).
+- Open: no real strip photos; contribution table needs team confirmation.

@@ -57,14 +57,14 @@ Automatic approval review rejected the attempted LAN launch because binding to o
 | M1 | Data: portal sync, ingest agent, cleaning, resume, stats | not started | Builder | | | |
 | M2 | Perception and props: QR, OCR, crops, VLM reader, demo props, calibration | not started | Builder | | | |
 | M3 | Reasoning in rules mode: matching, noisy channel, investigator, verifier, templates, CLI check, selftest | not started | Builder | | | |
-| M4 | LLM layer: Ollama structured calls, hybrid planner, adjudication, benchmark | not started | Builder (mocked) → Integrator (real models) | | | |
-| M5 | Observability: Phoenix tracing, JSONL, trace API | not started | Builder → Integrator | | | |
+| M4 | LLM layer: Ollama structured calls, hybrid planner, adjudication, benchmark | done (hybrid planner live with qwen2.5:3b, rules fallback; D23) | Builder (mocked) → Integrator (real models) | | | |
+| M5 | Observability: Phoenix tracing, JSONL, trace API | done (JSONL traces, optional Phoenix export, docs/trace walkthrough) | Builder → Integrator | | | |
 | M6 | API and UI: endpoints, SSE, React screens, phone pairing | not started | Builder | | | |
 | — | **Review 2 cut line: M0 to M6 is the demo** | | | | | |
-| M7 | Evaluation: golden set, ladder, arms, ablations, statistics, figures | not started | Integrator | | | |
+| M7 | Evaluation: golden set, ladder, arms, ablations, statistics, figures | done (seed 7, n=60, 3 arms x 2 HITL; docs/results/eval_seed7.md; D24, D25) | Integrator | | | |
 | M8 | Supervisor, cabinet, notifications, learning loop | not started | Builder → Integrator | | | |
 | M9 | Extras: bill scan, Hindi and regional templates, read aloud, MCP server | not started | Builder | | | |
-| M10 | Paper and release | not started | Integrator | | | |
+| M10 | Paper and release | done (paper/build/main.pdf, paper/slides/build/slides.pdf; tag v1.0) | Integrator | | | |
 
 ## Current module checklist
 

@@ -15,6 +15,16 @@
 
 ---
 
+## 2026-11-08 · Integrator · Final push: Windows OCR, M4/M5 real, M7 evaluation, report, slides, guide · done
+
+- Changed: `core/pack_tools.py` (RapidOCR 3.10 + zxing-cpp on Windows, worker with timeout), `core/llm.py` + `core/investigator.py` (hybrid planner consults qwen2.5:3b at two branch points, rules fallback), `core/tracing.py` (optional OTel/Phoenix export), `core/golden.py`, `core/props.py`, `core/evaluate.py`, `cli.py` (R4 golden set and arms), `core/verifier.py`, `core/noisy.py` (D25 fixes), `server/app.py` (tunnel token gate, typed-batch character check), `scripts/start-demo-tunnel.ps1`, `paper/` (final report and slides), `docs/guide/index.html`, `docs/trace/`, `docs/results/`.
+- Ran: `.venv\Scripts\python.exe -m pytest -q` -> 226 passed, 2 skipped; `npm test` -> 75 passed; `npm run build` and `npm run lint` clean; `python cli.py selftest` -> 11/11; `python cli.py eval --arms baseline,agent_rules --hitl oracle,none --seed 7` and `--arms agent_hybrid` -> oracle hit recall 1.00 (agents) vs 0.80 (baseline), collision false alarms 0/8 vs 8/8, adopt; with questions skipped, do not adopt. Malformed-input probes over the public tunnel: 401 without token, 422/400/404/413 with plain messages.
+- Not verified: real strip photos (none exist; all evaluation packs are rendered); iOS client on a device.
+- Notes: D23 (Windows OCR, tunnel gate, hybrid planner, Phoenix), D24 (rendered-carton evaluation, simulated misreads), D25 (three fixes found by the first evaluation run; all arms rerun, the report states both runs).
+- Next: tag `v1.0` after the final PDFs are built.
+
+---
+
 ## 2026-10-27 · Builder · Alternate public showcase hosting · built
 
 - Published: the reviewed static showcase at **[https://vsxye.github.io/StripCheck/](https://vsxye.github.io/StripCheck/)**, following the user's request for an available public link. The separate [artifact repository](https://github.com/vsxye/StripCheck) contains the build from source commit `d58f7a2`, published as artifact commit `0e974f7`.
