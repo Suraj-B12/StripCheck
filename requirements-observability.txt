@@ -1,0 +1,10 @@
+# Optional: export one OpenTelemetry trace per check to a local Phoenix.
+# Not needed for tests or for checks; without these packages the JSONL step log is used.
+#   .venv\Scripts\python.exe -m pip install -r requirements-observability.txt
+#   set STRIPCHECK_TRACING=1 (and optionally STRIPCHECK_PHOENIX_URL, default http://127.0.0.1:6006/v1/traces)
+# Phoenix itself goes in a separate venv to avoid dependency conflicts:
+#   python -m venv .venv-phoenix ; .venv-phoenix\Scripts\python.exe -m pip install arize-phoenix
+#   .venv-phoenix\Scripts\phoenix.exe serve     (UI at http://127.0.0.1:6006)
+opentelemetry-api==1.45.1
+opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.1

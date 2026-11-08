@@ -1,0 +1,204 @@
+[
+  {
+    "run": "run1",
+    "thread_id": "check-bf350291af204c54af53c3ef304ee2cb",
+    "session": "cac77bec4b4f494bbf31f69c0e21d75e",
+    "otel": {
+      "trace_id": "a29478b5a2642d224ca5229d28da32e8",
+      "span_id": "19f04cacb4ff7a9c"
+    },
+    "question": "One or more characters may be unclear. Which batch is printed on your pack: LM24088 or LM2408B?",
+    "prior": null,
+    "label": "FLAGGED",
+    "steps": [
+      {
+        "step": 1,
+        "action": "extract_fields",
+        "source": "rules",
+        "summary": "Using the printed details supplied for this check.",
+        "ms": 0
+      },
+      {
+        "step": 2,
+        "action": "search_exact",
+        "source": "rules",
+        "summary": "Checked the exact batch against 1 loaded records; 0 candidate(s).",
+        "ms": 0.01
+      },
+      {
+        "step": 3,
+        "action": "search_variants",
+        "source": "llm",
+        "summary": "Checked bounded character alternatives; 1 candidate(s). No printed character was changed.",
+        "ms": 0.22,
+        "thought": "The batch read is unique and not found in the records, suggesting it may be a variant or a new batch."
+      },
+      {
+        "step": 4,
+        "action": "grade",
+        "source": "rules",
+        "summary": "Compared product, brand, dates and manufacturer for every candidate.",
+        "ms": 0
+      },
+      {
+        "step": 5,
+        "action": "ask_user",
+        "source": "llm",
+        "summary": "A printed detail needs your confirmation.",
+        "ms": 0,
+        "thought": "The batch 'LM2408B' does not match the listed 'LM24088', requiring user confirmation to proceed."
+      },
+      {
+        "step": 6,
+        "action": "answer",
+        "source": "user",
+        "summary": "Printed details updated by the user.",
+        "ms": 0
+      },
+      {
+        "step": 7,
+        "action": "search_exact",
+        "source": "rules",
+        "summary": "Checked the exact batch against 1 loaded records; 1 candidate(s).",
+        "ms": 0.02
+      },
+      {
+        "step": 8,
+        "action": "search_variants",
+        "source": "rules",
+        "summary": "Checked bounded character alternatives; 0 candidate(s). No printed character was changed.",
+        "ms": 0.11,
+        "thought": "An exact entry exists; look-alike alternatives are still checked so no listed batch is missed."
+      },
+      {
+        "step": 9,
+        "action": "grade",
+        "source": "rules",
+        "summary": "Compared product, brand, dates and manufacturer for every candidate.",
+        "ms": 0
+      },
+      {
+        "step": 10,
+        "action": "draft_verdict",
+        "source": "rules",
+        "summary": "Prepared the evidence-based result and checked the result rules.",
+        "ms": 0,
+        "thought": "A corroborated entry matches the confirmed batch; draft the listed result with its citation.",
+        "verifier": "approved"
+      }
+    ],
+    "confusions_after": [
+      {
+        "ocr_char": "8",
+        "true_char": "B",
+        "source": "user",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "run": "run2",
+    "thread_id": "check-999520ec9e39466a860bfb721cdd68d2",
+    "session": "5ca8491b0c084be8a55686fec9343f83",
+    "otel": {
+      "trace_id": "734e15c1d1926426a9147e99d5e9ba70",
+      "span_id": "5008cd4fce773746"
+    },
+    "question": "One or more characters may be unclear. Which batch is printed on your pack: LM24088 or LM2408B? Earlier checks on this computer confirmed that the photo reader read B as 8 once. Please still check the printed character yourself.",
+    "prior": [
+      {
+        "read": "8",
+        "true": "B",
+        "count": 1
+      }
+    ],
+    "label": "FLAGGED",
+    "steps": [
+      {
+        "step": 1,
+        "action": "extract_fields",
+        "source": "rules",
+        "summary": "Using the printed details supplied for this check.",
+        "ms": 0
+      },
+      {
+        "step": 2,
+        "action": "search_exact",
+        "source": "rules",
+        "summary": "Checked the exact batch against 1 loaded records; 0 candidate(s).",
+        "ms": 0.01
+      },
+      {
+        "step": 3,
+        "action": "search_variants",
+        "source": "llm",
+        "summary": "Checked bounded character alternatives; 1 candidate(s). No printed character was changed. Prior confirmed corrections: 8 to B: 1. Confirmation is still required.",
+        "ms": 0.17,
+        "thought": "To account for potential reader confusion, it is important to check for variations of the batch number.",
+        "prior": "8->B seen 1 time"
+      },
+      {
+        "step": 4,
+        "action": "grade",
+        "source": "rules",
+        "summary": "Compared product, brand, dates and manufacturer for every candidate.",
+        "ms": 0
+      },
+      {
+        "step": 5,
+        "action": "ask_user",
+        "source": "llm",
+        "summary": "A printed detail needs your confirmation.",
+        "ms": 0,
+        "thought": "The batch 'LM24088' is a variant of the expected 'LM2408B' and there are discrepancies in the batch number. Further verification is needed to confirm the correct batch.",
+        "prior": "8->B seen 1 time"
+      },
+      {
+        "step": 6,
+        "action": "answer",
+        "source": "user",
+        "summary": "Printed details updated by the user.",
+        "ms": 0
+      },
+      {
+        "step": 7,
+        "action": "search_exact",
+        "source": "rules",
+        "summary": "Checked the exact batch against 1 loaded records; 1 candidate(s).",
+        "ms": 0.02
+      },
+      {
+        "step": 8,
+        "action": "search_variants",
+        "source": "rules",
+        "summary": "Checked bounded character alternatives; 0 candidate(s). No printed character was changed.",
+        "ms": 0.11,
+        "thought": "An exact entry exists; look-alike alternatives are still checked so no listed batch is missed."
+      },
+      {
+        "step": 9,
+        "action": "grade",
+        "source": "rules",
+        "summary": "Compared product, brand, dates and manufacturer for every candidate.",
+        "ms": 0
+      },
+      {
+        "step": 10,
+        "action": "draft_verdict",
+        "source": "rules",
+        "summary": "Prepared the evidence-based result and checked the result rules.",
+        "ms": 0,
+        "thought": "A corroborated entry matches the confirmed batch; draft the listed result with its citation.",
+        "verifier": "approved"
+      }
+    ],
+    "confusions_after": [
+      {
+        "ocr_char": "8",
+        "true_char": "B",
+        "source": "user",
+        "count": 2
+      }
+    ]
+  }
+]

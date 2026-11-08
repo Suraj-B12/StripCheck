@@ -103,6 +103,17 @@ def render_verdict(label, fields, entry=None, context=None, reason="", batch_evi
     }
 
 
+def prior_note(items):
+    """Question suffix for learned reader confusions; it never replaces the question."""
+    parts = []
+    for read, true, count in list(items)[:3]:
+        times = "once" if int(count) == 1 else f"{int(count)} times"
+        parts.append(f"{clean_text(true)} as {clean_text(read)} {times}")
+    if not parts:
+        return ""
+    return "Earlier checks on this computer confirmed that the photo reader read " + "; ".join(parts) + ". Please still check the printed character yourself."
+
+
 def question(kind, fields, entry=None, positions=None):
     entry, positions = entry or {}, positions or []
     batch = fields.get("batch", "")

@@ -1,0 +1,641 @@
+﻿[
+    {
+        "id":  "U3BhbjoxMTM=",
+        "name":  "check",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "19f04cacb4ff7a9c"
+                    },
+        "span_kind":  "AGENT",
+        "parent_id":  null,
+        "start_time":  "2026-11-08T10:33:53.226370+00:00",
+        "end_time":  "2026-11-08T10:34:01.716477+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"status\": \"waiting\", \"label\": null, \"question\": \"One or more characters may be unclear. Which batch is printed on your pack: LM24088 or LM2408B?\", \"kind\": \"confirm_char\"}",
+                           "session.id":  "cac77bec4b4f494bbf31f69c0e21d75e",
+                           "stripcheck.steps":  5,
+                           "stripcheck.planner":  "hybrid",
+                           "stripcheck.asks":  0,
+                           "stripcheck.batch_evidence":  "ocr",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"fields\": {\"batch\": \"LM24088\", \"product\": \"Lumera Tablets\", \"brand\": \"\", \"mfg\": \"2024-08\", \"exp\": \"2027-07\", \"maker\": \"Example Laboratories\", \"source\": \"ocr\"}, \"answer\": null}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDE=",
+        "name":  "extract_fields",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "5c628e1996738f85"
+                    },
+        "span_kind":  "TOOL",
+        "parent_id":  "da511b6d5bb486f2",
+        "start_time":  "2026-11-08T10:33:53.226460+00:00",
+        "end_time":  "2026-11-08T10:33:53.226460+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"batch\": \"LM24088\", \"product\": \"Lumera Tablets\", \"mfg\": \"2024-08\", \"exp\": \"2027-07\", \"maker\": \"Example Laboratories\"}",
+                           "stripcheck.step":  1,
+                           "stripcheck.summary":  "Using the printed details supplied for this check.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"source\": \"ocr\", \"confirmed\": false}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDI=",
+        "name":  "planner: extract_fields",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "da511b6d5bb486f2"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "19f04cacb4ff7a9c",
+        "start_time":  "2026-11-08T10:33:53.226460+00:00",
+        "end_time":  "2026-11-08T10:33:53.226460+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"extract_fields\", \"thought\": \"\"}",
+                           "stripcheck.thought":  "",
+                           "stripcheck.source":  "rules",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 1, \"source\": \"rules\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDQ=",
+        "name":  "planner: search_exact",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "e9dab040aa2ccbbe"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "19f04cacb4ff7a9c",
+        "start_time":  "2026-11-08T10:33:53.226653+00:00",
+        "end_time":  "2026-11-08T10:33:53.226663+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"search_exact\", \"thought\": \"\"}",
+                           "stripcheck.thought":  "",
+                           "stripcheck.source":  "rules",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 2, \"source\": \"rules\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDM=",
+        "name":  "search_exact",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "61de74e3eee449e2"
+                    },
+        "span_kind":  "TOOL",
+        "parent_id":  "e9dab040aa2ccbbe",
+        "start_time":  "2026-11-08T10:33:53.226653+00:00",
+        "end_time":  "2026-11-08T10:33:53.226663+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "[]",
+                           "stripcheck.step":  2,
+                           "stripcheck.summary":  "Checked the exact batch against 1 loaded records; 0 candidate(s).",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"batch_key\": \"LM24088\", \"records\": 1}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDc=",
+        "name":  "planner: search_variants",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "fbfda1dbd7a9f154"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "19f04cacb4ff7a9c",
+        "start_time":  "2026-11-08T10:33:53.226969+00:00",
+        "end_time":  "2026-11-08T10:33:57.823489+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"search_variants\", \"thought\": \"The batch read is unique and not found in the records, suggesting it may be a variant or a new batch.\"}",
+                           "stripcheck.thought":  "The batch read is unique and not found in the records, suggesting it may be a variant or a new batch.",
+                           "stripcheck.source":  "llm",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 3, \"source\": \"llm\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDU=",
+        "name":  "planner_llm",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "ab35b11a62d0af72"
+                    },
+        "span_kind":  "LLM",
+        "parent_id":  "fbfda1dbd7a9f154",
+        "start_time":  "2026-11-08T10:33:53.226969+00:00",
+        "end_time":  "2026-11-08T10:33:57.823269+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"thought\": \"The batch read is unique and not found in the records, suggesting it may be a variant or a new batch.\", \"action\": \"search_variants\"}",
+                           "llm.invocation_parameters":  "{\"temperature\": 0}",
+                           "llm.model_name":  "qwen2.5:3b",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"task\": \"You are the planner of a medicine batch checker. Choose the next action from \u0027allowed\u0027. Explain the reason in one short sentence in \u0027thought\u0027. Prefer actions that gather evidence before giving a result.\", \"evidence\": {\"batch_read\": \"LM24088\", \"batch_source\": \"ocr\", \"exact_hits\": 0, \"records_searched\": 1, \"learned_reader_confusions\": []}, \"allowed\": [\"search_variants\", \"draft_verdict\"], \"rule_suggestion\": \"search_variants\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDY=",
+        "name":  "search_variants",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "95706d4cfe0fd7a1"
+                    },
+        "span_kind":  "TOOL",
+        "parent_id":  "fbfda1dbd7a9f154",
+        "start_time":  "2026-11-08T10:33:57.823269+00:00",
+        "end_time":  "2026-11-08T10:33:57.823489+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "[{\"id\": 10001, \"batch_key\": \"LM2408B\", \"subs\": [[6, \"8\", \"B\"]], \"entry_type\": \"NSQ\"}]",
+                           "stripcheck.step":  3,
+                           "stripcheck.summary":  "Checked bounded character alternatives; 1 candidate(s). No printed character was changed.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"batch_key\": \"LM24088\", \"max_subs\": 2, \"prior\": []}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDg=",
+        "name":  "grade",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "0e84d9b7d55fba68"
+                    },
+        "span_kind":  "TOOL",
+        "parent_id":  "b0847e70d25cfdbf",
+        "start_time":  "2026-11-08T10:33:57.824155+00:00",
+        "end_time":  "2026-11-08T10:33:57.824155+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "[{\"id\": 10001, \"batch_key\": \"LM2408B\", \"status\": \"needs_confirm_char\", \"evidence\": {\"batch\": \"variant\", \"product\": \"match\", \"brand\": \"n/a\", \"dates\": \"match\", \"maker\": \"match\"}}]",
+                           "stripcheck.step":  4,
+                           "stripcheck.summary":  "Compared product, brand, dates and manufacturer for every candidate.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"batch\": \"LM24088\", \"product\": \"Lumera Tablets\", \"brand\": \"\", \"mfg\": \"2024-08\", \"exp\": \"2027-07\", \"maker\": \"Example Laboratories\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMDk=",
+        "name":  "planner: grade",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "b0847e70d25cfdbf"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "19f04cacb4ff7a9c",
+        "start_time":  "2026-11-08T10:33:57.824155+00:00",
+        "end_time":  "2026-11-08T10:33:57.824155+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"grade\", \"thought\": \"\"}",
+                           "stripcheck.thought":  "",
+                           "stripcheck.source":  "rules",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 4, \"source\": \"rules\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTA=",
+        "name":  "planner_llm",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "5b8b8a62a73b48fd"
+                    },
+        "span_kind":  "LLM",
+        "parent_id":  "ef8fd92d998b07f9",
+        "start_time":  "2026-11-08T10:33:57.824350+00:00",
+        "end_time":  "2026-11-08T10:34:01.716450+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"thought\": \"The batch \u0027LM2408B\u0027 does not match the listed \u0027LM24088\u0027, requiring user confirmation to proceed.\", \"action\": \"ask_user\"}",
+                           "llm.invocation_parameters":  "{\"temperature\": 0}",
+                           "llm.model_name":  "qwen2.5:3b",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"task\": \"You are the planner of a medicine batch checker. Choose the next action from \u0027allowed\u0027. Explain the reason in one short sentence in \u0027thought\u0027. Prefer actions that gather evidence before giving a result.\", \"evidence\": {\"batch_read\": \"LM24088\", \"batch_source\": \"ocr\", \"candidate_status\": \"needs_confirm_char\", \"candidate_batch\": \"LM2408B\", \"substitutions\": [\"pack 8 vs listed B\"], \"evidence\": {\"batch\": \"variant\", \"product\": \"match\", \"brand\": \"n/a\", \"dates\": \"match\", \"maker\": \"match\"}, \"questions_left\": 2, \"learned_reader_confusions\": []}, \"allowed\": [\"ask_user\", \"draft_verdict\"], \"rule_suggestion\": \"ask_user\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTI=",
+        "name":  "planner: ask_user",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "ef8fd92d998b07f9"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "19f04cacb4ff7a9c",
+        "start_time":  "2026-11-08T10:33:57.824350+00:00",
+        "end_time":  "2026-11-08T10:34:01.716450+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"ask_user\", \"thought\": \"The batch \u0027LM2408B\u0027 does not match the listed \u0027LM24088\u0027, requiring user confirmation to proceed.\"}",
+                           "stripcheck.thought":  "The batch \u0027LM2408B\u0027 does not match the listed \u0027LM24088\u0027, requiring user confirmation to proceed.",
+                           "stripcheck.source":  "llm",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 5, \"source\": \"llm\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTE=",
+        "name":  "ask_user",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "668720dcb5d70767"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "ef8fd92d998b07f9",
+        "start_time":  "2026-11-08T10:34:01.716450+00:00",
+        "end_time":  "2026-11-08T10:34:01.716450+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"kind\": \"confirm_char\", \"batch\": \"LM24088\", \"entry_id\": 10001, \"options\": [\"LM2408B\", \"LM24088\", \"Can\u0027t tell\"], \"question\": \"One or more characters may be unclear. Which batch is printed on your pack: LM24088 or LM2408B?\", \"positions\": [7], \"listed\": \"LM2408B\", \"pack\": \"LM24088\", \"subs\": [[6, \"8\", \"B\"]]}",
+                           "stripcheck.step":  5,
+                           "stripcheck.summary":  "A printed detail needs your confirmation.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"candidate\": \"LM2408B\", \"status\": \"needs_confirm_char\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMjU=",
+        "name":  "check.resume",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "706eb09a496059cf"
+                    },
+        "span_kind":  "AGENT",
+        "parent_id":  "19f04cacb4ff7a9c",
+        "start_time":  "2026-11-08T10:34:02.056297+00:00",
+        "end_time":  "2026-11-08T10:34:02.057261+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"status\": \"done\", \"label\": \"FLAGGED\", \"question\": null, \"kind\": null}",
+                           "session.id":  "cac77bec4b4f494bbf31f69c0e21d75e",
+                           "stripcheck.steps":  10,
+                           "stripcheck.planner":  "hybrid",
+                           "stripcheck.asks":  1,
+                           "stripcheck.batch_evidence":  "user_confirmed",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"fields\": {\"batch\": \"LM2408B\", \"product\": \"Lumera Tablets\", \"brand\": \"\", \"mfg\": \"2024-08\", \"exp\": \"2027-07\", \"maker\": \"Example Laboratories\", \"source\": \"ocr\"}, \"answer\": {\"choice\": \"LM2408B\", \"source\": \"user\"}}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTQ=",
+        "name":  "answer",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "41711c55b817d9f8"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "1d51bb0fa998d108",
+        "start_time":  "2026-11-08T10:34:02.056703+00:00",
+        "end_time":  "2026-11-08T10:34:02.056703+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"changes\": {\"batch\": \"LM2408B\"}, \"batch_evidence\": \"user_confirmed\"}",
+                           "stripcheck.step":  6,
+                           "stripcheck.summary":  "Printed details updated by the user.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"choice\": \"LM2408B\", \"source\": \"user\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTU=",
+        "name":  "planner: answer",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "1d51bb0fa998d108"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "706eb09a496059cf",
+        "start_time":  "2026-11-08T10:34:02.056703+00:00",
+        "end_time":  "2026-11-08T10:34:02.056703+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"answer\", \"thought\": \"\"}",
+                           "stripcheck.thought":  "",
+                           "stripcheck.source":  "user",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 6, \"source\": \"user\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTY=",
+        "name":  "search_exact",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "1b7b131805d535e8"
+                    },
+        "span_kind":  "TOOL",
+        "parent_id":  "bbc473c14a3e08a9",
+        "start_time":  "2026-11-08T10:34:02.056759+00:00",
+        "end_time":  "2026-11-08T10:34:02.056779+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "[{\"id\": 10001, \"batch_key\": \"LM2408B\", \"entry_type\": \"NSQ\"}]",
+                           "stripcheck.step":  7,
+                           "stripcheck.summary":  "Checked the exact batch against 1 loaded records; 1 candidate(s).",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"batch_key\": \"LM2408B\", \"records\": 1}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTc=",
+        "name":  "planner: search_exact",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "bbc473c14a3e08a9"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "706eb09a496059cf",
+        "start_time":  "2026-11-08T10:34:02.056759+00:00",
+        "end_time":  "2026-11-08T10:34:02.056779+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"search_exact\", \"thought\": \"\"}",
+                           "stripcheck.thought":  "",
+                           "stripcheck.source":  "rules",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 7, \"source\": \"rules\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTk=",
+        "name":  "planner: search_variants",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "31b68bc1846b67a6"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "706eb09a496059cf",
+        "start_time":  "2026-11-08T10:34:02.056790+00:00",
+        "end_time":  "2026-11-08T10:34:02.056900+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"search_variants\", \"thought\": \"An exact entry exists; look-alike alternatives are still checked so no listed batch is missed.\"}",
+                           "stripcheck.thought":  "An exact entry exists; look-alike alternatives are still checked so no listed batch is missed.",
+                           "stripcheck.source":  "rules",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 8, \"source\": \"rules\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMTg=",
+        "name":  "search_variants",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "94d53ba1128c5505"
+                    },
+        "span_kind":  "TOOL",
+        "parent_id":  "31b68bc1846b67a6",
+        "start_time":  "2026-11-08T10:34:02.056790+00:00",
+        "end_time":  "2026-11-08T10:34:02.056900+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "[]",
+                           "stripcheck.step":  8,
+                           "stripcheck.summary":  "Checked bounded character alternatives; 0 candidate(s). No printed character was changed.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"batch_key\": \"LM2408B\", \"max_subs\": 2, \"prior\": []}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMjA=",
+        "name":  "grade",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "1fc2a7f1098dab8e"
+                    },
+        "span_kind":  "TOOL",
+        "parent_id":  "2cf02b1c69deaac4",
+        "start_time":  "2026-11-08T10:34:02.056996+00:00",
+        "end_time":  "2026-11-08T10:34:02.056996+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "[{\"id\": 10001, \"batch_key\": \"LM2408B\", \"status\": \"accept\", \"evidence\": {\"batch\": \"confirmed\", \"product\": \"match\", \"brand\": \"n/a\", \"dates\": \"match\", \"maker\": \"match\"}}]",
+                           "stripcheck.step":  9,
+                           "stripcheck.summary":  "Compared product, brand, dates and manufacturer for every candidate.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"batch\": \"LM2408B\", \"product\": \"Lumera Tablets\", \"brand\": \"\", \"mfg\": \"2024-08\", \"exp\": \"2027-07\", \"maker\": \"Example Laboratories\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMjE=",
+        "name":  "planner: grade",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "2cf02b1c69deaac4"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "706eb09a496059cf",
+        "start_time":  "2026-11-08T10:34:02.056996+00:00",
+        "end_time":  "2026-11-08T10:34:02.056996+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"grade\", \"thought\": \"\"}",
+                           "stripcheck.thought":  "",
+                           "stripcheck.source":  "rules",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 9, \"source\": \"rules\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMjI=",
+        "name":  "verifier",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "4d244098524f174b"
+                    },
+        "span_kind":  "GUARDRAIL",
+        "parent_id":  "951f54bd7474b114",
+        "start_time":  "2026-11-08T10:34:02.057004+00:00",
+        "end_time":  "2026-11-08T10:34:02.057004+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "approved",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"label\": \"FLAGGED\", \"headline\": \"This batch is on an alert list\", \"citations\": [{\"id\": 10001, \"title\": \"Walkthrough fixture record (prop 03, invented)\", \"source_title\": \"Walkthrough fixture record (prop 03, invented)\", \"url\": \"https://example.invalid/stripcheck-walkthrough\", \"source_url\": \"https://example.invalid/stripcheck-walkthrough\", \"list_month\": \"2026-09\", \"row_no\": \"\", \"page\": null, \"result\": \"Synthetic example: dissolution\", \"entry_type\": \"NSQ\", \"source_sha256\": \"\", \"synthetic\": false, \"text\": \"Walkthrough fixture record (prop 03, invented) Â· September 2026 Â· row not specified Â· reported: Synthetic example: dissolution\"}], \"verifier\": \"approved\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMjQ=",
+        "name":  "planner: draft_verdict",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "fb5554e096a8b5ff"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "706eb09a496059cf",
+        "start_time":  "2026-11-08T10:34:02.057004+00:00",
+        "end_time":  "2026-11-08T10:34:02.057004+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"action\": \"draft_verdict\", \"thought\": \"A corroborated entry matches the confirmed batch; draft the listed result with its citation.\"}",
+                           "stripcheck.thought":  "A corroborated entry matches the confirmed batch; draft the listed result with its citation.",
+                           "stripcheck.source":  "rules",
+                           "stripcheck.prior":  "",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"step\": 10, \"source\": \"rules\"}"
+                       },
+        "events":  [
+
+                   ]
+    },
+    {
+        "id":  "U3BhbjoxMjM=",
+        "name":  "draft_verdict",
+        "context":  {
+                        "trace_id":  "a29478b5a2642d224ca5229d28da32e8",
+                        "span_id":  "951f54bd7474b114"
+                    },
+        "span_kind":  "CHAIN",
+        "parent_id":  "fb5554e096a8b5ff",
+        "start_time":  "2026-11-08T10:34:02.057004+00:00",
+        "end_time":  "2026-11-08T10:34:02.057004+00:00",
+        "status_code":  "UNSET",
+        "status_message":  "",
+        "attributes":  {
+                           "output.mime_type":  "application/json",
+                           "output.value":  "{\"label\": \"FLAGGED\", \"headline\": \"This batch is on an alert list\", \"citations\": [{\"id\": 10001, \"title\": \"Walkthrough fixture record (prop 03, invented)\", \"source_title\": \"Walkthrough fixture record (prop 03, invented)\", \"url\": \"https://example.invalid/stripcheck-walkthrough\", \"source_url\": \"https://example.invalid/stripcheck-walkthrough\", \"list_month\": \"2026-09\", \"row_no\": \"\", \"page\": null, \"result\": \"Synthetic example: dissolution\", \"entry_type\": \"NSQ\", \"source_sha256\": \"\", \"synthetic\": false, \"text\": \"Walkthrough fixture record (prop 03, invented) Â· September 2026 Â· row not specified Â· reported: Synthetic example: dissolution\"}], \"verifier\": \"approved\"}",
+                           "stripcheck.step":  10,
+                           "stripcheck.summary":  "Prepared the evidence-based result and checked the result rules.",
+                           "input.mime_type":  "application/json",
+                           "input.value":  "{\"label\": \"FLAGGED\", \"reason\": \"\", \"top\": 10001}"
+                       },
+        "events":  [
+
+                   ]
+    }
+]
