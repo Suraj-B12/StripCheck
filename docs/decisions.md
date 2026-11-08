@@ -49,3 +49,15 @@ The user's known-batch reproduction revealed that editing a demonstration batch 
 ## D22 · 2026-10-27 · Separate public artifact hosting
 
 The user authorized an available public link after Pages administration on the original repository was unavailable. Host the reviewed static showcase in the separate `vsxye/StripCheck` artifact repository at [https://vsxye.github.io/StripCheck/](https://vsxye.github.io/StripCheck/); keep application source in `Suraj-B12/StripCheck`, whose Pages setting remains disabled and owner-gated. This replaces D20's original-repository deployment assumption only: fictional replay, bounded browser-tab storage and all local-data exclusions still apply. The initial artifact is commit `0e974f7`, built from source `d58f7a2`. Future updates require publishing a freshly tested static artifact; source changes do not automatically refresh this separate host.
+
+## D23 · 2026-11-08 · Windows OCR, tunnel demo and observability
+
+Windows photo reading uses RapidOCR 3.10 (PP-OCR weights shipped in the pinned `rapidocr` package, ONNX Runtime on CPU) in a persistent worker process with a hard timeout, and zxing-cpp with an OpenCV fallback for QR codes; macOS keeps Apple Vision. The live phone demo runs the localhost server behind a Cloudflare quick tunnel (`scripts/start-demo-tunnel.ps1`). Because a tunnel reaches the server from 127.0.0.1, `STRIPCHECK_REQUIRE_TOKEN=1` turns on the same token gate that `--lan` uses. The hybrid planner now calls the local model at two branch points (empty exact search, candidate needing a person) and may choose only among allowed actions; every step records its source, and an outage falls back to rules within one timeout. OpenTelemetry export to Phoenix is optional (`STRIPCHECK_TRACING=1`, `requirements-observability.txt`) and never blocks a check.
+
+## D24 · 2026-11-08 · R4 evaluation on rendered cartons
+
+The preregistered evaluation uses 60 rendered cartons (seed 7; seed 1 for development) built from real alert rows in the local database, with every image marked as a demo prop. Misread and sibling items print the misread string on the carton instead of the spec's stroke-level calibration, so OCR noise is simulated, not measured. The oracle user answers from the manifest. No real strip photos exist, so no result describes field accuracy.
+
+## D25 · 2026-11-08 · Fixes found by the evaluation and guide review
+
+(1) The investigator keeps the reader's full product text for grading, so a brand line printed above the generic name no longer rejects a listed batch. (2) Verifier rule R2 accepts the partial product match that `grade()` already accepts when dates and maker both match; before this, a person could answer a question and still get CANT_VERIFY. (3) The batch confirmation asks every look-alike position, not only the first two, because a misread at an unasked position could confirm the wrong batch. All evaluation arms were rerun after these fixes.

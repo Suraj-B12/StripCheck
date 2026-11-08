@@ -57,9 +57,17 @@ The compiled Swift API verification and live server round-trips pass. [GitHub ve
 
 - `python cli.py sync --full` downloads all published months discovered from the official CDSCO portal. The first historical import can take several minutes because requests are spaced at least 1.5 seconds apart. `python cli.py sync` refreshes the newest three published months. Both keep exact source bytes, checksums and links.
 - `python cli.py sync --offline` rebuilds from stored snapshots without a network connection. Repeating an unchanged import adds no duplicate rows. Rejected source rows remain visible in quarantine; the application reports the loaded coverage.
-- Photo reading on macOS uses **Apple Vision locally**. JPEG, PNG, WebP and HEIC are supported when the installed Pillow plugins can decode them. Existing Tesseract or bundled RapidOCR readers can be used on other platforms. If no reader is available, enter the printed fields; a failed read never creates invented pack details. Run `python cli.py doctor` to inspect installed capabilities.
+- Photo reading on macOS uses **Apple Vision locally**. JPEG, PNG, WebP and HEIC are supported when the installed Pillow plugins can decode them. On Windows and Linux it uses **RapidOCR 3.10** (PP-OCR weights from the pinned package, ONNX Runtime on CPU, about 0.3 s per image once warm) and **zxing-cpp** for QR codes; both install from `requirements.txt`. If no reader is available, enter the printed fields; a failed read never creates invented pack details. Run `python cli.py doctor` to inspect installed capabilities.
 - An alarm requires the printed batch to be confirmed. A missing match describes only the lists loaded on this computer. Show concerning or incomplete results, together with the pack, to a pharmacist.
 - Photos, snapshots, SQLite data and logs stay in ignored `data/` and `runs/` directories. Source material and pack photos are not included in Git. To choose other local storage, set `STRIPCHECK_DATA_DIR`, `STRIPCHECK_DB_PATH` and optionally `STRIPCHECK_RUNS_DIR` before starting the server.
+
+### Live phone demo (Cloudflare quick tunnel, Windows)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-demo-tunnel.ps1
+```
+
+The script starts the server on localhost, opens a temporary `trycloudflare.com` tunnel and prints a phone link with a one-time token (`/?k=...`) plus a QR code. Requests without the token get 401. Press Ctrl-C to stop both. Needs `cloudflared` installed; no account is required.
 
 ### Development and checks
 
@@ -88,7 +96,8 @@ Verdicts: **FLAGGED** (on an NSQ list) · **SUSPECTED_FAKE** (listed as purporte
 |---|---|
 | Design, data discovery, literature survey, paper draft | done (Oct 2026) |
 | Local website, API and deterministic batch-check workflow | implemented; see current verification evidence in `docs/BUILD_STATUS.md` |
-| Evaluation, extras, paper results (M7 to M10) | later |
+| Windows OCR, hybrid planner, Phoenix tracing, tunnel demo | done (Nov 2026) |
+| R4 evaluation (seed 7, n=60), report and slides | done; see `docs/results/eval_seed7.md`, `paper/`, `docs/guide/index.html` |
 
 ## Working on this repository
 
@@ -141,3 +150,6 @@ Deviations of the code from `StripCheck_Build_Spec_v2.md` are listed here, each 
 - **D18:** The built-in diagnostic cases are eleven authored synthetic scenarios with expected answers. Their results are software checks, not clinical accuracy, a calibrated medicine classifier, or the preregistered M7 research evaluation. Regional-language review, optional model benchmarking and paper results remain Integrator work.
 - **D20:** The public GitHub Pages build replays authored synthetic examples because Pages cannot host the Python API. It uses separate build output and hash navigation and publishes no local runtime data.
 - **D21:** Manual editing after a demo clears inherited fictional fields. An exact batch with missing or conflicting supporting details stays incomplete and asks for printed evidence; independent product/brand collisions still reject, and acceptance thresholds are unchanged.
+- **D23:** Windows reads photos with RapidOCR and zxing-cpp; the tunnel demo uses the token gate on localhost (`STRIPCHECK_REQUIRE_TOKEN=1`); the hybrid planner calls the local model at two branch points with a rules fallback; Phoenix export is optional.
+- **D24:** The R4 evaluation uses 60 rendered cartons from real alert rows. Misreads are printed on the carton, so OCR noise is simulated, not measured, and no real strip photos are included.
+- **D25:** Fixes from the evaluation: full product text kept for grading, R2 aligned with partial-match grading, every look-alike position asked at confirmation. All arms were rerun after the fixes.
