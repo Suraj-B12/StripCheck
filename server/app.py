@@ -233,6 +233,8 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
     application.state.db_path = bound_db_path
     application.state.image_slots = asyncio.Semaphore(2)
     application.state.lan = lan
+    # A tunnel (e.g. Cloudflare) reaches the server from 127.0.0.1, so the LAN token gate is opt-in for it too.
+    application.state.gate = lan or os.getenv("STRIPCHECK_REQUIRE_TOKEN", "") == "1"
     application.state.port = port
     application.state.busy_checks = set()
     application.state.lock = threading.Lock()
@@ -262,11 +264,11 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
             return JSONResponse({"error": {"message": "Use the website served by this StripCheck server.", "status": 403}}, status_code=403)
         token = os.getenv("STRIPCHECK_LAN_TOKEN", "")
         supplied = request.query_params.get("k") or request.cookies.get("stripcheck_pair") or request.headers.get("X-StripCheck-Key", "")
-        if application.state.lan and token and not hmac.compare_digest(supplied.encode("utf-8"), token.encode("utf-8")):
+        if application.state.gate and token and not hmac.compare_digest(supplied.encode("utf-8"), token.encode("utf-8")):
             return JSONResponse({"error": {"message": "Pair this device using the link shown on the host computer.", "status": 401}}, status_code=401)
         with db.using_database(application.state.db_path):
             response = await call_next(request)
-        if application.state.lan and token and request.query_params.get("k") and hmac.compare_digest(supplied.encode("utf-8"), token.encode("utf-8")):
+        if application.state.gate and token and request.query_params.get("k") and hmac.compare_digest(supplied.encode("utf-8"), token.encode("utf-8")):
             response.set_cookie("stripcheck_pair", token, httponly=True, samesite="strict", max_age=86400)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
