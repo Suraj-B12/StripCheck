@@ -41,7 +41,9 @@ def _fields(raw):
     for key in ("maker", "mfg", "exp"):
         if fields[key].lower() in PLACEHOLDERS:
             fields[key] = ""
-    fields["product"] = fields["product"] or str(raw.get("product_text") or "")[:500]
+    # Keep every product line the reader saw: a brand line above the generic name must not hide it from grading.
+    fields["product_text"] = str(raw.get("product_text") or "").strip()[:500]
+    fields["product"] = fields["product"] or fields["product_text"]
     fields["source"] = raw.get("source", "user") if raw.get("source", "user") in SOURCES else "unknown"
     fields["confirmed"] = bool(raw.get("confirmed", False))
     return fields
@@ -386,7 +388,7 @@ def investigate(fields, alerts, context=None, answer=None):
             if row["id"] not in unique:
                 unique[row["id"]] = row
         state["truncated"] = len(unique) > MAX_CANDIDATES or len(exact) > MAX_CANDIDATES or len(variants) > MAX_CANDIDATES
-        grading_fields = dict(fields, product_text=f"{fields['product']} {fields['brand']}", mfg=_date(fields["mfg"]), exp=_date(fields["exp"]))
+        grading_fields = dict(fields, product_text=" ".join(dict.fromkeys(filter(None, (fields["product"], fields["brand"], fields.get("product_text", ""))))), mfg=_date(fields["mfg"]), exp=_date(fields["exp"]))
         candidates = []
         for row in list(unique.values())[:MAX_CANDIDATES]:
             if row["batch_key"] in state["confirmed_keys"]:

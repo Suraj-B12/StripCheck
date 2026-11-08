@@ -18,7 +18,9 @@ def check_rules(verdict, state):
     if label in {"FLAGGED", "SUSPECTED_FAKE"}:
         if (entry.get("status") != "accept" or evidence.get("batch") not in {"exact", "confirmed"}
                 or state.get("batch_evidence") not in GATE_EVIDENCE
-                or evidence.get("product") != "match" or "mismatch" in evidence.values()
+                or not (evidence.get("product") == "match"
+                        or (evidence.get("product") == "partial" and evidence.get("dates") == "match" and evidence.get("maker") == "match"))
+                or "mismatch" in evidence.values()
                 or not batch_key(state.get("fields", {}).get("batch"))
                 or batch_key(state.get("fields", {}).get("batch")) != batch_key(entry.get("batch_key") or entry.get("batch_raw"))):
             violations.append("R2: corroborated, confirmed batch evidence is required")

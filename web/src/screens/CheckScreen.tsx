@@ -849,7 +849,7 @@ export default function CheckScreen({
                       Array.isArray(pending.positions) && (
                         <p>
                           Look at positions{" "}
-                          {(pending.positions as number[]).join(" and ")} on the
+                          {(pending.positions as number[]).join(", ").replace(/, (\d+)$/, " and $1")} on the
                           pack, or type the entire batch below.
                         </p>
                       )}

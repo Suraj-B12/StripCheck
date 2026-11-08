@@ -16,13 +16,15 @@ def prior_counts(rows):
 
 
 def confirmation_positions(key, prior=None):
-    """Return up to two 1-based positions, with the most ambiguous first."""
+    """Return every 1-based position holding a look-alike character, most ambiguous first.
+
+    Asking only two positions could confirm a batch whose misread character sits elsewhere."""
     prior = prior or {}
     ranked = sorted(
         (i for i, char in enumerate(key) if char in CONFUSABLE),
         key=lambda i: (-sum(prior.get((key[i], alt), 0) for alt in CONFUSABLE[key[i]]), i),
     )
-    return [i + 1 for i in (ranked[:2] if ranked else list(range(max(0, len(key) - 2), len(key))))]
+    return [i + 1 for i in (ranked if ranked else list(range(max(0, len(key) - 2), len(key))))]
 
 
 def rank_variants(index, key, prior=None, limit=20):
