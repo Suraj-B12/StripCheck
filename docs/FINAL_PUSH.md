@@ -15,7 +15,7 @@ Source plan: `C:\Users\suraj\Downloads\StripCheck_Project_Plan.md` (Parts 6 to 8
 | E | Visual guide: how StripCheck works, design choices, scraping, parsing, agent thinking, failsafes | agent E | **done** (commit 25e86db; update LLM/eval sections after B,C land) | `docs/guide/index.html` |
 | F | Mobile live demo over a Cloudflare quick tunnel | lead | **done** (commit 1563ef6; verified 401 without token, 200 with link, over the public tunnel) | `scripts/start-demo-tunnel.ps1`, README |
 | G | Slides (beamer) per plan Part 7.6 | agent D | **done** (3e71c05) | `paper/slides/` |
-| H | Full test sweep, malformed-input checks, fresh-clone run on Windows | lead | todo | test logs |
+| H | Full test sweep, malformed-input checks, fresh-clone run on Windows | lead | **done** | test logs |
 
 ## Log
 - 2026-11-08: plan read; repo surveyed (194 Python, 75 web tests pass on Windows); gaps listed above.
@@ -26,3 +26,4 @@ Source plan: `C:\Users\suraj\Downloads\StripCheck_Project_Plan.md` (Parts 6 to 8
 - 2026-11-08 16:30: C committed (fd976f9). Investigator fixes e8d70e4 (D25); eval rerun 6b69280 (oracle hit recall 1.00, all predictions held, adopt). README + D23-D25 13f0828. Batch-text validation 3e1c69f. Selftest 11/11, web build+lint clean, malformed probes OK.
 - IN FLIGHT: agent F updating paper/slides/guide for run 2 + run-1 disclosure (docs/final/F_status.md); fresh-clone test in scratchpad/fresh. THEN: commit F, rebuild PDFs, restart tunnel, BUILD_STATUS/HANDOFF/research_log entries, tag v1.0.
 - 2026-11-08: H fresh-clone check on Windows (Python 3.12, README steps): pytest 225 passed / 3 skipped, selftest 11/11, web 75 passed + build; RapidOCR and zxing available. (Python 3.10 is unsupported per README: sqlite setlimit needs 3.11+.)
+- 2026-11-08 16:45: submission PDFs in docs/submission (3b87ec9); tunnel restarted on final code; tagged v1.0. Remaining for the team: confirm contribution table rows (paper/sections/10_contributions.tex).
