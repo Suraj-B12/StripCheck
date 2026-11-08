@@ -1,14 +1,17 @@
 """Grounded local OCR/QR reads with explicit fallback to manual entry."""
+import atexit
 import csv
 import io
 import json
 import logging
 import math
+import queue
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from PIL import Image, ImageEnhance, ImageOps
@@ -109,21 +112,93 @@ def _tesseract_read(path, timeout=30):
                       "box": [[left, top], [right, top], [right, bottom], [left, bottom]], "engine": "Tesseract"})
     return lines
 
+# Pinned RapidOCR weights (bundled with rapidocr 3.10.0). Explicit model paths make every
+# run use the same files and stop RapidOCR from ever downloading a model.
+RAPID_MODELS = {"Det": "PP-OCRv6_det_small.onnx", "Cls": "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+                "Rec": "PP-OCRv6_rec_small.onnx"}
+RAPID_LABEL = "RapidOCR PP-OCRv6-small"
+
+def _rapid_new_engine():
+    import rapidocr
+    logging.getLogger("RapidOCR").setLevel(logging.ERROR)
+    models = Path(rapidocr.__file__).parent / "models"
+    params = {"Global.log_level": "error", "Global.model_root_dir": str(models)}
+    if all((models / name).is_file() for name in RAPID_MODELS.values()):
+        params.update({f"{task}.model_path": str(models / name) for task, name in RAPID_MODELS.items()})
+        return rapidocr.RapidOCR(params=params), RAPID_LABEL
+    # Only use existing weights; an uploaded image must never trigger a model download.
+    if not any(models.rglob("*.onnx")):
+        raise RuntimeError("RapidOCR weights are not installed locally")
+    return rapidocr.RapidOCR(params=params), "RapidOCR (unpinned models)"
+
 def _rapid_read(path):
     global _rapid_engine
-    import rapidocr
-    # Only use existing weights; an uploaded image must never trigger a model download.
-    package = Path(rapidocr.__file__).parent
-    if not any(package.rglob("*.onnx")):
-        raise RuntimeError("RapidOCR weights are not installed locally")
     if _rapid_engine is None:
-        logging.getLogger("RapidOCR").setLevel(logging.ERROR)
-        _rapid_engine = rapidocr.RapidOCR()
-    result = _rapid_engine(str(path))
+        _rapid_engine = _rapid_new_engine()
+    engine, label = _rapid_engine
+    result = engine(str(path))
     if hasattr(result, "txts"):
-        return [{"text": text, "score": float(score), "box": box.tolist(), "engine": "RapidOCR"}
+        return [{"text": text, "score": float(score), "box": box.tolist(), "engine": label}
                 for text, score, box in zip([] if result.txts is None else result.txts, result.scores, result.boxes)]
-    return [{"text": row[1], "score": float(row[2]), "box": row[0], "engine": "RapidOCR"} for row in (result[0] or [])]
+    return [{"text": row[1], "score": float(row[2]), "box": row[0], "engine": label} for row in (result[0] or [])]
+
+def _rapid_serve():
+    """Worker loop: one JSON path per stdin line, one JSON line list per reply. The engine loads once."""
+    reply = sys.stdout
+    sys.stdout = sys.stderr  # stray prints from the engine must not corrupt the reply channel
+    for request in sys.stdin:
+        try:
+            lines = _rapid_read(json.loads(request))
+        except Exception:  # isolated worker: any engine failure becomes "no text read"
+            lines = []
+        reply.write(json.dumps(lines) + "\n")
+        reply.flush()
+
+_rapid_proc = None
+_rapid_lock = threading.Lock()
+
+def _stop_rapid():
+    global _rapid_proc
+    proc, _rapid_proc = _rapid_proc, None
+    if proc is not None and proc.poll() is None:
+        proc.kill()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+
+atexit.register(_stop_rapid)
+
+def _rapid_request(path, timeout):
+    """Send one image to the long-lived RapidOCR worker; kill it if it overruns the deadline."""
+    global _rapid_proc
+    started = time.monotonic()
+    if not _rapid_lock.acquire(timeout=timeout):
+        raise TimeoutError("Local OCR is busy")
+    try:
+        if _rapid_proc is None or _rapid_proc.poll() is not None:
+            _rapid_proc = subprocess.Popen(
+                [sys.executable, "-c", "from core.pack_tools import _rapid_serve; _rapid_serve()"],
+                cwd=config.ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                text=True, encoding="utf-8", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        proc, answer = _rapid_proc, queue.Queue(1)
+        threading.Thread(target=lambda: answer.put(proc.stdout.readline()), daemon=True).start()
+        proc.stdin.write(json.dumps(str(path)) + "\n")
+        proc.stdin.flush()
+        try:
+            output = answer.get(timeout=max(0.1, timeout - (time.monotonic() - started)))
+        except queue.Empty:
+            _stop_rapid()
+            raise TimeoutError("Local OCR time limit reached")
+        if not output:
+            _stop_rapid()
+            raise RuntimeError("Local OCR worker stopped")
+        return _worker_json(output)
+    except OSError:
+        _stop_rapid()
+        raise
+    finally:
+        _rapid_lock.release()
 
 def _worker_json(output):
     if len(output) > 8 * 1024 * 1024:
@@ -186,10 +261,7 @@ def ocr_read(path, enhanced=False, *, _image=None, _deadline=None):
                 pass
         if not lines:
             try:
-                code = "import json,sys; from core.pack_tools import _rapid_read; print(json.dumps(_rapid_read(sys.argv[1])))"
-                result = subprocess.run([sys.executable, "-c", code, str(prepared)], cwd=config.ROOT,
-                                        capture_output=True, text=True, timeout=_remaining(deadline, 30), check=True)
-                lines = _normalize_lines(_worker_json(result.stdout), image.width, image.height)
+                lines = _normalize_lines(_rapid_request(prepared, _remaining(deadline, 30)), image.width, image.height)
             except (OSError, ImportError, RuntimeError, AttributeError, TypeError, ValueError, subprocess.SubprocessError):
                 lines = []
         for line in lines:
@@ -226,7 +298,9 @@ def _barcode_read(path):
             if not result:
                 scale = min(2, 2400 / max(image.size))
                 result = zxingcpp.read_barcodes(image.convert("L").resize((round(image.width * scale), round(image.height * scale))))
-            candidates.extend({"raw": item.text, "format": str(item.format)} for item in result[:50])
+            # zxing-cpp shows a GS1 group separator (FNC1) as "<GS>"; restore the byte the GS1 parser expects.
+            candidates.extend({"raw": item.text.replace("<GS>", "\x1d").lstrip("\x1d"), "format": str(item.format)}
+                              for item in result[:50])
     except (ImportError, OSError, ValueError, RuntimeError):
         pass
     if candidates:
@@ -243,7 +317,7 @@ def _barcode_read(path):
         text, _, _ = cv2.QRCodeDetector().detectAndDecode(cv2.imread(str(path)))
         if text:
             return [{"raw": text, "format": "QR"}]
-    except (ImportError, OSError, ValueError, RuntimeError):
+    except Exception:  # cv2.error and import failures alike: no barcode evidence
         pass
     return []
 
@@ -262,8 +336,24 @@ def decode_qr(path, *, _image=None, _deadline=None):
         except (OSError, ImportError, RuntimeError, AttributeError, TypeError, ValueError, subprocess.SubprocessError):
             return _select_barcode([])
 
+# OCR engines (RapidOCR in particular) drop the gap between printed fields: "Mfg:08/2024Exp:07/2027".
+# A label that follows a character directly and is itself followed by ':' or '-' starts a new field.
+# After a digit any field label may start; after a letter only capitalised date/party labels, so that a
+# word such as "Pilot:" never turns into a "Lot:" batch label.
+_LABEL_TAIL = r"\.?\s*(?:No\.?|Date|DATE|Dt|by|BY)?\.?\s*[:\-]"
+_GLUED_LABEL = re.compile(r"(?<=[0-9.)])(?=(?i:exp(?:iry)?|mfg|mfd|batch|lot|mkt|marketed|manufactured|use\s*before|"
+                          r"best\s*before)" + _LABEL_TAIL + ")"
+                          r"|(?<=[A-Za-z])(?=(?:Exp|EXP|Expiry|EXPIRY|Mfg|MFG|Mfd|MFD|Mkt|MKT|Marketed|MARKETED|"
+                          r"Manufactured|MANUFACTURED)" + _LABEL_TAIL + ")")
+# Bracketed notes such as "[obscured]" on a pack say that text is missing; they are never field values.
+_BRACKET_NOTE = re.compile(r"\[[^\[\]]{0,60}\]")
+
+def _clean_line(text):
+    text = _BRACKET_NOTE.sub(" ", text)
+    return re.sub(r"\s{2,}", " ", _GLUED_LABEL.sub(" ", text)).strip()
+
 def extract_fields(ocr_lines, qr_fields=None, mode="photo"):
-    lines = [line if isinstance(line, str) else str(line.get("text", "")) for line in ocr_lines]
+    lines = [_clean_line(line if isinstance(line, str) else str(line.get("text", ""))) for line in ocr_lines]
     qr_fields = qr_fields or {}
     batch, batch_line = find_batch(lines)
     mfg, exp = find_dates(lines)
@@ -314,10 +404,11 @@ def read_pack(path):
     warnings = []
     if qr.get("ambiguous"):
         warnings.append("More than one barcode batch was found. Confirm the batch printed on this pack.")
-    if not fields.get("batch") and lines:
+    # Faint or low-contrast print can leave the plain read empty, so the enhanced re-read also runs then.
+    if not fields.get("batch") and time.monotonic() < deadline:
         enhanced_lines = ocr_read(path, enhanced=True, _image=image, _deadline=deadline)
         enhanced_fields = extract_fields(enhanced_lines, qr["fields"])
-        if enhanced_fields.get("batch"):
+        if enhanced_fields.get("batch") or (enhanced_lines and not lines):
             fields, lines = enhanced_fields, enhanced_lines
     if not lines:
         warnings.append("No printed text could be read locally. Enter the batch and product from the pack.")
@@ -326,7 +417,7 @@ def read_pack(path):
     if fields.get("source") == "ocr":
         warnings.append("Check the extracted characters against your pack before using a result.")
     if qr["fields"].get("batch"):
-        ocr_batch, _ = find_batch([line["text"] for line in lines])
+        ocr_batch, _ = find_batch([_clean_line(line["text"]) for line in lines])
         if ocr_batch and batch_key(ocr_batch) != batch_key(fields["batch"]):
             warnings.append("The QR and printed batch reads differ. Confirm the batch on your pack.")
             fields["confirmed"] = False

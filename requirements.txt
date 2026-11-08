@@ -12,3 +12,10 @@ httpx>=0.28,<1
 # Native macOS text recognition; no model download needed on macOS.
 pyobjc-framework-Vision>=11; sys_platform == 'darwin'
 pillow-heif>=1.1,<2
+# Windows/Linux photo reads: RapidOCR 3.10.x ships the pinned PP-OCRv6-small weights used by
+# core/pack_tools.py; zxing-cpp decodes QR/DataMatrix, OpenCV is the QR fallback. Never install
+# opencv-python next to opencv-python-headless.
+rapidocr>=3.10,<3.11; sys_platform != 'darwin'
+onnxruntime>=1.20; sys_platform != 'darwin'
+zxing-cpp>=2.2; sys_platform != 'darwin'
+opencv-python-headless>=4.10,<5; sys_platform != 'darwin'

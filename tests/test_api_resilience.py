@@ -155,6 +155,7 @@ def test_malformed_origin_token_and_method_return_structured_errors(isolated, mo
     assert "allow" in error.headers
     monkeypatch.setenv("STRIPCHECK_LAN_TOKEN", "unit-test-token")
     isolated.state.lan = True
+    isolated.state.gate = True
     assert client.get("/api/health?k=%E2%9C%93").status_code == 401
 
 
