@@ -57,6 +57,9 @@ def main(argv=None):
     commands.add_parser("recheck", help="Recheck the saved cabinet")
     props = commands.add_parser("props", help="Render clearly marked synthetic demo packs")
     props.add_argument("--demo", action="store_true")
+    props.add_argument("--eval", action="store_true", help="Render the golden set from real alert rows")
+    props.add_argument("--n", type=int, default=60)
+    props.add_argument("--seed", type=int, default=7, help="1 = dev set, 7 = eval set")
     check = commands.add_parser("check", help="Check typed batch details or one/two pack photos")
     check.add_argument("images", nargs="*")
     check.add_argument("--text")
@@ -65,8 +68,12 @@ def main(argv=None):
     check.add_argument("--planner", choices=("rules", "hybrid", "llm"), default="rules")
     check.add_argument("--vlm", action="store_true")
     check.add_argument("--lang", default="en")
-    evaluate = commands.add_parser("eval", help="Run authored offline synthetic diagnostics")
-    evaluate.add_argument("--quick", action="store_true")
+    evaluate = commands.add_parser("eval", help="Golden-set evaluation (--arms/--hitl/--seed), or --quick for synthetic diagnostics")
+    evaluate.add_argument("--quick", action="store_true", help="Run only the authored offline synthetic diagnostics")
+    evaluate.add_argument("--arms", default="baseline,agent_rules,agent_hybrid")
+    evaluate.add_argument("--hitl", default="oracle,none", help="oracle, none, or oracle,none")
+    evaluate.add_argument("--seed", type=int, default=7)
+    evaluate.add_argument("--n", type=int, default=60)
     commands.add_parser("selftest", help="Exercise synthetic scenarios through the local API")
     args = parser.parse_args(argv)
     db.init_db()
@@ -101,6 +108,14 @@ def main(argv=None):
         from core.supervisor import recheck_cabinet
         output(recheck_cabinet())
     elif args.command == "props":
+        if args.eval:
+            from core import golden
+            if not 1 <= args.n <= 1000:
+                parser.error("--n must be between 1 and 1000")
+            manifest = golden.generate(n=args.n, seed=args.seed)
+            output({"seed": manifest["seed"], "n": manifest["n"], "mix": manifest["mix"],
+                    "folder": str(golden.eval_dir(args.seed)), "banner": manifest["banner"]})
+            return 0
         from core.props import demo_cases, render_demo
         output({"synthetic": True, "images": [{"id": case["id"], "path": str(render_demo(case["id"]))} for case in demo_cases()]})
     elif args.command == "check":
@@ -130,7 +145,10 @@ def main(argv=None):
                 break
             pending = snapshot["pending"]
             print(pending["question"])
-            answer = input("Printed value (or skip): ").strip()
+            try:
+                answer = input("Printed value (or skip): ").strip()
+            except EOFError:
+                break
             response = {"skip": True} if answer.lower() == "skip" else {"typed": answer, "choice": answer}
             previous = snapshot
             snapshot = investigate(snapshot["fields"], db.all_alerts(), context=snapshot.get("context"), answer=response)
@@ -145,10 +163,27 @@ def main(argv=None):
             record(thread_id, "interrupt", snapshot["pending"])
         output({key: value for key, value in snapshot.items() if key != "context"})
     elif args.command == "eval":
-        from core.evaluate import run_quick
-        report = run_quick()
-        output(report)
-        return int(bool(report["failed"]))
+        if args.quick:
+            from core.evaluate import run_quick
+            report = run_quick()
+            output(report)
+            return int(bool(report["failed"]))
+        from core.evaluate import ARMS, HITL, run_research
+        arms = [a.strip() for a in args.arms.split(",") if a.strip()]
+        hitl = [h.strip() for h in args.hitl.split(",") if h.strip()]
+        if not arms or any(a not in ARMS for a in arms):
+            parser.error("--arms takes a comma list of " + ",".join(ARMS))
+        if not hitl or any(h not in HITL for h in hitl):
+            parser.error("--hitl takes oracle, none or oracle,none")
+        report = run_research(arms=arms, hitl=hitl, seed=args.seed, n=args.n)
+        print(f"Report: {report['paths']['md']}")
+        for policy, done in report["results"].items():
+            for arm, cell in done.items():
+                s = cell["summary"]
+                print(f"{policy:6} {arm:13} hit_recall={s['hit_recall']['rate']} far={s['far_all']['rate']} "
+                      f"far_collision={s['far_collision']['rate']} abstain={s['abstention']['rate']} "
+                      f"q/pack={s['questions_per_pack']} safety={s['safety_violations']}")
+        return 0
     elif args.command == "selftest":
         from fastapi.testclient import TestClient
         from core.props import demo_cases

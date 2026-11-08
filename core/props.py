@@ -93,3 +93,92 @@ def generate_demo():
     for case in cases:
         case["path"] = str(render_demo(case["id"]))
     return cases
+
+
+# ---- Evaluation cartons (golden set). Every image carries the DEMO PROP banner. ----
+PROP_BANNER = "DEMO PROP - NOT A MEDICINE"
+
+
+def _eval_font(size, bold=False):
+    names = ("C:/Windows/Fonts/arialbd.ttf", "arialbd.ttf") if bold else ("C:/Windows/Fonts/arial.ttf", "arial.ttf")
+    for font in names + ("/System/Library/Fonts/Supplemental/Arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(font, size=size)
+        except OSError:
+            continue
+    return ImageFont.load_default(size=size)
+
+
+def _fit(draw, text, size, width, bold=False):
+    """Shrink the font until the text fits the carton width."""
+    while size > 18:
+        font = _eval_font(size, bold)
+        if draw.textlength(text, font=font) <= width:
+            return font
+        size -= 2
+    return _eval_font(size, bold)
+
+
+def _printed_month(value):
+    return f"{value[5:7]}/{value[:4]}" if value and len(value) == 7 else "[obscured]"
+
+
+def degrade(image, kind, severity=1, seed=0):
+    """One corruption per image: 'blur' (Gaussian) or 'glare' (bright band near the batch line)."""
+    from PIL import ImageFilter
+    import random
+    rng = random.Random(seed)
+    severity = max(0, min(3, int(severity)))
+    if kind == "blur" and severity:
+        return image.filter(ImageFilter.GaussianBlur(radius=(0.8, 1.6, 2.6)[severity - 1]))
+    if kind == "glare" and severity:
+        overlay = Image.new("L", image.size, 0)
+        draw = ImageDraw.Draw(overlay)
+        cx, cy = rng.randint(250, 550), rng.randint(340, 380)  # over the batch line
+        rx, ry = 220 + 60 * severity, 45 + 15 * severity
+        for step in range(30, 0, -1):
+            level = int((140 + 35 * severity) * (1 - step / 30) ** 0.7)
+            draw.ellipse((cx - rx * step / 30, cy - ry * step / 30, cx + rx * step / 30, cy + ry * step / 30), fill=level)
+        white = Image.new("RGB", image.size, "#ffffff")
+        return Image.composite(white, image, overlay)
+    return image
+
+
+def render_pack(spec, dest):
+    """Render one golden-set carton. spec keys: product, brand, batch, mfg, exp, maker, qr (payload or ''),
+    degrade ({'kind','severity'} or None). The printed text is exactly what the spec says."""
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.new("RGB", (1400, 900), "#e8ecf4")
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((40, 40, 1360, 860), radius=36, fill="#ffffff", outline="#c8cfdf", width=3)
+    draw.rectangle((70, 70, 1330, 130), fill="#ffe7e0")
+    draw.text((95, 82), PROP_BANNER, fill="#9b2c12", font=_eval_font(32, bold=True))
+    text_width = 1230 if not spec.get("qr") else 960
+    y = 165
+    if spec.get("brand"):
+        draw.text((95, y), spec["brand"], fill="#1e2a44", font=_fit(draw, spec["brand"], 64, text_width, bold=True))
+        y += 85
+    product = spec.get("product") or "[obscured]"
+    draw.text((95, y), product, fill="#1e2a44", font=_fit(draw, product, 54 if spec.get("brand") else 66, text_width, bold=True))
+    y = max(y + 110, 330)
+    lines = [(f"Batch No: {spec.get('batch') or '[obscured]'}", 48, True),
+             (f"Mfg. Date: {_printed_month(spec.get('mfg'))}", 40, False),
+             (f"Exp. Date: {_printed_month(spec.get('exp'))}", 40, False),
+             (f"Manufactured by: {spec.get('maker') or '[obscured]'}", 34, False)]
+    for text, size, bold in lines:
+        draw.text((100, y), text, fill="#25334e", font=_fit(draw, text, size, text_width, bold))
+        y += size + 42
+    if spec.get("qr"):
+        import qrcode
+        code = qrcode.QRCode(border=2, box_size=8)
+        code.add_data(spec["qr"])
+        code.make(fit=True)
+        qr_image = code.make_image(fill_color="black", back_color="white").convert("RGB").resize((280, 280), Image.NEAREST)
+        image.paste(qr_image, (1060, 330))
+    draw.text((100, 800), "Rendered evaluation prop for StripCheck. Text copied from a public CDSCO alert row.",
+              fill="#6b768c", font=_eval_font(22))
+    if spec.get("degrade"):
+        image = degrade(image, spec["degrade"].get("kind"), spec["degrade"].get("severity", 1), spec["degrade"].get("seed", 0))
+    image.save(dest)
+    return dest
