@@ -48,6 +48,10 @@ def _public(snapshot: dict) -> dict:
     return {key: value for key, value in snapshot.items() if key not in ("context", "_alerts", "_images")}
 
 
+# Printed batch codes are Latin letters, digits and a few separators; anything else cannot match a listed batch.
+BATCH_TEXT = re.compile(r"[A-Za-z0-9 ./:#()_-]*[A-Za-z0-9][A-Za-z0-9 ./:#()_-]*")
+
+
 def _fields(payload: dict, required: bool = False) -> dict:
     if not isinstance(payload, dict):
         raise HTTPException(422, "Printed fields must be a JSON object.")
@@ -61,6 +65,8 @@ def _fields(payload: dict, required: bool = False) -> dict:
         fields[key] = value.strip()
     if required and not fields["batch"]:
         raise HTTPException(422, "Enter the batch number printed on the pack.")
+    if fields["batch"] and not BATCH_TEXT.fullmatch(fields["batch"]):
+        raise HTTPException(422, "A printed batch uses only letters A to Z, digits and the marks - / . : # ( ).")
     return {**fields, "source": "user", "confirmed": True}
 
 

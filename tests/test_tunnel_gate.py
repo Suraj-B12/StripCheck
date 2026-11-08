@@ -19,3 +19,12 @@ def test_no_gate_by_default(tmp_path, monkeypatch):
     monkeypatch.delenv("STRIPCHECK_REQUIRE_TOKEN", raising=False)
     client = TestClient(create_app(tmp_path / "open.db"))
     assert client.get("/api/health").status_code == 200
+
+
+def test_typed_batch_rejects_non_batch_text(tmp_path, monkeypatch):
+    monkeypatch.delenv("STRIPCHECK_REQUIRE_TOKEN", raising=False)
+    client = TestClient(create_app(tmp_path / "batch.db"))
+    for bad in ["कख<script>", "\U0001F48A", "---", "AB\x00C"]:
+        response = client.post("/api/checks", json={"batch": bad})
+        assert response.status_code == 422, bad
+    assert client.post("/api/checks", json={"batch": "B.No. AB-12/34"}).status_code == 200
