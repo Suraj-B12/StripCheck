@@ -1,0 +1,442 @@
+% StripCheck final review slides (R4). Build: cd paper/slides; latexmk slides.tex  -> build/slides.pdf
+\documentclass[aspectratio=169,11pt]{beamer}
+\usetheme[progressbar=frametitle, numbering=fraction, sectionpage=none]{metropolis}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs,tabularx,array}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+% Palette: deep ink, teal accent, amber for the person, brick red for the verifier.
+\definecolor{ink}{HTML}{1F2A37}
+\definecolor{teal}{HTML}{0F766E}
+\definecolor{tealsoft}{HTML}{E6F2F1}
+\definecolor{amber}{HTML}{B45309}
+\definecolor{ambersoft}{HTML}{FDF1E3}
+\definecolor{brick}{HTML}{9F1239}
+\definecolor{bricksoft}{HTML}{FBE9EE}
+\definecolor{paper}{HTML}{FAFAF7}
+\definecolor{muted}{HTML}{6B7280}
+\setbeamercolor{normal text}{fg=ink,bg=paper}
+\setbeamercolor{frametitle}{fg=paper,bg=ink}
+\setbeamercolor{progress bar}{fg=teal,bg=ink!30}
+\setbeamercolor{alerted text}{fg=brick}
+\setbeamercolor{example text}{fg=teal}
+\setbeamercolor{title separator}{fg=teal}
+\setbeamercolor{footline}{fg=muted}
+\setbeamertemplate{itemize item}{\color{teal}\rule[0.25ex]{0.6ex}{0.6ex}}
+\setbeamertemplate{itemize subitem}{\color{muted}--}
+
+% Numbers come only from generated files.
+\input{../generated/stats}
+\newif\ifresults
+\IfFileExists{../generated/results.tex}{\input{../generated/results}\resultstrue}{\resultsfalse}
+\newcommand{\res}[1]{\ifcsname #1\endcsname\csname #1\endcsname\else\textcolor{brick}{[pending]}\fi}
+\newcommand{\pending}[1]{\begin{center}\fcolorbox{brick}{bricksoft}{\parbox{0.8\textwidth}{\centering\color{brick}\textbf{Results pending.} #1}}\end{center}}
+\newcommand{\V}[1]{\textsc{\lowercase{#1}}}
+\newcommand{\bignum}[2]{\begin{minipage}[t]{0.3\textwidth}\centering{\fontsize{20}{22}\selectfont\color{teal}\textbf{#1}}\\[2pt]{\small\color{muted}#2}\end{minipage}}
+
+\tikzset{
+  sc/.style={draw=ink!50, rounded corners=3pt, align=center, font=\scriptsize, minimum height=10mm, text width=24mm, inner sep=3pt, fill=white},
+  agent/.style={sc, fill=tealsoft, draw=teal, line width=0.7pt},
+  store/.style={sc, fill=ink!6, rounded corners=0pt},
+  human/.style={sc, fill=ambersoft, draw=amber, rounded corners=7pt},
+  gate/.style={sc, fill=bricksoft, draw=brick, line width=0.7pt},
+  opt/.style={sc, dashed},
+  arr/.style={-{Stealth[length=1.8mm]}, ink!70, line width=0.6pt},
+  lbl/.style={font=\tiny, fill=paper, inner sep=1pt, text width=, align=center},
+}
+
+\title{StripCheck}
+\subtitle{Checking a medicine pack against India's drug quality alerts}
+\author{\small Aryanraj S Singh (1BM23CD008) \quad Richik Chaudhuri (1BM23CD050)\\ Suraj B (1BM23CD061, lead) \quad Sushanth Deo (1BM23CD062)}
+\institute{\scriptsize B.E.\ CSE (Data Science), Semester VII, BMS College of Engineering\\Agentic AI (26CD7PEAAI) \textperiodcentered{} Instructor: Dr.\ Kalyan Nagaraj}
+\date{Review 4: final system, experiment and report}
+
+\ifresults
+\newcommand{\ResultsSlide}{
+\centering
+\small
+{\color{muted}\res{ResN} rendered packs, eval seed \res{ResSeed}, index of \res{ResAlertCount} alerts}\\[3mm]
+\begin{tabular}{@{}lccc@{}}
+\toprule
+ & Lookup & Agent (rules) & Agent (rules) \\
+Metric & oracle & oracle & questions skipped \\
+\midrule
+Hit recall & \res{ResBaseOracleHitRecallK} & \res{ResRulesOracleHitRecallK} & \res{ResRulesSkipHitRecallK} \\
+False alarms, collisions & \textcolor{brick}{\res{ResBaseOracleFARCollisionK}} & \textcolor{teal}{\res{ResRulesOracleFARCollisionK}} & \res{ResRulesSkipFARCollisionK} \\
+False alarms, siblings & \textcolor{brick}{\res{ResBaseOracleFARSiblingK}} & \textcolor{teal}{\res{ResRulesOracleFARSiblingK}} & \res{ResRulesSkipFARSiblingK} \\
+False alarms, all unlisted & \res{ResBaseOracleFARK} & \res{ResRulesOracleFARK} & \res{ResRulesSkipFARK} \\
+Abstentions & \res{ResBaseOracleAbstainK} & \res{ResRulesOracleAbstainK} & \res{ResRulesSkipAbstainK} \\
+Overall accuracy & \res{ResBaseOracleAccuracyK} & \res{ResRulesOracleAccuracyK} & \res{ResRulesSkipAccuracyK} \\
+Questions per pack & \res{ResBaseOracleQuestions} & \res{ResRulesOracleQuestions} & \res{ResRulesSkipQuestions} \\
+Median latency (s) & \res{ResBaseOracleLatMedian} & \res{ResRulesOracleLatMedian} & \res{ResRulesSkipLatMedian} \\
+Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \res{ResRulesSkipSafety} \\
+\bottomrule
+\end{tabular}
+}
+\newcommand{\OutcomeText}{
+\textbf{\color{teal}Decision (oracle user):} \res{ResRulesOracleDecision} the agent.\\
+McNemar $p=\res{ResRulesOracleMcNemarP}$.\\[1mm]
+\textbf{Prediction:} collisions \res{ResPredictionTwo}; clean packs \res{ResPredictionOne}; misreads \res{ResPredictionThree}.\\[1mm]
+\textbf{Surprise:} clean + QR recall \res{ResBaseOracleHitRecallCleanQRK} (lookup) vs \res{ResRulesOracleHitRecallCleanQRK} (agent): stricter evidence costs some true hits. With questions skipped the agent abstains instead of guessing.
+}
+\else
+\newcommand{\ResultsSlide}{
+\pending{Filled from \texttt{paper/generated/results.tex}, written by \texttt{python cli.py eval}. No number on this slide is typed by hand.}
+}
+\newcommand{\OutcomeText}{
+\textcolor{brick}{Outcome pending the evaluation run.}
+}
+\fi
+% Show chosen generated tables (by position in results_tables.tex) side by side in a frame.
+\makeatletter
+\newcounter{bt}
+\newcommand{\bt@show}{}
+\newcommand{\bt@caption}[1]{\par{\bfseries #1}\par\smallskip}
+\newenvironment{bttable}[1][]{\stepcounter{bt}\setbox0\vbox\bgroup\hsize=\bt@w\textwidth\columnwidth=\hsize\linewidth=\hsize\centering\scriptsize\let\caption\bt@caption\let\label\@gobble}{\egroup\edef\bt@n{,\arabic{bt},}\edef\bt@test{\noexpand\in@{\bt@n}{\bt@show}}\bt@test\ifin@\global\setbox2\hbox{\unhbox2\box0\hspace{0.03\textwidth}}\fi}
+\newcommand{\bt@w}{0.47}
+\newcommand{\ShowGeneratedTables}[2][0.47]{\begingroup\renewcommand{\bt@w}{#1}\renewcommand{\bt@show}{,#2,}\setcounter{bt}{0}\global\setbox2\hbox{}\let\table\bttable\let\endtable\endbttable\input{../generated/results_tables}\endgroup\par\centerline{\box2}}
+\makeatother
+\begin{document}
+
+% 1
+\maketitle
+
+% 2
+\begin{frame}{The problem: the list and the pack never meet}
+\small
+\begin{itemize}
+\item CDSCO publishes monthly lists of batches that failed laboratory tests (NSQ) or were declared spurious.
+\item A patient holds a strip with a batch number on the foil. Checking means finding the month and comparing by hand.
+\item QR codes (top 300 brands) prove where a pack came from. They carry no test result.
+\end{itemize}
+\vfill
+\begin{center}
+\bignum{\NumAlertRows}{alert rows, \FirstMonth{} to \LastMonth}\hfill
+\bignum{\RowsYearTwentyFive}{rows in 2025 alone}\hfill
+\bignum{\ShelfTwelvePlusPct\%}{of flagged batches still have $\geq$12 months of shelf life at the alert}
+\end{center}
+\vfill
+\end{frame}
+
+% 3
+\begin{frame}{The decision: is this exact pack from a listed batch?}
+\begin{center}
+\footnotesize
+\renewcommand{\arraystretch}{1.3}\begin{tabularx}{0.92\textwidth}{@{}l X@{}}
+\toprule
+\textcolor{brick}{\V{FLAGGED}} & Confirmed batch matches an NSQ entry, and product plus dates or maker agree \\
+\textcolor{brick}{\V{SUSPECTED\_FAKE}} & Confirmed batch matches an entry listed as purported spurious \\
+\V{NOT\_LISTED} & Nothing survives exact and misread-aware search of the lists loaded. Never a certificate, never green \\
+\textcolor{muted}{\V{CANT\_VERIFY}} & Evidence too weak after bounded steps and two questions: the agent abstains \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\vspace{1mm}
+\footnotesize
+\begin{itemize}
+\item Advisory only: every result says ``show this pack to your pharmacist''. Never ``safe'', never ``stop taking''.
+\item Every alarm cites the list, month, failed test and source row. Only the batch is flagged, never the brand.
+\end{itemize}
+\end{frame}
+
+% 4
+\begin{frame}{Why a lookup script is not enough}
+\small
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{\color{teal}Reading fails confidently}
+\begin{itemize}
+\item OCR read a scuffed \texttt{B} as \texttt{3} at confidence 1.0; the enhanced re-read agreed.
+\item An exact lookup then misses the listed batch.
+\end{itemize}
+\vspace{2mm}
+\textbf{\color{teal}Batch numbers collide}
+\begin{itemize}
+\item \CollisionKeys{} keys are shared by unrelated products.
+\item \ShortKeyPct\% of keys have under four characters.
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{\color{brick}Siblings turn misreads into alarms}
+\begin{itemize}
+\item \SiblingKeys{} listed keys have a same-maker neighbour one confusable character away (\texttt{R21119} / \texttt{R21719}).
+\item A misread can land exactly on the sibling, and every other field agrees.
+\end{itemize}
+\vspace{2mm}
+\textbf{\color{teal}Fields do not line up}
+\begin{itemize}
+\item Strips name the marketer, lists the manufacturer.
+\item Spurious entries list the maker as ``under investigation''.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% 5
+\begin{frame}{Architecture as built}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+\node[sc] (client) at (0,0) {\textbf{Clients}\\web, iOS, CLI};
+\node[sc] (api) at (3.1,0) {\textbf{Local API}\\FastAPI + SSE};
+\node[agent] (perc) at (6.2,0) {\textbf{Perception}\\QR, OCR, re-read};
+\node[agent] (inv) at (9.3,0) {\textbf{Investigator}\\plan, search, grade, ask};
+\node[gate] (ver) at (12.4,0) {\textbf{Verifier}\\ten hard rules};
+\node[sc] (out) at (15.5,0) {\textbf{Verdict card}\\template + citation};
+\node[human] (person) at (9.3,1.9) {\textbf{Person}\\types the doubtful characters};
+\node[opt] (llm) at (12.4,1.9) {\textbf{Local LLM}\\optional, with fallback};
+\draw[arr] (client)--(api); \draw[arr] (api)--(perc); \draw[arr] (perc)--(inv);
+\draw[arr] (inv)--node[lbl,above]{draft}(ver); \draw[arr] (ver)--node[lbl,above]{pass}(out);
+\draw[arr] ([xshift=-3mm]inv.north)--([xshift=-3mm]person.south);
+\draw[arr] ([xshift=3mm]person.south)--([xshift=3mm]inv.north);
+\draw[arr,dashed] (llm.south west)--(inv.north east);
+\node[store] (mem) at (6.2,-2.3) {\textbf{Memory}\\cabinet, confusions};
+\node[store] (index) at (9.3,-2.3) {\textbf{Alert index}\\SQLite + source row};
+\node[store] (state) at (12.4,-2.3) {\textbf{Check state}\\JSON doc + JSONL trace};
+\draw[arr] (index)--(inv); \draw[arr] (mem)--(inv.south west); \draw[arr] (inv.south east)--(state.north west);
+\node[sc] (portal) at (0,-4.5) {\textbf{CDSCO portal}\\monthly JSON};
+\node[agent] (sync) at (3.1,-4.5) {\textbf{Sync}\\$\geq$1.5\,s apart, snapshots};
+\node[agent] (ing) at (6.2,-4.5) {\textbf{Ingest}\\validate, quarantine};
+\node[agent] (re) at (12.4,-4.5) {\textbf{Cabinet re-check}\\saved packs};
+\node[sc] (note) at (15.5,-4.5) {\textbf{Notifications}};
+\draw[arr] (portal)--(sync); \draw[arr] (sync)--(ing); \draw[arr] (ing)--(index.south west);
+\draw[arr] (ing)--node[lbl,above]{then}(re); \draw[arr] (re)--(note);
+\begin{scope}[on background layer]
+\node[draw=ink!20, fill=white, rounded corners=4pt, inner sep=5pt, fit=(client)(out)(person)(llm)] (l1) {};
+\node[draw=ink!20, fill=white, rounded corners=4pt, inner sep=5pt, fit=(portal)(note)] (l2) {};
+\end{scope}
+\node[font=\scriptsize\itshape, anchor=north west, text=muted] at (l1.north west) {per pack, person waits};
+\node[font=\scriptsize\itshape, anchor=north west, text=muted] at (l2.south west) {background: supervisor runs sync, ingest, re-check};
+\end{tikzpicture}}
+\end{frame}
+
+% 6
+\begin{frame}{The investigator loop and its bounds}
+\begin{columns}[c]
+\begin{column}{0.56\textwidth}
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+\node[agent] (plan) at (0,0) {\textbf{Planner}\\rules; LLM at branch points};
+\node[sc] (ext) at (-3.3,1.5) {\textbf{extract\_fields}};
+\node[sc] (exa) at (0,1.8) {\textbf{search\_exact}};
+\node[sc] (var) at (3.3,1.5) {\textbf{search\_variants}\\channel-ranked};
+\node[sc] (grd) at (3.3,-1.4) {\textbf{grade}\\5 fields};
+\node[human] (ask) at (-3.3,-1.4) {\textbf{ask\_user}\\pause, persist, resume};
+\node[sc] (dra) at (0,-2.2) {\textbf{draft\_verdict}\\batch gate};
+\node[gate] (ver) at (0,-3.7) {\textbf{Verifier}\\R1--R10};
+\node[sc] (ok) at (-2.4,-5) {verdict};
+\node[sc] (cv) at (2.4,-5) {\V{CANT\_VERIFY}};
+\foreach \n in {ext,exa,var,grd,ask}{\draw[{Stealth[length=1.6mm]}-{Stealth[length=1.6mm]}, ink!70, line width=0.6pt] (plan)--(\n);}
+\draw[arr] (plan)--(dra); \draw[arr] (dra)--(ver);
+\draw[arr] (ver)--node[lbl,left=2pt]{pass}(ok); \draw[arr] (ver)--node[lbl,right=2pt]{violation}(cv);
+\end{tikzpicture}}
+\end{column}
+\begin{column}{0.4\textwidth}
+\small
+\textbf{Bounds in code}\\[1mm]
+\begin{tabular}{@{}lr@{}}
+\toprule
+Steps per check & 16\\
+Questions per check & 2\\
+Substitutions per variant & 2\\
+Variant lookups & 2{,}000\\
+Candidates graded & 20\\
+LLM attempts (timed out) & 2\\
+\bottomrule
+\end{tabular}\\[2mm]
+\textbf{\color{brick}Gate:} no alarm unless the batch came from a QR code, the person, or two agreeing reads.
+\end{column}
+\end{columns}
+\end{frame}
+
+% 7
+\begin{frame}{Agentic concepts and where to see them}
+\scriptsize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}l X X@{}}
+\toprule
+Concept & In StripCheck & Evidence \\
+\midrule
+Tool use & QR, OCR, extract, search, grade, ask, draft & one trace step per call \\
+Agentic RAG & exact $\rightarrow$ variants $\rightarrow$ grade 5 fields $\rightarrow$ re-query or abstain & candidates and grades in the check \\
+Planning & planner loop; hybrid LLM picks among allowed actions & \emph{source} of each step \\
+Observability & JSONL trace per check, live timeline & \texttt{data/traces/<check>.jsonl} \\
+Multi-agent & supervisor, ingest, investigator, verifier & re-check report, rule results \\
+Memory & cabinet re-check; confirmed confusions as a prior & ``Prior confirmed corrections: 8 to B: 1'' \\
+HITL + guardrails & five question kinds, templates, banned phrases & question and resumed answer \\
+Durable workflow & whole check state saved in SQLite & resume across restarts \\
+Experimentation & lookup vs agent (rules) vs agent (hybrid) & A/B tables \\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+% 8
+\begin{frame}{Data: CDSCO's portal, ingested with provenance}
+\small
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+\item Portal JSON back to \FirstMonth: \NumNsqRows{} NSQ rows over \NumMonths{} months and \NumSpuriousTabRows{} spurious rows (snapshot of \SnapshotDate).
+\item Every response stored with its SHA-256; every alert cites its source row.
+\item Imports are atomic and idempotent; bad rows are quarantined with reasons, never typed in by hand.
+\end{itemize}
+\end{column}
+\begin{column}{0.47\textwidth}
+\small
+\textbf{Quirks handled}
+\begin{itemize}
+\item Latin-1 encoding, dashes arriving as ``?''
+\item brand present in only \BrandPresentPct\% of rows
+\item multi-batch cells, GS1 prefixes, dates in batch cells
+\item maker and marketer in one cell
+\item \MissingDatePct\% of rows without a manufacturing date
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% 9
+\begin{frame}{Evaluation set-up}
+\scriptsize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\textbf{Test sets}
+\begin{itemize}
+\item Packs rendered from real alert rows: clean, QR, glare, misread, spurious, collision, unlisted.
+\item Tuned on seed 1 only; reported on seed 7.
+\item Eleven authored diagnostic scenarios run offline in the test suite.
+\end{itemize}
+\textbf{Arms}
+\begin{itemize}
+\item A: lookup script (QR/OCR, regex, exact hit = alarm)
+\item B: agent, rule planner; C: agent, hybrid planner
+\item each with an oracle user and with every question skipped
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\textbf{Metrics}
+\begin{itemize}
+\item hit recall, type accuracy
+\item false-alarm rate, overall and on collisions
+\item abstention, questions per pack
+\item median and p95 latency
+\item safety violations (must be 0)
+\end{itemize}
+Wilson 95\% intervals; exact McNemar for paired arms.
+\end{column}
+\end{columns}
+\end{frame}
+
+% 10
+\begin{frame}{Results (oracle user)}
+\ResultsSlide
+\end{frame}
+
+% 11
+\begin{frame}{A/B decision, surprises and limitations}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\footnotesize
+\textbf{Preregistered rule R-A}\\
+Adopt the agent if collision false alarms drop by $\geq$50\% (relative) and hit recall falls by $\leq$5 points.\\[2mm]
+\OutcomeText
+\end{column}
+\begin{column}{0.46\textwidth}
+\small
+\textbf{Limitations}
+\begin{itemize}
+\item \V{NOT\_LISTED} only covers sampled, loaded lists
+\item all packs are synthetic; no real strip photos yet; English labels only
+\item the oracle answers perfectly; real people may not
+\item small packs per scenario; laptop CPU latency
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% 12
+\begin{frame}[standout]
+Live demo\\[4mm]
+{\normalsize misread pack $\rightarrow$ one character question $\rightarrow$ \V{FLAGGED} with citation\\
+collision pack $\rightarrow$ \V{NOT\_LISTED} where a lookup raises an alarm\\
+trace timeline \textperiodcentered{} cabinet notification}
+\end{frame}
+
+\appendix
+
+\begin{frame}{Backup: recorded trace of the misread scenario}
+\footnotesize
+\begin{tabular}{@{}r>{\ttfamily}l l@{}}
+\toprule
+\# & \normalfont Action & Observation \\
+\midrule
+1 & extract\_fields & batch read as \texttt{LM24088} \\
+2 & search\_exact & 0 candidates \\
+3 & search\_variants & 1 candidate, \texttt{LM2408B}, one substitution \\
+4 & grade & product, dates, maker agree; batch is a variant \\
+5 & ask\_user & character 7: printed \texttt{8} or \texttt{B}? (stored, paused) \\
+6 & answer & person chooses \texttt{B}; batch user-confirmed \\
+7--9 & search, grade & exact hit, all fields agree \\
+10 & draft\_verdict & \V{FLAGGED} with citation; verifier passes \\
+\bottomrule
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Backup: per-scenario counts (generated)}
+\IfFileExists{../generated/results_tables.tex}{\ShowGeneratedTables{3,4}}{\pending{Per-scenario counts come from \texttt{paper/generated/results\_tables.tex}.}}
+\end{frame}
+
+\begin{frame}{Backup: registered predictions and outcomes (generated)}
+\IfFileExists{../generated/results_tables.tex}{\ShowGeneratedTables[0.8]{5}}{\pending{Predictions table comes from \texttt{paper/generated/results\_tables.tex}.}}
+\end{frame}
+
+\begin{frame}{Backup: verifier rules (safety)}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+R1 & label is one of the four verdicts \\
+R2 & alarm needs accepted candidate, exact or confirmed batch, gate evidence, product match, no mismatch \\
+R3 & \V{SUSPECTED\_FAKE} only for spurious entries; \V{FLAGGED} only for NSQ-type entries \\
+R4 & \V{NOT\_LISTED} needs grounded batch, both searches, nothing pending, data loaded \\
+R5 & traceable citation; no banned phrase (safe, genuine, authentic, stop taking \ldots) \\
+R6 & at most 16 steps and 2 questions \\
+R7 & no unresolved date conflict \quad R8 grounded provenance for every field \\
+R9 & \V{NOT\_LISTED} states lists loaded and latest month \quad R10 reviewed languages only \\
+\bottomrule
+\end{tabularx}\\[2mm]
+A draft that breaks any rule becomes \V{CANT\_VERIFY}, with the rule identifiers stored. Example: an OCR-only \V{FLAGGED} draft fails R2 and R8.
+\end{frame}
+
+\begin{frame}{Backup: deviations from the Review 2 design}
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+Design & As built \\
+\midrule
+LangGraph + checkpoints & bounded custom engine; whole check state as a JSON document in SQLite \\
+Arize Phoenix & JSONL trace per check and live timeline; tracer optional \\
+Streamlit & FastAPI + React web app, plus a native iOS client \\
+PDF parsing first & portal JSON end to end; PDF helpers only \\
+VLM second reader & not shipped; QR or two agreeing photos count as independent \\
+Send back once & only when the LLM planner drafts too early; otherwise failing draft becomes \V{CANT\_VERIFY} \\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+\begin{frame}{Backup: team contributions}
+\small
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+Member & Owned work & Led \\
+\midrule
+Aryanraj S Singh (1BM23CD008) & investigator, verifier, planner, tracing, interfaces & R3 traces \\
+Richik Chaudhuri (1BM23CD050) & portal sync, ingest, index, matching, cabinet, memory & data plan \\
+Suraj B (1BM23CD061), lead & pack reading, demo packs, integration, data analysis, report & R1, demos \\
+Sushanth Deo (1BM23CD062) & evaluation harness, test sets, A/B, results & R4 results \\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+\end{document}

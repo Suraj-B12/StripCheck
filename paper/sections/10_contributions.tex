@@ -1,0 +1,25 @@
+\section*{Team contributions}
+\addcontentsline{toc}{section}{Team contributions}
+
+Every member can explain the whole system; Table~\ref{tab:contrib} records who led each part. The code was written with AI coding assistants under the team's direction.
+% TODO (team): confirm each row against what each member actually did (commit history).
+
+\begin{table}[h]
+\centering
+\caption{Contribution table}
+\label{tab:contrib}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}>{\raggedright\arraybackslash}p{17mm} X >{\raggedright\arraybackslash}p{14mm}@{}}
+\toprule
+Member & Owned work & Led review \\
+\midrule
+Aryanraj S Singh (1BM23CD008) & Investigator and verifier, planner, tracing, interfaces & R3 trace walkthrough \\
+Richik Chaudhuri (1BM23CD050) & Portal sync, ingest, alert index, matching, cabinet and memory & Data plan \\
+Suraj B (1BM23CD061), lead & Pack-reading tools, demonstration packs, integration, data analysis, report & R1, demos \\
+Sushanth Deo (1BM23CD062) & Evaluation harness, test sets, A/B experiment, results & R4 results \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section*{Acknowledgements and data}
+Alert data: Central Drugs Standard Control Organisation, Government of India \cite{cdsco2026portal}, used with acknowledgement and kept locally. Software: PP-OCR models through RapidOCR \cite{du2020ppocr,rapidai2021rapidocr}, Ollama \cite{ollama2026structured}, OpenTelemetry and OpenInference \cite{otel2026genai,arize2026openinference}, FastAPI, React, SQLite, OpenCV, Pillow, rapidfuzz and zxing-cpp.

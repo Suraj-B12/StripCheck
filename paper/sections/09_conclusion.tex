@@ -1,0 +1,9 @@
+\section{Conclusion and future work}
+\label{sec:conclusion}
+
+StripCheck links CDSCO's batch-level quality alerts to the pack in a person's hand. Its design follows from two measured properties of the data: batch numbers collide across products, and listed batches have confusable siblings, so a batch match alone cannot justify an alarm and a confident OCR read cannot justify a miss. The agent searches for likely misreads, corroborates every field, asks the person to read the characters in doubt, and lets an independent verifier downgrade any draft the evidence does not support. Every loop is bounded and every model call has a fallback, so the whole check runs offline on a laptop.
+\ifresults
+In the A/B test the agent removed the baseline's collision and sibling false alarms while keeping hit recall when the person answers its questions, and the preregistered rule's decision was: \res{ResRulesOracleDecision}. Without answers the agent abstains instead of guessing, which shows that the questions carry the recall.
+\fi
+
+Future work follows from the limitations. A complete adapter for legacy PDF months and for state-level feeds would extend coverage before 2019. Real photos of strips under varied light, and a usability study that tests whether people understand what \NLISTED{} means, would measure the gap that rendered packs hide. Reviewed Hindi and Kannada templates, voice prompts and pictograms would serve users who do not read English. A pharmacist workflow that checks a whole delivery against the lists would move the check to the point where most flagged batches can still be stopped.

@@ -1,0 +1,50 @@
+\section{Implementation}
+\label{sec:impl}
+
+\subsection{Stack}
+The engine is plain Python 3.12 in one module per concern (\texttt{core/}), with SQLite for every store. A FastAPI server (\texttt{server/}) exposes checks, answers, alerts, sources, quarantine, the cabinet, notifications, diagnostics and traces, and streams each step to the client as server-sent events. The web client is React with TypeScript, built with Vite, and a phone on the same network can use it after a token-protected pairing. A native SwiftUI client for iOS uses the same API, and a command-line interface runs sync, checks, diagnostics and the evaluation. No paid service is used, and no model is downloaded automatically. The optional language model runs locally under Ollama with JSON-schema outputs \cite{ollama2026structured}.
+
+\subsection{Data ingest}
+The sync tool discovers the published months for the NSQ and spurious tabs of the portal, fetches each month with requests spaced at least 1.5\,s apart and with TLS verification on, and stores the exact response bytes with a metadata file and a SHA-256 hash. A normal sync refreshes the newest three months, because late state reports change them; a full sync imports the history. Ingest then decodes each snapshot as Latin-1, repairs only reversible encoding damage in descriptive fields, splits multi-batch cells and maker--marketer cells, parses dates to year and month, and normalises the batch into a match key. Each row gets flags (missing date, manufacture after expiry, non-drug product and others) and, when it cannot be matched safely, quarantine reasons such as a missing product, a placeholder batch or a batch cell that holds a date. Quarantined rows stay visible in the interface. Imports are atomic and idempotent: repeating an unchanged import adds no rows, and every alert row keeps its source URL, hash and row number for the citation. An offline sync rebuilds the index from the stored snapshots alone.
+
+\subsection{Perception}
+A photo is validated and resized so that no reader sees more than 2{,}400 pixels on a side. Barcodes are read first (zxing-cpp, then Apple Vision on macOS, then OpenCV's QR detector), in a separate process with a deadline, because a decoded GS1 payload is error-checked. Text is read by RapidOCR with PP-OCR models \cite{rapidai2021rapidocr,du2020ppocr}, by Apple Vision on macOS or by Tesseract, whichever is installed. If no batch is found, the image is read once more after grey-scaling, auto-contrast and sharpening. Field extraction uses label-anchored patterns and keeps the provenance of every value. When the QR and the printed batch disagree, the printed read wins and the batch loses its confirmed status. A failed read never creates pack details; the person is asked to type them.
+
+\subsection{Retrieval with an OCR channel model}
+Retrieval uses the normalised batch key as a blocking key. Exact lookup comes first, and confusion variants follow: the keys reachable from the read key $r$ by at most two substitutions from a table of characters that OCR confuses on printed codes (for example \texttt{B}/\texttt{3}/\texttt{8}, \texttt{0}/\texttt{O}/\texttt{D}, \texttt{1}/\texttt{7}/\texttt{I}). Variants are ordered by the number of substitutions and then by a channel score
+\begin{equation}
+s(v \mid r) = \sum_{i \in S} \log \frac{n_{r_i v_i} + \alpha}{n_{r_i r_i} + \alpha},
+\label{eq:channel}
+\end{equation}
+which follows the noisy-channel view of spelling and OCR correction \cite{kernighan1990spelling,brill2000improved,kolak2002ocr}. Here $S$ is the set of substituted positions, $n_{ab}$ counts how often a read $a$ was confirmed as printed $b$, and $\alpha = 1$ smooths the counts. The counts grow with every character a person confirms. The score only orders candidates and chooses which characters to ask about; it never replaces the question. In the server, retrieval first fetches only the exact and confusable keys through an index on the active batch keys, so a check does not load the whole table.
+
+\subsection{Grading as record linkage}
+Each candidate is compared with the pack field by field. Product evidence is the share of the entry's name tokens found on the pack (match from 0.8, partial from 0.5), brand evidence is the same measure on the brand, dates are compared by year and month, and the maker is compared with a token-set similarity of at least 85 after the names are normalised. A product or brand mismatch rejects the candidate as a collision. An exact or confirmed batch whose product is unknown, or whose maker disagrees, needs more evidence, so the agent asks for a carton photo or typed details. A one-digit date difference on an exact batch becomes a question, because one misread digit explains it; a larger difference becomes a conflict that ends in \CANTV{} instead of a silent \NLISTED. A partial product match without agreeing dates and maker goes to adjudication. A variant batch needs a character confirmation. Spurious entries skip the maker check, since their listed maker is often ``under investigation.
+
+\subsection{Questions and durable state}
+The investigator asks five kinds of question: type the batch, confirm the batch (type the characters most likely to be misread), confirm a character (with the camera's crop of the glyph), confirm a printed date, and add a carton photo or typed details. Every answer can be ``can't tell'', which records a decline. The whole state of a check (fields, provenance, history, candidates, the pending question and the evidence level of the batch) is JSON and is saved as a document in SQLite after every run. Answering a question calls the resume endpoint, which reloads the stored state and continues from it, so a question can wait across restarts. A check that is already running, or that changed since the client loaded it, is refused, which prevents two answers from racing.
+
+\subsection{Verdict text and safety}
+All user-facing text comes from one templates module. Models never write verdicts. The templates state the list, month, failed test and reporting laboratory for an alarm, and the lists loaded and the latest month for \NLISTED, together with a sentence that the result does not certify the medicine. A regular expression of banned phrases (``safe'', ``genuine'', ``authentic'', ``fake medicine'', ``stop taking'' and their Hindi equivalents) is enforced by the verifier and by tests. The interface never shows \NLISTED{} in green. Demonstration records are marked synthetic and are excluded from real checks.
+
+\subsection{Deviations from the design}
+The implemented system differs from the design presented at Review~2 in the places listed in Table~\ref{tab:deviations}; each change is recorded in the project's decision log.
+
+\begin{table}[t]
+\centering
+\caption{Deviations of the built system from the Review 2 design}
+\label{tab:deviations}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}>{\raggedright\arraybackslash}p{24mm} X@{}}
+\toprule
+Review 2 design & As built, and why \\
+\midrule
+LangGraph graphs with SQLite checkpoints & A bounded custom engine whose whole state is a JSON document in SQLite; simpler to test and to resume from any client (D18) \\
+Arize Phoenix traces & JSON-lines trace per check and a streamed timeline; OpenTelemetry export to Phoenix is opt-in (D18) \\
+Streamlit app & FastAPI with a React web client, plus a native iOS client; streaming questions fit poorly with Streamlit's rerun model (D2, D16) \\
+Monthly PDF parsing first & Portal JSON is the end-to-end source; PDF helpers exist but the full PDF repair pipeline is future work (D1, D18) \\
+Vision-language second reader & Not shipped; a QR code, or the same batch read from two photos, counts as independent evidence \\
+Verifier sends a draft back once & Send-back once only when the language-model planner drafts before the variant search; any other failing draft is replaced by \CANTV{} with the violated rules recorded \\
+\bottomrule
+\end{tabularx}
+\end{table}

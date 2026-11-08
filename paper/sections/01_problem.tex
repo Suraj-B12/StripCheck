@@ -1,0 +1,52 @@
+\section{Problem and motivation}
+\label{sec:problem}
+
+\subsection{Niche area}
+Substandard and falsified medicines harm patients in every region, and low- and middle-income countries carry most of the burden \cite{who2017oneinten,ozawa2018prevalence}. In India, central and state laboratories test drug samples taken from the market, and CDSCO publishes the batches that fail as monthly alerts of drugs Not of Standard Quality (NSQ) and of spurious drugs \cite{cdsco2026portal}. The volume of these alerts has grown quickly: the portal lists \RowsYearFirst{} entries for 2019 and \RowsYearTwentyFive{} for 2025, with \RowsYearTwentySix{} more in the first nine months of 2026. CDSCO's recall guidelines carry a recall to consumers only for the most serious class of defects \cite{cdsco2024recall}, so for most flagged batches the published list is the only signal a patient can reach.
+
+\subsection{Specific problem}
+Nothing connects the list to the pack. The alerts are tables of product names, batch numbers, dates and manufacturers; the pack in a patient's or chemist's hand says which batch they hold. Someone who wants to know whether a strip is affected has to find the right month, read the batch number from the foil and compare it by hand. Packaging codes do not close this gap. Since August 2023 the top 300 brands carry a QR code under Schedule H2 \cite{cdsco2023faqqr}, and such codes show where a pack came from, but WHO notes that verifying a unique identifier cannot check the medicine inside the package \cite{who2021traceability}. A batch that a licensed manufacturer made badly carries valid codes. Only the laboratory result says that the batch failed, and the alert list is where that result is published.
+
+\subsection{Decision the agent supports}
+StripCheck answers one question: \emph{is this exact pack from a batch on a CDSCO alert list?} It returns one of four verdicts (Table~\ref{tab:verdicts}). Every alarm cites the list entry it rests on, and every result is advisory: a flag means ``show this pack to your pharmacist'', never ``stop your medicine''. Only the listed batch is flagged, never a brand.
+
+\begin{table}[t]
+\centering
+\caption{Verdicts and the condition for each}
+\label{tab:verdicts}
+\small
+\begin{tabularx}{\columnwidth}{@{}l X@{}}
+\toprule
+Verdict & Returned when \\
+\midrule
+\FLAGGED & The confirmed batch matches an NSQ entry and the product plus dates or maker corroborate it. \\
+\SFAKE & The confirmed batch matches an entry listed as purported spurious. \\
+\NLISTED & No candidate survives exact and confusion-aware search of the lists loaded. This does not certify the medicine. \\
+\CANTV & The evidence stays too weak after bounded steps and at most two questions; the agent abstains. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Why a lookup script is not enough}
+Automating the check looks like a lookup, and a lookup script fails in two ways, both measured in the CDSCO data (Section~\ref{sec:data}).
+
+\emph{Reading.} OCR on blister foil makes confident single-character errors. In our tests a scuffed \texttt{B} was read as \texttt{3} with a reported confidence of 1.0, and an enhanced re-read returned the same answer. A misread batch number either misses a listed batch or lands on another one.
+
+\emph{Matching.} Batch numbers are short and are chosen by each manufacturer, so the same string appears on unrelated products: \CollisionKeys{} batch keys in the index are shared by products with no name token in common. Worse, \SiblingKeys{} keys have a listed neighbour from the same manufacturer that differs in one easily confused character, for example \texttt{R21119} and \texttt{R21719}. A confident misread can therefore land exactly on a listed sibling, and every other field on the pack (product, maker, dates) will agree with it. Strips also often name the marketer while the list names the manufacturer, and spurious entries list the maker as ``under investigation'', so the maker field cannot always be compared.
+
+The next step therefore depends on what the last tool found: an empty exact search calls for a variant search, a partial product match calls for a question or adjudication, and weak evidence calls for abstention. This is why the task suits an agent with a planning loop, a critic and a person in the loop.
+
+\subsection{Data observations that shape the design}
+\label{sec:data}
+CDSCO moved its alerts from monthly PDF tables to an online viewer in August 2025 \cite{cdsco2025nsqlink,cdsco2026nsqpage}. The viewer is embedded from CDSCO's SUGAM portal, whose page script requests rows for a chosen month from plain JSON endpoints that serve every month back to January 2019 \cite{cdsco2026portal}. Our snapshot of \SnapshotDate{} holds \NumAlertRows{} rows: \NumNsqRows{} NSQ rows over \NumMonths{} months (\FirstMonth{} to \LastMonth{}) and \NumSpuriousTabRows{} rows from the spurious-drug feed. A month has between \RowsPerMonthMin{} and \RowsPerMonthMax{} rows (median \RowsPerMonthMedian{}); state laboratories reported \RowsStateLabs{} rows and central laboratories \RowsCentralLabs{}.
+
+The feed needs cleaning before it can be matched against a pack. Responses are encoded as ISO-8859-1, a brand name is present in only \BrandPresentPct\% of NSQ rows, some batch cells list several batches or carry a GS1 prefix, and \MissingDatePct\% of rows lack a manufacturing date. The index has \DistinctKeys{} distinct normalised batch keys, of which \RepeatedKeys{} appear more than once and \ShortKeyPct\% have fewer than four characters. \NeighbourKeys{} keys (\NeighbourKeysPct\%) have another listed key one confusable substitution away, and \SiblingKeys{} (\SiblingKeysPct\%) share the manufacturer. Manufacturers number batches in sequence and the regulator tests only samples, so an unlisted sibling of a listed batch is the ordinary case in a pharmacy, and these within-index counts are a lower bound.
+
+Flagged batches are also still on sale when the alert appears. The median time from manufacture to the alert month is \LagMedian{} months (interquartile range \LagQOne{} to \LagQThree{}; 90th percentile \LagPNinety{}). At the alert, the median batch has \ShelfMedian{} months of shelf life left, \ShelfTwelvePlusPct\% have at least twelve months left, and only \ExpiredAtAlertPct\% have expired. This motivates both a point-of-use check and re-checking the medicines a person has already saved.
+
+\subsection{Contributions}
+\begin{itemize}
+\item An agent that combines confusion-aware retrieval, record-linkage grading, a confirmation gate before alarms and a rule-based verifier with abstention, and that addresses the sibling-misread false alarm a lookup cannot detect.
+\item A provenance-keeping ingest of CDSCO's portal with validation and quarantine, and an analysis of \NumMonths{} months of alert data that measures batch collisions, confusable siblings and alert lag.
+\item An evaluation against a lookup baseline with preregistered decision rules, and an offline implementation with a web client, a native iOS client and a local API.
+\end{itemize}

@@ -1,0 +1,85 @@
+\section{Agentic concepts demonstrated}
+\label{sec:concepts}
+
+Table~\ref{tab:concepts} maps each concept required by the course, and each bonus concept, to the part of StripCheck that implements it and the evidence a reviewer can inspect. Each pattern fixes a specific way in which the lookup script of Section~\ref{sec:problem} fails.
+
+\begin{table*}[t]
+\centering
+\caption{Agentic concepts, where they live and the evidence for each}
+\label{tab:concepts}
+\scriptsize
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{24mm} >{\raggedright\arraybackslash}p{9mm} X X@{}}
+\toprule
+Concept & Tier & Where in StripCheck & Evidence \\
+\midrule
+Tool use & Required & Perception (\texttt{decode\_qr}, \texttt{ocr\_read}, \texttt{extract\_fields}), retrieval (\texttt{search\_exact}, \texttt{search\_variants}), \texttt{grade}, \texttt{ask\_user}, \texttt{draft\_verdict}; ingest tools & Every call is a step in the check's history with its action, planner source, summary and duration (Table~\ref{tab:trace}) \\
+Agentic RAG & Required & Exact batch, then confusion variants; each candidate graded on batch, product, brand, dates and maker; re-query after an answer; abstain when grades stay weak & Steps 2--4 and 7--9 of Table~\ref{tab:trace}; candidate grades in the check record \\
+Planning and reasoning & Required & Planner loop with rule priority; hybrid mode lets a local model choose among allowed actions at branch points & The \emph{source} field of each step (rules, LLM, or rules after a fallback) \\
+Observability & Required & JSON-lines trace per check, streamed step timeline in the interface & \texttt{data/traces/<check>.jsonl}; live timeline in the web and iOS clients \\
+Evaluation & Required & Synthetic diagnostic scenarios, labelled evaluation set, lookup baseline & Sections~\ref{sec:eval} and~\ref{sec:experiment} \\
+Multi-agent & Bonus & Supervisor, ingest, investigator and verifier with separate jobs and clocks & Cabinet re-check report and notifications; verifier rule results \\
+Memory & Bonus & Saved cabinet re-checked after each sync; confirmed character corrections stored as a confusion prior & Trace line ``Prior confirmed corrections: 8 to B: 1. Confirmation is still required.'' \\
+Human in the loop and guardrails & Bonus & Five question kinds; template-only verdict text; banned phrases; confirmation gate; verifier & Question payload and the resumed answer; downgrade with rule identifiers \\
+Durable workflow & Bonus & Whole check state is a JSON document saved in SQLite after every run; a question can wait across restarts & Resume endpoint continues a stored check; repeated import adds no rows \\
+Experimentation & Bonus & Lookup baseline against the agent, with and without a person answering & Section~\ref{sec:experiment} \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{A recorded trace}
+Table~\ref{tab:trace} is the step history that the engine recorded for the synthetic misread scenario of Section~\ref{sec:architecture}, with the summaries shortened. The planner suspects a misread only because the exact search came back empty, and the second search pass runs only because the person changed the batch. A fixed pipeline cannot produce this sequence.
+
+\begin{table}[t]
+\centering
+\caption{Recorded steps for the misread scenario (rules planner)}
+\label{tab:trace}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}r >{\ttfamily}l X@{}}
+\toprule
+\# & \normalfont Action & Observation \\
+\midrule
+1 & extract\_fields & Batch read as \texttt{LM24088} from the pack \\
+2 & search\_exact & 0 candidates \\
+3 & search\_variants & 1 candidate (\texttt{LM2408B}, one substitution); no printed character changed \\
+4 & grade & Product, dates and maker agree; batch is a variant, so status is \emph{needs character confirmation} \\
+5 & ask\_user & Confirm character 7: printed \texttt{8} or \texttt{B}? (check paused and stored) \\
+6 & answer & The person chooses \texttt{B}; batch evidence becomes user-confirmed \\
+7 & search\_exact & 1 candidate \\
+8 & search\_variants & 0 candidates \\
+9 & grade & All fields agree; status \emph{accept} \\
+10 & draft\_verdict & \FLAGGED{} with citation; verifier passes \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Collision and sibling traps}
+In the collision scenario the pack carries a listed batch number on a different product. Exact search returns the entry, grading marks the product as a mismatch and rejects the candidate, and the verdict is \NLISTED{} in five steps. A lookup script raises an alarm here. In the sibling scenario every field of the pack agrees with a listed entry, so grading accepts it, but the batch came from OCR. The gate asks the person to type the doubtful characters; the person types \texttt{LM2408R}, the agent rejects the listed key, searches again and returns \NLISTED.
+
+\subsection{The verifier as critic}
+The verifier is independent of the drafting code: it re-checks the draft against the evidence in the stored state. Table~\ref{tab:rules} lists its rules. To show the gate at work we passed it a \FLAGGED{} draft for the clean scenario whose batch came from OCR alone. It returned \CANTV{} with the violations \emph{R2: corroborated, confirmed batch evidence is required} and \emph{R8: every used field needs grounded provenance}. On any violation the verifier replaces the draft with the \CANTV{} template and stores the rule identifiers, so an unsupported alarm cannot reach the person.
+
+\begin{table}[t]
+\centering
+\caption{Verifier rules}
+\label{tab:rules}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}l X@{}}
+\toprule
+Rule & Requirement \\
+\midrule
+R1 & The label is one of the four verdicts \\
+R2 & An alarm needs an accepted candidate, an exact or confirmed batch, gate evidence, a product match and no field mismatch \\
+R3 & \SFAKE{} only for spurious entries, \FLAGGED{} only for NSQ-type entries \\
+R4 & \NLISTED{} needs a grounded batch, both searches, no pending or accepted candidate, loaded data and no truncation \\
+R5 & An alarm cites a traceable source; no text contains a banned phrase \\
+R6 & At most 16 steps and 2 questions \\
+R7 & No unresolved date conflict outside \CANTV \\
+R8 & Every field used has grounded provenance (QR, OCR, carton photo or the person) \\
+R9 & \NLISTED{} states the lists loaded and the latest month \\
+R10 & Only reviewed languages are shown \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Feedback loop and memory}
+When a person corrects a character on a photographed pack, the server stores the pair (read character, printed character) in a confusion table, once per answer. On the next check the prior reorders the variant candidates by the channel score of Section~\ref{sec:impl} and chooses which characters the confirmation asks about, and the trace says so (Table~\ref{tab:concepts}, memory row). The question itself adds, from a template: ``Earlier checks on this computer confirmed that the photo reader read B as 8 once. Please still check the printed character yourself.'' The prior never skips the question, because two batches of one product from one maker can differ by exactly the character in doubt. The cabinet is the second memory: after each sync the supervisor runs every saved pack through the same investigator without questions and creates a notification when one now matches a listed entry, or when its printed expiry month is less than 30 days away.

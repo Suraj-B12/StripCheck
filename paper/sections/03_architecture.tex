@@ -1,0 +1,145 @@
+\section{Agent design and architecture}
+\label{sec:architecture}
+
+\tikzset{
+  sc/.style={draw=black!55, rounded corners=2pt, align=center, font=\scriptsize, minimum height=9mm, text width=23mm, inner sep=2pt, fill=white},
+  agent/.style={sc, fill=blue!8, draw=blue!50!black, line width=0.6pt},
+  store/.style={sc, fill=black!5, shape=rectangle, rounded corners=0pt},
+  human/.style={sc, fill=orange!12, draw=orange!60!black, rounded corners=6pt},
+  opt/.style={sc, dashed, fill=white},
+  gate/.style={sc, fill=red!7, draw=red!50!black, line width=0.6pt},
+  arr/.style={-{Stealth[length=1.6mm]}, black!70, line width=0.5pt},
+  lbl/.style={font=\tiny, fill=white, inner sep=1pt},
+  lane/.style={draw=black!25, rounded corners=4pt, inner sep=6pt, fill=black!2},
+}
+
+StripCheck has two kinds of work on two clocks. Background work runs when CDSCO publishes new lists: a supervisor fetches the portal, ingests the rows into a validated index and re-checks the medicines a person has saved. A check runs once per pack while the person waits: the investigator reads the pack, retrieves and grades candidates, asks the person when the evidence is missing and drafts a verdict, and the verifier checks the draft before anyone sees it. Figure~\ref{fig:arch} shows both lanes and Table~\ref{tab:components} lists the components.
+
+\begin{figure*}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+% per-pack lane
+\node[sc] (client) at (0,0) {\textbf{Clients}\\React web app, iOS app, CLI};
+\node[sc] (api) at (3.1,0) {\textbf{Local API}\\FastAPI, streamed steps (SSE)};
+\node[agent] (perc) at (6.2,0) {\textbf{Perception tools}\\QR, OCR, enhanced re-read, field extraction};
+\node[agent] (inv) at (9.3,0) {\textbf{Investigator}\\planner over search, grade, ask, draft};
+\node[gate] (ver) at (12.4,0) {\textbf{Verifier}\\ten hard rules; downgrade on failure};
+\node[sc] (out) at (15.5,0) {\textbf{Verdict card}\\template text + citation};
+\node[human] (person) at (9.3,1.9) {\textbf{Person}\\types or confirms characters};
+\node[opt] (llm) at (12.4,1.9) {\textbf{Local LLM (optional)}\\Ollama; JSON schema; timeout + fallback};
+\draw[arr] (client) -- (api);
+\draw[arr] (api) -- (perc);
+\draw[arr] (perc) -- (inv);
+\draw[arr] (inv) -- node[lbl,above]{draft} (ver);
+\draw[arr] (ver) -- node[lbl,above]{approved} (out);
+\draw[arr] ([xshift=-3mm]inv.north) -- node[lbl,left]{ask (pause)} ([xshift=-3mm]person.south);
+\draw[arr] ([xshift=3mm]person.south) -- node[lbl,right]{answer} ([xshift=3mm]inv.north);
+\draw[arr, dashed] (llm.south west) -- node[lbl,below right=-1pt]{action choice} (inv.north east);
+% stores
+\node[store] (index) at (9.3,-2.4) {\textbf{Alert index}\\SQLite, source hash, row number};
+\node[store] (state) at (12.4,-2.4) {\textbf{Check state + traces}\\JSON document per check, JSONL steps};
+\node[store] (mem) at (6.2,-2.4) {\textbf{Memory}\\cabinet, confirmed confusions};
+\node[store] (raw) at (3.1,-2.4) {\textbf{Raw snapshots}\\portal JSON + metadata, kept on disk};
+\draw[arr] (index) -- node[lbl,right]{retrieve} (inv);
+\draw[arr] (inv.south east) -- node[lbl,right, pos=0.6]{persist} (state.north west);
+\draw[arr] (mem) -- node[lbl,left, pos=0.4]{prior} (inv.south west);
+% background lane
+\node[sc] (portal) at (0,-4.8) {\textbf{CDSCO SUGAM portal}\\monthly NSQ and spurious JSON};
+\node[agent] (sync) at (3.1,-4.8) {\textbf{Portal sync}\\requests $\geq$1.5\,s apart, TLS on};
+\node[agent] (ing) at (6.2,-4.8) {\textbf{Ingest}\\clean, validate, quarantine, atomic commit};
+\node[agent] (rechk) at (12.4,-4.8) {\textbf{Cabinet re-check}\\same investigator, no questions};
+\node[sc] (note) at (15.5,-4.8) {\textbf{Notifications}\\new listing, expiry within 30 days};
+\draw[arr] (portal) -- (sync);
+\draw[arr] (sync) -- (ing);
+\draw[arr] (sync) -- node[lbl,left]{store} (raw);
+\draw[arr] (ing.north east) -- node[lbl,right,pos=0.35]{commit} (index.south west);
+\draw[arr] (ing) -- node[lbl,above]{then} (rechk);
+\draw[arr] (rechk) -- (note);
+\draw[arr] (mem.south east) .. controls (8.5,-3.7) and (11,-3.7) .. (rechk.north west);
+\begin{scope}[on background layer]
+\node[lane, fit=(client)(out)(person)(llm)] (l1) {};
+\node[lane, fit=(portal)(note)] (l2) {};
+\end{scope}
+\node[font=\scriptsize\itshape, anchor=north west] at (l1.north west) {Per pack (person waits)};
+\node[font=\scriptsize\itshape, anchor=north west] at (l2.south west) {Background: supervisor runs sync, ingest, then re-check};
+\end{tikzpicture}}
+\caption{StripCheck architecture as built. The per-pack lane runs while the person waits; the background lane runs after each sync. Both read the same alert index. Blue boxes are agents or agent tools, the red box is the verifier gate, grey boxes are local stores, and the dashed box is optional.}
+\label{fig:arch}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Components and how they are built}
+\label{tab:components}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}>{\raggedright\arraybackslash}p{15mm} X >{\raggedright\arraybackslash}p{19mm}@{}}
+\toprule
+Component & Role & Built with \\
+\midrule
+Supervisor & Runs sync, ingest and the cabinet re-check; deduplicates notifications & Python, SQLite \\
+Ingest & Turns portal snapshots into a validated index; quarantines bad rows with reasons & Python, \texttt{urllib}, SQLite \\
+Investigator & Bounded plan--act--observe loop over perception, retrieval and grading tools; asks the person & Python, rapidfuzz \\
+Verifier & Checks every draft against hard rules; replaces a failing draft with \CANTV{} & Python rules \\
+Perception & Reads QR codes and printed text, keeps provenance and character crops & RapidOCR, Apple Vision, Tesseract, zxing-cpp, OpenCV, Pillow \\
+Local LLM & Optional planner choice and structured calls, never user-facing text & Ollama \cite{ollama2026structured} \\
+Interfaces & Streams steps and questions; shows cited verdicts & FastAPI, React, SwiftUI \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Investigator loop}
+The investigator is a plan--act--observe loop (Figure~\ref{fig:loop}). The planner chooses the next action from those allowed in the current state; each action is a tool call whose observation is appended to the check's history, and control returns to the planner. In the default \emph{rules} mode the planner follows a fixed priority order: a missing batch leads to a question, a batch leads to exact and then variant search, the candidates are graded, and the grades decide between a question, a draft and abstention. In \emph{hybrid} mode a local model may choose at branch points, but only from the actions the rules allow; a timeout, a schema failure or a disallowed choice falls back to the rule choice, and the history records which planner decided.
+
+\begin{figure}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tikzpicture}[x=1cm,y=1cm, sc/.append style={text width=27mm}]
+\node[agent] (plan) at (0,0) {\textbf{Planner}\\rules priority; LLM at branch points (hybrid)};
+\node[sc] (ext) at (-3.3,1.6) {\textbf{extract\_fields}\\QR, OCR, re-read, provenance};
+\node[sc] (exa) at (0,1.9) {\textbf{search\_exact}\\normalised batch key};
+\node[sc] (var) at (3.3,1.6) {\textbf{search\_variants}\\$\leq$2 confusable substitutions, channel-ranked};
+\node[sc] (grd) at (3.3,-1.5) {\textbf{grade}\\product, brand, dates, maker};
+\node[human] (ask) at (-3.3,-1.5) {\textbf{ask\_user}\\pause, persist, resume; $\leq$2 per check};
+\node[sc] (dra) at (0,-2.4) {\textbf{draft\_verdict}\\template + citation; batch gate};
+\node[gate] (ver) at (0,-4.1) {\textbf{Verifier}\\rules R1--R10};
+\node[sc] (ok) at (-2.6,-5.6) {\textbf{Verdict}\\as drafted};
+\node[sc] (cv) at (2.6,-5.6) {\textbf{\CANTV}\\violations recorded};
+\foreach \n in {ext,exa,var,grd,ask}{\draw[arr, {Stealth[length=1.4mm]}-{Stealth[length=1.4mm]}] (plan) -- (\n);}
+\draw[arr] (plan) -- (dra);
+\draw[arr] (dra) -- (ver);
+\draw[arr] (ver) -- node[lbl,left=2pt]{pass} (ok);
+\draw[arr] (ver) -- node[lbl,right=2pt]{violation} (cv);
+\end{tikzpicture}}
+\caption{Investigator graph. Double-headed arrows are tool calls that return to the planner. The only exit is through the verifier, which approves the draft or downgrades it to \CANTV.}
+\label{fig:loop}
+\end{figure}
+
+A typical misread check runs as follows. OCR reads the batch as \texttt{LM24088}, and exact search finds nothing. Variant search reaches the listed key \texttt{LM2408B} by one substitution (8 for B). Grading finds that product, dates and maker agree, but the batch came from a substitution, so the planner asks the person to confirm the doubtful character, shown with the camera's crop. The person answers \texttt{B}, the confirmed key is searched exactly, and the draft \FLAGGED{} passes the verifier. A lookup script would have answered \NLISTED{} (Section~\ref{sec:concepts} shows the recorded trace).
+
+\subsection{Confirmation gate}
+Before any alarm the batch must come from a QR code, from the person (typed or confirmed), or from two independent reads that agree. Otherwise the investigator asks the person to type the characters most likely to be misread, chosen by the confusion prior. It does not offer a yes/no button, because people habituate to such confirmations and tap without looking. This gate targets the sibling false alarm of Section~\ref{sec:data}, where every other field agrees and only a person looking at the pack can tell the batches apart.
+
+\subsection{Bounds}
+Every loop is bounded (Table~\ref{tab:bounds}), and every model, reader and network call has a timeout and a fallback, so a check finishes with the language model, the tracer and the network all switched off.
+
+\begin{table}[t]
+\centering
+\caption{Bounds enforced in code}
+\label{tab:bounds}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}X r@{}}
+\toprule
+Bound & Value \\
+\midrule
+Planner steps per check (verifier rule R6) & 16 \\
+Questions to the person per check & 2 \\
+Substitutions per searched variant & 2 \\
+Variant keys looked up per search & 2{,}000 \\
+Candidates graded per check & 20 \\
+Language-model attempts per call (each with a timeout) & 2 \\
+Portal request spacing & $\geq$1.5\,s \\
+Longest image side passed to a reader & 2{,}400\,px \\
+\bottomrule
+\end{tabularx}
+\end{table}

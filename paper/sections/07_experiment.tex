@@ -1,0 +1,46 @@
+\section{Experimentation: A/B test and decision}
+\label{sec:experiment}
+
+\subsection{Design}
+The experiment asks whether the agentic parts are worth their cost. Arm A is the lookup script, arm B the agent with the rule planner and arm C the agent with the hybrid planner, all on the same evaluation packs, each with the oracle user and with questions skipped. Before the evaluation run we registered a prediction and a decision rule \cite{nosek2018preregistration}.
+
+\emph{Prediction.} On clean packs all arms tie. On collision packs the baseline raises a false alarm on every one, while the agent stays at or below 10\%. On misread packs the baseline misses every true flag, while the agent with the oracle recovers at least 80\% at no more than one question per pack. Arm C matches arm B on verdicts.
+
+\emph{Decision rule R-A.} Adopt the agent in place of the lookup script if its false-alarm rate on collision packs is at least 50\% lower than the baseline's (relative) and its hit recall is no more than five points lower. A second rule, R-C, makes the hybrid planner the default only if its accuracy is not significantly lower than the rule planner's and its median latency is at most twice as high. We report the outcome whether or not the rules hold.
+
+\subsection{Outcome}
+\ifresults
+\begin{table}[t]
+\centering
+\caption{Inputs to decision rule R-A (oracle user, $k/n$ in brackets)}
+\label{tab:decision}
+\scriptsize
+\begin{tabularx}{\columnwidth}{@{}X cc@{}}
+\toprule
+Metric & Lookup & Agent (rules) \\
+\midrule
+Hit recall & \res{ResBaseOracleHitRecall} (\res{ResBaseOracleHitRecallK}) & \res{ResRulesOracleHitRecall} (\res{ResRulesOracleHitRecallK}) \\
+False alarms, collisions & \res{ResBaseOracleFARCollision} (\res{ResBaseOracleFARCollisionK}) & \res{ResRulesOracleFARCollision} (\res{ResRulesOracleFARCollisionK}) \\
+False alarms, siblings & \res{ResBaseOracleFARSibling} (\res{ResBaseOracleFARSiblingK}) & \res{ResRulesOracleFARSibling} (\res{ResRulesOracleFARSiblingK}) \\
+False alarms, all unlisted & \res{ResBaseOracleFAR} (\res{ResBaseOracleFARK}) & \res{ResRulesOracleFAR} (\res{ResRulesOracleFARK}) \\
+Overall accuracy & \res{ResBaseOracleAccuracy} (\res{ResBaseOracleAccuracyK}) & \res{ResRulesOracleAccuracy} (\res{ResRulesOracleAccuracyK}) \\
+Questions per pack & \res{ResBaseOracleQuestions} & \res{ResRulesOracleQuestions} \\
+Median latency (s) & \res{ResBaseOracleLatMedian} & \res{ResRulesOracleLatMedian} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+Table~\ref{tab:decision} collects the numbers rule R-A uses, on \res{ResN} packs of evaluation seed \res{ResSeed} checked against an index of \res{ResAlertCount} alerts. With the oracle user the decision under R-A is: \textbf{\res{ResRulesOracleDecision}}. The exact McNemar test on overall correctness gives $p = \res{ResRulesOracleMcNemarP}$ (discordant packs: \res{ResRulesOracleMcNemarB} where only the agent is correct, \res{ResRulesOracleMcNemarC} where only the baseline is). With every question skipped the decision is: \res{ResRulesSkipDecision}. The agent's hit recall then falls to \res{ResRulesSkipHitRecall} (\res{ResRulesSkipHitRecallK}) and its abstention rate rises to \res{ResRulesSkipAbstain}, while its false-alarm rate stays at \res{ResRulesSkipFAR}. The agent does not guess when nobody confirms the batch; it abstains, so its recall depends on the person answering.
+
+\emph{The registered prediction.} The collision part \res{ResPredictionTwo}. The clean-pack part \res{ResPredictionOne}, and the misread part \res{ResPredictionThree}; Table~\ref{tab:predictions} gives the counts. The baseline was correct on more clean and QR packs than the agent: hit recall on clean and QR packs was \res{ResBaseOracleHitRecallCleanQRK} for the baseline and \res{ResRulesOracleHitRecallCleanQRK} for the agent. We report this as a cost of the stricter evidence rules; finding the exact cause of each lost pack needs a per-pack review of the traces. The agent paid \res{ResRulesOracleQuestions} questions per pack and a median latency of \res{ResRulesOracleLatMedian}\,s against \res{ResBaseOracleLatMedian}\,s for the baseline, most of which is OCR time in both arms. No arm produced a safety violation.
+
+\ifcsname ResHybridOracleHitRecall\endcsname
+The hybrid planner reached hit recall \res{ResHybridOracleHitRecall} and collision false alarms \res{ResHybridOracleFARCollision}, with median latency \res{ResHybridOracleLatMedian}\,s; rule R-C decides whether it becomes the default.
+\else
+The generated results contain no hybrid-planner arm, so rule R-C could not be applied and the rule planner remains the default.
+\fi
+\else
+\pendingbox{The outcome of rules R-A and R-C, the comparison with the registered prediction and the cost of each arm are written from \texttt{paper/generated/results.tex} once the evaluation has run.}
+\fi
+
+\subsection{What the decision informed}
+The decision rule fixes the default configuration of the released system. If R-A holds, the agent replaces the lookup in every client and the lookup survives only as the baseline arm. If R-C does not hold, the rule planner stays the default and the language model remains an optional component that the system never needs, which is also the configuration that runs on any laptop with no model installed.
