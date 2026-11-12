@@ -1,0 +1,7 @@
+arm,hitl,metric,k,n,rate,wilson_lo,wilson_hi
+agent_rules,oracle,hit_recall,40,40,1.0,0.9124,1.0
+agent_rules,oracle,abstention,0,60,0.0,0.0,0.0602
+agent_rules,oracle,far_all,0,20,0.0,0.0,0.1611
+agent_rules,none,hit_recall,8,40,0.2,0.105,0.3476
+agent_rules,none,abstention,36,60,0.6,0.4737,0.7143
+agent_rules,none,far_all,0,20,0.0,0.0,0.1611

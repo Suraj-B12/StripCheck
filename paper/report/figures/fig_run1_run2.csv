@@ -1,0 +1,23 @@
+part,metric_or_scenario,run,k,n,rate,wilson_lo,wilson_hi
+headline,accuracy,run 1,53,60,0.8833,0.7782,0.9423
+headline,accuracy,run 2,60,60,1.0,0.9398,1.0
+headline,hit_recall_clean_qr,run 1,12,16,0.75,0.505,0.8982
+headline,hit_recall_clean_qr,run 2,16,16,1.0,0.8064,1.0
+headline,hit_recall,run 1,33,40,0.825,0.6805,0.9125
+headline,hit_recall,run 2,40,40,1.0,0.9124,1.0
+scenario,sibling,run 1,4,4,,,
+scenario,sibling,run 2,4,4,,,
+scenario,collision,run 1,8,8,,,
+scenario,collision,run 2,8,8,,,
+scenario,genuine,run 1,8,8,,,
+scenario,genuine,run 2,8,8,,,
+scenario,spurious,run 1,8,8,,,
+scenario,spurious,run 2,8,8,,,
+scenario,misread,run 1,6,8,,,
+scenario,misread,run 2,8,8,,,
+scenario,qr,run 1,5,8,,,
+scenario,qr,run 2,8,8,,,
+scenario,glare,run 1,7,8,,,
+scenario,glare,run 2,8,8,,,
+scenario,clean,run 1,7,8,,,
+scenario,clean,run 2,8,8,,,

@@ -1,0 +1,6 @@
+# Build: cd paper/report; latexmk main.tex   (output in paper/report/build/main.pdf)
+$pdf_mode = 1;
+$bibtex_use = 2;
+$out_dir = 'build';
+# Run bibtex from paper/report (not from build/) so \bibliography{../references} finds paper/references.bib.
+$bibtex_fudge = 0;
