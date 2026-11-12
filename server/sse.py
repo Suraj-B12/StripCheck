@@ -14,7 +14,7 @@ def frame(event: str, data: dict[str, Any], thread_id: str) -> str:
 
 def stream_work(thread_id: str, work, on_error=None) -> StreamingResponse:
     """Execute blocking work in a retained task; stream queue messages and heartbeats."""
-    queue: asyncio.Queue = asyncio.Queue(maxsize=256)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=2048)
     loop = asyncio.get_running_loop()
     disconnected = False
 

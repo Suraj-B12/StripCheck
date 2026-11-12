@@ -5,6 +5,10 @@ from urllib.parse import urlsplit
 
 LABELS = {"FLAGGED", "SUSPECTED_FAKE", "NOT_LISTED", "CANT_VERIFY"}
 BANNED = re.compile(r"\bsafe\b|\bgenuine\b|\bauthentic\b|\bfake medicine\b|\bstop (?:taking|using)\b|सुरक्षित|असली|बंद करें", re.I)
+# Model thoughts only: reassurance or advice about the medicine (treated like a BANNED hit).
+REASSURE = re.compile(r"\b(?:fine|ok(?:ay)?|harmless|fit|good) (?:to|for) (?:use|take|taking|consume|eat)\b|\bharmless\b|\bno (?:risk|problem|danger)\b|\bnothing to worry\b|\bnot (?:dangerous|harmful)\b", re.I)
+# Trailing words that may start a BANNED or REASSURE phrase: held back from live text until the next word arrives.
+HOLD_TAIL = re.compile(r"(?:\s*\b(?:stop|fake|fine|ok|okay|fit|good|no|nothing|not)\b(?:\s+(?:to|for))?|\s*बंद)\s*$", re.I)
 ADVICE = "Show this pack to your pharmacist. Do not stop any prescribed medicine without medical advice."
 
 
@@ -103,6 +107,31 @@ def render_verdict(label, fields, entry=None, context=None, reason="", batch_evi
     }
 
 
+THINKING_CONTEXT = {
+    "search_variants": "Exact search found nothing. Deciding what to check next.",
+    "confirm_char": "The closest entry differs only by look-alike characters. Deciding whether to ask you.",
+    "confirm_field": "A printed date differs from the closest entry. Deciding whether to ask you.",
+    "box_photo": "The batch matches, but other printed details are not corroborated. Deciding whether to ask you.",
+}
+QUESTION_REASONS = {
+    "type_batch": "I need the batch number exactly as printed, because alert entries are matched by batch.",
+    "confirm_batch": "A listed entry matches this batch, and a machine reading has to be confirmed by a person before a listed result is shown.",
+    "confirm_char": "The closest listed batch differs only by characters that photos often confuse, and only you can see which one is printed.",
+    "confirm_field": "A printed date differs from the alert entry, so the entry may belong to a different pack.",
+    "box_photo": "A batch number alone does not show that an alert entry applies to this pack, so more printed details are needed.",
+}
+
+
+def thinking_context(key):
+    """Short context line for a planner decision; never model text."""
+    return THINKING_CONTEXT.get(key, "Deciding the next step.")
+
+
+def question_reason(kind):
+    """One sentence saying why the agent is asking."""
+    return QUESTION_REASONS.get(kind, QUESTION_REASONS["box_photo"])
+
+
 def prior_note(items):
     """Question suffix for learned reader confusions; it never replaces the question."""
     parts = []
@@ -117,7 +146,7 @@ def prior_note(items):
 def question(kind, fields, entry=None, positions=None):
     entry, positions = entry or {}, positions or []
     batch = fields.get("batch", "")
-    base = {"kind": kind, "batch": batch, "entry_id": entry.get("id"), "options": []}
+    base = {"kind": kind, "batch": batch, "entry_id": entry.get("id"), "options": [], "reason": question_reason(kind)}
     if kind == "type_batch":
         base.update(question="Read the batch number printed on your pack and type it here.", options=["Can't tell"])
     elif kind == "confirm_batch":

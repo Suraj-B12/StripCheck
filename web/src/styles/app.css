@@ -3018,3 +3018,862 @@ th {
     gap: 20px;
   }
 }
+
+/* ---------- Live thinking (contract section 4) ---------- */
+.thinking-panel {
+  margin: 0 0 18px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass);
+  box-shadow: var(--shadow);
+  animation: bubble-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.reasoning .thinking-panel {
+  margin: 0 19px 12px;
+  box-shadow: none;
+  background: transparent;
+  animation: none;
+}
+.think-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.think-block + .think-block {
+  border-top: 1px dashed var(--line);
+}
+.think-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  flex-wrap: wrap;
+}
+button.think-head {
+  cursor: pointer;
+}
+button.think-head:hover {
+  background: var(--pen-soft);
+}
+.think-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.is-done .think-dot {
+  background: var(--pen);
+  animation: settle 0.4s ease both;
+}
+.think-duration {
+  font-weight: 600;
+  color: var(--ink);
+}
+.think-source {
+  color: var(--muted);
+  font-size: 11.5px;
+  min-width: 0;
+}
+.think-chip {
+  font: 10.5px var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--pen);
+  background: var(--pen-soft);
+  border: 1px solid color-mix(in srgb, var(--pen) 22%, transparent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  animation: chip-in 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.think-chevron {
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 0.25s ease;
+}
+.think-head[aria-expanded="true"] .think-chevron {
+  transform: rotate(180deg);
+}
+/* The orb: a small pen-blue sphere that breathes while the agent decides. */
+.think-orb {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    var(--pen-soft) 0 18%,
+    var(--pen) 60%
+  );
+  animation: orb-breathe 1.6s ease-in-out infinite;
+}
+.think-orb::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--pen);
+  opacity: 0;
+  animation: orb-ring 1.6s ease-out infinite;
+}
+/* Shimmer: a light band sweeps across the label text. */
+.think-shimmer {
+  font-weight: 600;
+  background: linear-gradient(
+    100deg,
+    var(--muted) 0%,
+    var(--muted) 38%,
+    var(--ink) 50%,
+    var(--muted) 62%,
+    var(--muted) 100%
+  );
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.9s linear infinite;
+}
+.think-idle {
+  padding: 4px;
+}
+/* Smooth height: grid rows animate from 0fr to 1fr, no measuring. */
+.think-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.24s ease;
+}
+.think-body.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.think-body-inner {
+  overflow: hidden;
+  min-height: 0;
+  padding-left: 20px;
+}
+.think-body.open .think-body-inner {
+  padding-bottom: 10px;
+}
+.think-context {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 2px 0 6px;
+}
+.think-text {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  max-width: 64ch;
+}
+.think-text.streaming::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--pen);
+  border-radius: 1px;
+  animation: caret 1s steps(1) infinite;
+}
+.think-withheld {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 11.5px;
+  color: var(--cv);
+  background: var(--cv-soft);
+  border-radius: 9px;
+  padding: 7px 9px;
+  margin: 4px 0 6px;
+}
+.think-withheld svg {
+  flex: none;
+  margin-top: 1px;
+}
+.think-note {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* ---------- Planner switch ---------- */
+.planner-switch {
+  margin: 0 0 14px;
+}
+.planner-switch label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 32px;
+}
+.planner-switch.unavailable label {
+  cursor: not-allowed;
+}
+.switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 36px;
+  height: 22px;
+  margin: 0;
+  cursor: inherit;
+}
+.switch-track {
+  position: relative;
+  width: 36px;
+  height: 22px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--foil);
+  border: 1px solid var(--line);
+  transition: background 0.22s ease;
+}
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: 0 1px 3px #0000002a;
+  transition: transform 0.24s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.switch-input:checked + .switch-track {
+  background: var(--pen);
+  border-color: var(--pen);
+}
+.switch-input:checked + .switch-track .switch-thumb {
+  transform: translateX(14px);
+}
+.switch-input:focus-visible + .switch-track {
+  outline: 3px solid var(--pen);
+  outline-offset: 3px;
+}
+.switch-input:disabled + .switch-track {
+  opacity: 0.55;
+}
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.planner-switch.unavailable .switch-label {
+  color: var(--muted);
+}
+.switch-note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 2px;
+  padding-left: 46px;
+}
+
+/* ---------- Conversational question ---------- */
+.ask-convo {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.convo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.convo-row.user {
+  justify-content: flex-end;
+}
+.agent-avatar {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--pen);
+  background: var(--pen-soft);
+  border: 1px solid color-mix(in srgb, var(--pen) 18%, transparent);
+}
+.agent-avatar.typing::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 15px;
+  border: 1.5px solid var(--pen);
+  opacity: 0;
+  animation: avatar-ring 1.4s ease-out infinite;
+}
+.bubble {
+  min-width: 0;
+  border-radius: 18px;
+  animation: bubble-in 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.agent-bubble {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.ask-bubble {
+  flex: 1;
+  padding: 18px 20px 14px;
+  border-color: var(--pen);
+  box-shadow:
+    0 0 0 4px var(--pen-soft),
+    var(--shadow);
+  transform-origin: bottom left;
+}
+.typing-bubble {
+  padding: 13px 16px;
+}
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 10px;
+}
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: dot-bounce 1.1s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.bubble-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.ask-counter {
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--pen);
+  white-space: nowrap;
+}
+.ask-bubble h3 {
+  font-size: 19px;
+  line-height: 1.35;
+  letter-spacing: -0.3px;
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+}
+.ask-why {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  background: var(--pen-soft);
+  border-radius: 11px;
+  padding: 9px 11px;
+  margin-bottom: 14px;
+}
+.ask-why svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--pen);
+}
+.ask-why b {
+  font-weight: 650;
+  color: var(--ink);
+}
+.ask-error {
+  font-size: 12.5px;
+  color: var(--nsq);
+  background: var(--nsq-soft);
+  border-radius: 10px;
+  padding: 9px 11px;
+  margin-bottom: 12px;
+}
+.shake {
+  animation:
+    bubble-in 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) 0.1s both;
+}
+.ask-bubble form {
+  margin-top: 4px;
+}
+.ask-bubble .field {
+  margin-top: 10px;
+}
+.ask-bubble .skip-button,
+.ask-bubble .whole-toggle {
+  margin-top: 8px;
+}
+.whole-toggle {
+  display: flex;
+  font-size: 12.5px;
+}
+.ask-bubble .skip-button {
+  font-size: 12.5px;
+}
+.fields-form > p {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+/* Magnifier: the crop sits in a loupe frame with corner marks and one slow scan pass. */
+.ask-crop {
+  margin: 0 0 14px;
+}
+.crop-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 8px;
+  background:
+    linear-gradient(var(--pen), var(--pen)) top left / 14px 2px no-repeat,
+    linear-gradient(var(--pen), var(--pen)) top left / 2px 14px no-repeat,
+    linear-gradient(var(--pen), var(--pen)) top right / 14px 2px no-repeat,
+    linear-gradient(var(--pen), var(--pen)) top right / 2px 14px no-repeat,
+    linear-gradient(var(--pen), var(--pen)) bottom left / 14px 2px no-repeat,
+    linear-gradient(var(--pen), var(--pen)) bottom left / 2px 14px no-repeat,
+    linear-gradient(var(--pen), var(--pen)) bottom right / 14px 2px no-repeat,
+    linear-gradient(var(--pen), var(--pen)) bottom right / 2px 14px no-repeat,
+    var(--foil);
+}
+.crop-frame img {
+  display: block;
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--card);
+  animation: crop-zoom 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.crop-scan {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 8px;
+  height: 2px;
+  background: var(--pen);
+  opacity: 0;
+  box-shadow: 0 0 10px var(--pen);
+  animation: crop-scan 1.4s ease-in-out 0.3s 1 both;
+}
+.ask-crop figcaption {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+/* OTP boxes: the doubted characters open as input pockets inside the batch. */
+.otp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: flex-start;
+  margin: 4px 0 14px;
+  font-family: var(--mono);
+}
+.otp-fixed,
+.otp-box {
+  width: 34px;
+  height: 46px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font: 600 19px var(--mono);
+  text-align: center;
+}
+.otp-fixed {
+  color: var(--ink-2);
+  background: var(--foil);
+  border: 1px solid transparent;
+}
+.otp-slot {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+}
+.otp-box {
+  padding: 0;
+  color: var(--ink);
+  background: var(--card);
+  border: 1.5px dashed var(--pen);
+  caret-color: var(--pen);
+  text-transform: uppercase;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+.otp-box:focus {
+  outline: none;
+  border-style: solid;
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 3px var(--pen-soft),
+    0 6px 14px color-mix(in srgb, var(--pen) 22%, transparent);
+}
+.otp-box:focus-visible {
+  outline: 3px solid var(--pen);
+  outline-offset: 2px;
+}
+.otp-box.filled {
+  border-style: solid;
+  background: var(--pen-soft);
+  animation: pop 0.22s ease both;
+}
+.otp-pos {
+  font: 9.5px var(--mono);
+  color: var(--muted);
+  max-width: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Choice cards: the two readings side by side, differing characters marked. */
+.choice-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+.choice-card {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 14px 16px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  animation: bubble-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.choice-card:nth-child(2) {
+  animation-delay: 0.07s;
+}
+.choice-card:hover:not(:disabled) {
+  border-color: var(--pen);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--pen) 16%, transparent);
+}
+.choice-card.chosen {
+  border-color: var(--pen);
+  background: var(--pen-soft);
+  opacity: 1;
+}
+.choice-letter {
+  font: 600 10px var(--mono);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.choice-value {
+  font: 600 22px var(--mono);
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+}
+.choice-value mark {
+  color: var(--pen);
+  background: var(--pen-soft);
+  border-radius: 4px;
+  padding: 0 1px;
+  box-shadow: inset 0 -2px 0 var(--pen);
+}
+.cant-tell {
+  min-height: 40px;
+}
+/* After answering */
+.ask-convo.answered .bubble {
+  font-size: 13px;
+}
+.agent-bubble.past {
+  padding: 10px 14px;
+  color: var(--ink-2);
+  box-shadow: none;
+  animation: none;
+  overflow-wrap: anywhere;
+}
+.user-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 85%;
+  padding: 10px 14px;
+  border-bottom-right-radius: 6px;
+  background: var(--pen);
+  color: var(--on-pen);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+.answer-tick {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.answer-tick circle {
+  stroke-dasharray: 54;
+  stroke-dashoffset: 54;
+  opacity: 0.55;
+  animation: draw 0.42s ease-out 0.12s forwards;
+}
+.answer-tick path {
+  stroke-dasharray: 14;
+  stroke-dashoffset: 14;
+  animation: draw 0.28s ease-out 0.42s forwards;
+}
+.agent-bubble.checking {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 15px;
+  animation-delay: 0.5s;
+  font-size: 12.5px;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(0.86);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+@keyframes orb-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+@keyframes avatar-ring {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.16);
+    opacity: 0;
+  }
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes settle {
+  from {
+    transform: scale(1.8);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes dot-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(3px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-6px);
+  }
+  40%,
+  60% {
+    transform: translateX(6px);
+  }
+}
+@keyframes pop {
+  50% {
+    transform: scale(1.08);
+  }
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes crop-zoom {
+  from {
+    transform: scale(1.12);
+    filter: blur(2px);
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes crop-scan {
+  0% {
+    top: 8px;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  85% {
+    opacity: 0.7;
+  }
+  100% {
+    top: calc(100% - 10px);
+    opacity: 0;
+  }
+}
+@media (max-width: 480px) {
+  .thinking-panel {
+    padding: 12px 12px 10px;
+  }
+  .reasoning .thinking-panel {
+    margin: 0 12px 10px;
+  }
+  .think-body-inner {
+    padding-left: 4px;
+  }
+  .convo-row {
+    gap: 7px;
+  }
+  .convo-row.agent {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .convo-row.agent .bubble {
+    align-self: stretch;
+  }
+  .agent-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+  }
+  .ask-bubble {
+    padding: 15px 14px 12px;
+  }
+  .ask-bubble h3 {
+    font-size: 17px;
+  }
+  .otp-row {
+    gap: 4px;
+  }
+  .otp-fixed,
+  .otp-box {
+    width: 27px;
+    height: 40px;
+    font-size: 16px;
+  }
+  .choice-value {
+    font-size: 19px;
+  }
+  .switch-note {
+    padding-left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .think-shimmer {
+    background: none;
+    color: var(--ink-2);
+  }
+  .answer-tick circle,
+  .answer-tick path {
+    stroke-dashoffset: 0;
+  }
+  .crop-scan {
+    display: none;
+  }
+  .otp-box:focus,
+  .choice-card:hover:not(:disabled) {
+    transform: none;
+  }
+}

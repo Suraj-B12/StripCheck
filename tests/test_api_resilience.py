@@ -184,15 +184,18 @@ def test_sse_disconnect_keeps_worker_running_and_backlog_is_bounded():
         await response.body_iterator.aclose()
         release.set()
         assert await asyncio.to_thread(completed.wait, 2)
+        flooded = threading.Event()
         def flood(emit):
-            for index in range(2000):
+            for index in range(5000):
                 emit("step", {"step": index})
             emit("final", {"value": "complete"})
             emit("done", {"status": "done"})
+            flooded.set()
         slow = stream_work("synthetic-backlog", flood)
+        assert await asyncio.to_thread(flooded.wait, 5)
         await asyncio.sleep(.1)
         frames = [item async for item in slow.body_iterator]
-        assert len(frames) <= 256
+        assert len(frames) <= 2048  # queue bound raised so live thinking cannot push out steps
         assert "event: done" in frames[-1]
         assert any("event: final" in frame for frame in frames)
     asyncio.run(run())

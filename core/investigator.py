@@ -9,7 +9,7 @@ import uuid
 from core import config, llm, tracing
 from core.matching import build_index, grade, search_exact, search_variants
 from core.noisy import confirmation_positions, prior_counts
-from core.templates import prior_note, question, render_verdict
+from core.templates import prior_note, question, render_verdict, thinking_context
 from core.textutils import PLACEHOLDERS, batch_key, maker_name, parse_month_year
 from core.verifier import GATE_EVIDENCE, verify_verdict
 
@@ -97,12 +97,45 @@ def _log(state, action, summary, started=None, source="rules", thought=None, io=
     entry.update({key: value for key, value in extra.items() if value is not None})
     state["history"].append(entry)
     state.setdefault("_marks", []).append({"i": len(state["history"]) - 1, "end_ns": _now_ns(), "io": io or {}, "llm": llm_meta})
+    _emit(state, "step", dict(entry))
+
+
+def _emit(state, event, data):
+    """Send a live event to the caller's observer; display failures never affect the check."""
+    observer = state.get("_observer")
+    if observer is None:
+        return
+    try:
+        observer(event, data)
+    except Exception:
+        pass
 
 
 def _decide(state, mode, evidence, allowed, suggestion, thought_key):
-    """Branch-point planner: the LLM in hybrid/llm mode, otherwise the rules."""
+    """Branch-point planner: the LLM in hybrid/llm mode, otherwise the rules.
+
+    Emits one live "thinking" block (start, throttled deltas in hybrid mode, end).
+    """
+    number = int(state.get("thinking_count", 0)) + 1
+    state["thinking_count"] = number
+    model = state.get("llm_model") or config.LLM_MODEL
+    asks_llm = mode in {"hybrid", "llm"} and len(allowed) >= 2 and suggestion in allowed and bool(model)
+    block = {"id": f"think-{number}", "context": thinking_context(thought_key)}
+    start = dict(block, phase="start", source="llm" if asks_llm else "rules", text="")
+    if asks_llm:
+        start["model"] = model
+    _emit(state, "thinking", start)
+    extra = {}
+    if asks_llm and state.get("_observer") is not None:
+        extra["on_text"] = lambda text: _emit(state, "thinking", dict(block, phase="delta", source="llm", text=text, model=model, redacted=False))
+    started = perf_counter()
     decision = llm.plan_decision(evidence, allowed, suggestion, RULE_THOUGHTS[thought_key], mode=mode,
-                                 model=state.get("llm_model") or config.LLM_MODEL, url=config.OLLAMA_URL, timeout=config.LLM_TIMEOUT)
+                                 model=model, url=config.OLLAMA_URL, timeout=config.LLM_TIMEOUT, **extra)
+    end = dict(block, phase="end", source=decision["source"], text=decision["thought"], action=decision["action"],
+               ms=round((perf_counter() - started) * 1000), redacted=bool(decision.get("redacted")))
+    if decision["source"] == "llm":
+        end["model"] = model
+    _emit(state, "thinking", end)
     state.setdefault("decisions", []).append({"step": len(state["history"]) + 1, "action": decision["action"], "source": decision["source"]})
     return decision
 
@@ -178,6 +211,12 @@ def _strip(fields, state, pending=None):
 
 
 def _snapshot(fields, context, state, pending=None, final=None):
+    state.pop("_observer", None)
+    if pending and "asks_used" not in pending:
+        pending["asks_used"], pending["asks_max"] = min(state["asks"] + 1, MAX_ASKS), MAX_ASKS
+        crop = str(context.get("batch_crop") or "")
+        if re.fullmatch(r"/api/crops/[A-Za-z0-9_-]{1,100}\.png", crop):
+            pending["crop"] = crop
     try:
         _export(fields, state, pending, final)
     except Exception:
@@ -275,11 +314,12 @@ def _apply_answer(fields, state, answer):
     return None
 
 
-def investigate(fields, alerts, context=None, answer=None):
+def investigate(fields, alerts, context=None, answer=None, observer=None):
     """Run or resume a check. All external input is data.
 
     The only optional network call is the local Ollama planner at branch points
     (planner "hybrid"/"llm"); it is bounded and falls back to the rules.
+    `observer(event, data)` receives live "step" and "thinking" events; it is never stored.
     """
     call_start = _now_ns()
     context = deepcopy(context or {})
@@ -289,7 +329,7 @@ def investigate(fields, alerts, context=None, answer=None):
     mode = mode if mode in {"rules", "hybrid", "llm"} else "rules"
     state = context.get("_engine")
     if state:
-        state["_call"], state["_marks"] = {"start_ns": call_start, "answer": answer}, []
+        state["_call"], state["_marks"], state["_observer"] = {"start_ns": call_start, "answer": answer}, [], observer
     if not state:
         source = fields["source"]
         evidence = "user_typed" if source == "user" else "qr" if source == "qr" else "user_confirmed" if fields["confirmed"] else source
@@ -301,7 +341,7 @@ def investigate(fields, alerts, context=None, answer=None):
             state["batch_evidence"] = "none"
             fields["confirmed"] = False
         state["session"] = str(context.get("thread_id") or uuid.uuid4().hex)
-        state["_call"], state["_marks"] = {"start_ns": call_start, "answer": None}, []
+        state["_call"], state["_marks"], state["_observer"] = {"start_ns": call_start, "answer": None}, [], observer
         _log(state, "extract_fields", "Using the printed details supplied for this check.",
              io={"input": {"source": fields["source"], "confirmed": fields["confirmed"]}, "output": {k: fields[k] for k in FIELD_NAMES if fields[k]}})
     state["planner"] = mode

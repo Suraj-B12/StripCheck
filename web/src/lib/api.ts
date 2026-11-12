@@ -16,7 +16,42 @@ export type Step = {
   source: string;
   summary: string;
   ms: number;
+  thought?: string;
+  prior?: unknown;
+  model?: string;
+  [key: string]: unknown;
 };
+/** Live `thinking` SSE event (contract section 2). `text` is always the full text so far. */
+export type ThinkingEvent = {
+  id: string;
+  phase: "start" | "delta" | "end";
+  context?: string;
+  source?: string;
+  text?: string;
+  model?: string;
+  action?: string;
+  ms?: number;
+  redacted?: boolean;
+};
+/** Question payload (`interrupt` / `snapshot.pending`), contract section 3. */
+export type Pending = {
+  kind?: string;
+  question?: string;
+  reason?: string;
+  asks_used?: number;
+  asks_max?: number;
+  crop?: string;
+  batch?: string;
+  positions?: number[];
+  options?: unknown[];
+  listed?: string;
+  pack?: string;
+  field?: string;
+  error?: string;
+  guided_answer?: unknown;
+  [key: string]: unknown;
+};
+export type Planner = "rules" | "hybrid";
 export type Verdict = {
   label: string;
   headline: string;
@@ -37,7 +72,7 @@ export type Snapshot = {
     source: string;
   };
   history: Step[];
-  pending?: Record<string, unknown> | null;
+  pending?: Pending | null;
   final?: Verdict | null;
   demo?: boolean;
   created_at?: string;
@@ -69,7 +104,13 @@ export type Stats = {
 };
 export type Health = {
   db: Stats;
-  ollama?: { up: boolean };
+  ollama?: {
+    up: boolean;
+    models?: string[];
+    llm_ok?: boolean;
+    model?: string;
+    [key: string]: unknown;
+  };
   lan_url?: string;
   ocr?: unknown;
   [key: string]: unknown;

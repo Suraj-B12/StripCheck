@@ -161,6 +161,59 @@ async def _read_images(request: Request) -> tuple[list[Path], dict]:
         await form.close()
 
 
+PLANNERS = ("rules", "hybrid")
+
+
+def _planner(value) -> str:
+    """Validate a per-check planner choice; "" means the server default."""
+    if value is None or value == "":
+        return ""
+    if not isinstance(value, str) or value.strip().lower() not in PLANNERS:
+        raise HTTPException(422, "Choose the planner rules or hybrid.")
+    return value.strip().lower()
+
+
+_OLLAMA_CACHE = {"at": -1e9, "value": None}
+
+
+def _ollama_status() -> dict:
+    """Short local probe of Ollama for the health view (cached 5 s); failures mean the rules run alone."""
+    from time import monotonic
+    if _OLLAMA_CACHE["value"] is not None and monotonic() - _OLLAMA_CACHE["at"] < 5:
+        return _OLLAMA_CACHE["value"]
+    _OLLAMA_CACHE["value"], _OLLAMA_CACHE["at"] = _probe_ollama(), monotonic()
+    return _OLLAMA_CACHE["value"]
+
+
+def _probe_ollama() -> dict:
+    from urllib.request import urlopen
+    from core.llm import local_url
+    model = config.LLM_MODEL
+    try:
+        with urlopen(local_url(config.OLLAMA_URL).rstrip("/") + "/api/tags", timeout=0.4) as response:
+            models = [str(row.get("name", "")) for row in json.loads(response.read(1024 * 1024)).get("models", []) if isinstance(row, dict)]
+    except Exception:
+        return {"up": False, "models": [], "llm_ok": False, "vlm_ok": False, "model": model, "status": "optional_not_connected"}
+    present = model in models or (":" not in model and model + ":latest" in models)
+    vlm = bool(config.VLM_MODEL) and config.VLM_MODEL in models
+    return {"up": True, "models": models, "llm_ok": bool(model) and present, "vlm_ok": vlm, "model": model,
+            "status": "ready" if present else "model_missing"}
+
+
+def _batch_crop(image_path, reading: dict) -> str:
+    """Crop the batch line from the uploaded photo when the reader has a box for it; "" otherwise."""
+    try:
+        index = reading.get("fields", {}).get("batch_line")
+        lines = reading.get("lines") or []
+        if not isinstance(index, int) or not 0 <= index < len(lines):
+            return ""
+        from core.crops import batch_line_crop
+        path = batch_line_crop(image_path, lines[index]["box"])
+        return f"/api/crops/{Path(path).stem}.png"
+    except Exception:
+        return ""
+
+
 def _snapshot_events(emit, snapshot: dict, previous_steps: int = 0) -> None:
     emit("fields", {"fields": snapshot.get("fields", {})})
     strip = snapshot.get("strip") or {}
@@ -296,7 +349,7 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
         statistics = _coverage_stats()
         pairing = lan_info()
         return {"status": "ok", "version": "1.0.0", "mode": "local", "offline_ready": True,
-                "ollama": {"up": False, "models": [], "llm_ok": False, "vlm_ok": False, "status": "optional_not_connected"},
+                "ollama": _ollama_status(), "planner": {"default": config.PLANNER, "choices": list(PLANNERS)},
                 "phoenix": {"up": False, "status": "local_traces_available"}, "db": statistics,
                 "ocr": {"available": any(importlib.util.find_spec(package) is not None for package in ("rapidocr", "pytesseract", "Vision"))},
                 "lan_url": pairing["url"], "lan": pairing, "coverage": statistics["coverage"], "coverage_warning": statistics["coverage_warning"],
@@ -378,7 +431,7 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
                 raise HTTPException(500, "This operation could not complete. Please retry.") from None
         return stream_work(thread_id, work, on_error=error)
 
-    async def run_check(request, thread_id, fields, *, images=None, previous=None, answer=None, demo_case=None):
+    async def run_check(request, thread_id, fields, *, images=None, previous=None, answer=None, demo_case=None, planner=""):
         await asyncio.to_thread(reserve, thread_id, previous)
         created = (previous or {}).get("created_at", now())
         starter = {**(previous or {}), "thread_id": thread_id, "status": "running", "fields": fields,
@@ -408,6 +461,7 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
                     from core.pack_tools import read_pack
                     image_fields = {}
                     reader_batches = []
+                    batch_crop = ""
                     for image_path in images:
                         emit("step", {"action": "read_pack", "node": "perception", "summary": "Reading the printed pack details locally.", "source": "ocr"})
                         reading = read_pack(image_path)
@@ -421,6 +475,8 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
                             if value and not working_fields.get(key) and answer is None:
                                 working_fields[key] = value
                         warnings_found.extend(reading.get("warnings", []))
+                        if answer is None and not batch_crop:
+                            batch_crop = _batch_crop(image_path, reading)
                     if answer is not None:
                         answer["fields"] = image_fields
                         answer["source"] = "carton"
@@ -447,7 +503,23 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
                     context = {**(context or {}), "reader_disagreement": len(reader_batches) > 1, "reader_batches": reader_batches}
                     if len(reader_batches) > 1:
                         warnings_found.append("The photos show different batch readings. Confirm the printed batch before continuing.")
-                snapshot = investigate(working_fields, alert_rows, context=context, answer=answer)
+                    if batch_crop:
+                        context["batch_crop"] = batch_crop
+                if planner:
+                    context = {**(context or {}), "planner": planner}
+                live = {"steps": 0}
+
+                def observe(event, data):
+                    # Live steps are traced and streamed once; only finished thinking blocks are traced.
+                    # draft_verdict is traced after the run, when the step carries the verifier result.
+                    if event == "step":
+                        live["steps"] += 1
+                        if data.get("action") != "draft_verdict":
+                            record(thread_id, event, data)
+                    elif event == "thinking" and data.get("phase") == "end":
+                        record(thread_id, event, data)
+                    emit(event, data)
+                snapshot = investigate(working_fields, alert_rows, context=context, answer=answer, observer=observe)
                 snapshot.update({"thread_id": thread_id, "created_at": created, "updated_at": now(), "demo": starter["demo"]})
                 if starter.get("demo_case_id"):
                     snapshot["demo_case_id"] = starter["demo_case_id"]
@@ -458,10 +530,15 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
                 db.save_document("checks", thread_id, snapshot)
                 if learned:
                     record(thread_id, "learning", {"summary": f"Stored {learned} explicitly confirmed character correction(s) for future ranking. Confirmation gates are unchanged.", "count": learned})
+                done_steps = len((previous or {}).get("history", []))
+                for item in snapshot.get("history", [])[done_steps:done_steps + live["steps"]]:
+                    if isinstance(item, dict) and item.get("action") == "draft_verdict":
+                        record(thread_id, "step", item)
+
                 def traced_emit(event, data):
                     record(thread_id, event, data)
                     emit(event, data)
-                _snapshot_events(traced_emit, snapshot, len((previous or {}).get("history", [])))
+                _snapshot_events(traced_emit, snapshot, done_steps + live["steps"])
                 return _public(snapshot)
             except Exception as exc:
                 failure(exc)
@@ -477,14 +554,21 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
         if "multipart/form-data" in request.headers.get("content-type", ""):
             async with application.state.image_slots:
                 images, metadata = await _read_images(request)
+            try:
+                planner = _planner(metadata.get("planner"))
+            except HTTPException:
+                for path in images:
+                    path.unlink(missing_ok=True)
+                raise
             fields = {key: value for key, value in metadata.items() if key in FIELDS and value}
             if fields:
                 fields = _fields(fields)
         else:
             payload = await _json(request)
+            planner = _planner(payload.get("planner"))
             fields = _fields(payload.get("fields", payload), required=True)
         thread_id = "check-" + uuid.uuid4().hex
-        return await run_check(request, thread_id, fields, images=images)
+        return await run_check(request, thread_id, fields, images=images, planner=planner)
 
     @application.post("/api/checks/{thread_id}/resume")
     async def resume_check(thread_id: str, request: Request):
@@ -521,11 +605,12 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
     async def start_demo(request: Request):
         from core.props import demo_cases as get_cases
         payload = await _json(request)
+        planner = _planner(payload.get("planner"))
         case_id = str(payload.get("case_id", "01"))
         case = next((case for case in get_cases() if case["id"] == case_id or case.get("slug") == case_id), None)
         if not case:
             raise HTTPException(404, "This synthetic scenario was not found.")
-        return await run_check(request, "demo-" + uuid.uuid4().hex, dict(case.get("fields", {})), demo_case=case)
+        return await run_check(request, "demo-" + uuid.uuid4().hex, dict(case.get("fields", {})), demo_case=case, planner=planner)
 
     @application.get("/api/demo/cases/{case_id}/image")
     def demo_image(case_id: str):

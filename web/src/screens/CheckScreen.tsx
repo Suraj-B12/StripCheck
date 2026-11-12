@@ -15,11 +15,17 @@ import {
   RotateCcw,
   LoaderCircle,
   ImagePlus,
+  Sparkles,
 } from "lucide-react";
 import { PUBLIC_DEMO, PROJECT_URL, appHref } from "../lib/environment";
 import { createRequestGate, storage } from "../lib/runtime";
 import { api, emptyFields, json, stream } from "../lib/api";
-import type { Fields, Health, Snapshot } from "../lib/api";
+import type { Fields, Health, Planner, Snapshot } from "../lib/api";
+import { ThinkingPanel } from "../components/Thinking";
+import { applyThinking, blocksFromHistory } from "../lib/thinking";
+import type { ThinkBlock } from "../lib/thinking";
+import { AnsweredThread, AskConversation } from "../components/Ask";
+import { answerSummary } from "../lib/ask";
 import {
   BatchStrip,
   BlisterArt,
@@ -78,11 +84,25 @@ export default function CheckScreen({
   const [demoOpen, setDemoOpen] = useState(false);
   const [demos, setDemos] = useState<Demo[]>([]);
   const [help, setHelp] = useState(false);
-  const [answer, setAnswer] = useState("");
-  const [details, setDetails] = useState<Fields>({ ...emptyFields });
+  const [thinking, setThinking] = useState<ThinkBlock[]>([]);
+  const [asked, setAsked] = useState<{
+    question: string;
+    answer: string;
+  } | null>(null);
+  const [aiPref, setAiPref] = useState(
+    () => storage.get("stripcheck.planner") !== "rules",
+  );
+  const llmOk = Boolean(health?.ollama?.llm_ok);
+  const plannerKnown = !PUBLIC_DEMO && Boolean(health?.ollama);
+  const planner: Planner = llmOk && aiPref ? "hybrid" : "rules";
+  const plannerField = (): { planner?: Planner } =>
+    plannerKnown ? { planner } : {};
+  const toggleAi = (on: boolean) => {
+    setAiPref(on);
+    storage.set("stripcheck.planner", on ? "hybrid" : "rules");
+  };
   const uploadRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
-  const cartonRef = useRef<HTMLInputElement>(null);
   const batchRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const requests = useRef(createRequestGate());
@@ -91,7 +111,6 @@ export default function CheckScreen({
     demoFields.current = Boolean(value.demo);
     setSnapshot(value);
     setFields({ ...emptyFields, ...value.fields });
-    setDetails({ ...emptyFields, ...value.fields });
     setAdvanced(
       Boolean(
         value.fields?.maker ||
@@ -136,7 +155,6 @@ export default function CheckScreen({
     const clearDemo = demoFields.current;
     demoFields.current = false;
     if (clearDemo) {
-      setDetails({ ...emptyFields });
       setAdvanced(["maker", "brand", "mfg", "exp"].some((key) => key in patch));
     }
     setFields((current) => ({
@@ -168,7 +186,6 @@ export default function CheckScreen({
     const signal = gate.begin();
     setBusy(true);
     setError("");
-    setAnswer("");
     let tid = "";
     let receivedSnapshot = false;
     try {
@@ -185,6 +202,11 @@ export default function CheckScreen({
           if (tid) storage.set("stripcheck.current", tid);
           acceptSnapshot(latest);
         }
+        if (event === "thinking") setThinking((b) => applyThinking(b, data));
+        if (event === "strip" && Array.isArray(data.chars))
+          setSnapshot((s) =>
+            s ? { ...s, strip: data as unknown as Snapshot["strip"] } : s,
+          );
         if (event === "error" && !data.recoverable)
           throw new Error(String(data.message));
         if (event === "step")
@@ -243,7 +265,10 @@ export default function CheckScreen({
     } catch (e) {
       if (gate.isCurrent(signal)) setError((e as Error).message);
     } finally {
-      if (gate.isCurrent(signal)) setBusy(false);
+      if (gate.isCurrent(signal)) {
+        setBusy(false);
+        setAsked(null);
+      }
     }
   };
   const submit = (e: React.FormEvent) => {
@@ -255,13 +280,20 @@ export default function CheckScreen({
       return;
     }
     setSnapshot({ thread_id: "", status: "running", fields, history: [] });
+    setThinking([]);
+    setAsked(null);
     if (photo) {
       const form = new FormData();
       form.append("images", photo);
       for (const [k, v] of Object.entries(fields))
         if (v) form.append(k, String(v));
+      if (plannerKnown) form.append("planner", planner);
       execute("/api/checks", { method: "POST", body: form });
-    } else execute("/api/checks", json({ mode: "text", ...fields }));
+    } else
+      execute(
+        "/api/checks",
+        json({ mode: "text", ...fields, ...plannerField() }),
+      );
   };
   const startDemo = (demo: Demo) => {
     setDemoOpen(false);
@@ -283,7 +315,9 @@ export default function CheckScreen({
       history: [],
       demo: true,
     });
-    execute("/api/demo/checks", json({ case_id: demo.id }));
+    setThinking([]);
+    setAsked(null);
+    execute("/api/demo/checks", json({ case_id: demo.id, ...plannerField() }));
   };
   const reset = () => {
     requests.current.cancel();
@@ -294,7 +328,8 @@ export default function CheckScreen({
     setAdvanced(false);
     setPhoto(null);
     setError("");
-    setAnswer("");
+    setThinking([]);
+    setAsked(null);
     storage.remove("stripcheck.current");
     window.scrollTo({
       top: 0,
@@ -315,14 +350,46 @@ export default function CheckScreen({
       toast((e as Error).message);
     }
   };
-  const resume = (value: unknown) =>
-    snapshot &&
+  const beginAnswer = (answer: string) => {
+    if (!snapshot) return;
+    setAsked({ question: String(snapshot.pending?.question || ""), answer });
+    // Keep earlier reasoning visible: seed from history when there were no live events.
+    setThinking((b) => (b.length ? b : blocksFromHistory(snapshot.history)));
+  };
+  const resume = (value: unknown) => {
+    if (!snapshot) return;
+    beginAnswer(answerSummary(value));
     execute(
       `/api/checks/${encodeURIComponent(snapshot.thread_id)}/resume`,
       json(value),
     );
+  };
+  const sendCarton = (file: File) => {
+    if (!snapshot) return;
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Choose a photo under 15 MB.");
+      return;
+    }
+    const form = new FormData();
+    form.append("images", file);
+    beginAnswer(answerSummary({ carton: true }));
+    execute(`/api/checks/${encodeURIComponent(snapshot.thread_id)}/resume`, {
+      method: "POST",
+      body: form,
+    });
+  };
   const pending = snapshot?.pending;
-  const kind = String(pending?.kind || "");
+  const blocks = thinking.length
+    ? thinking
+    : blocksFromHistory(snapshot?.history);
+  const hints: Record<number, string> = {};
+  (snapshot?.strip?.chars || []).forEach((cell, i) => {
+    const options = [...new Set([cell.ch, ...(cell.alts || [])])].filter(
+      Boolean,
+    );
+    if (cell.state === "uncertain" && options.length > 1)
+      hints[i + 1] = options.join("/");
+  });
   return (
     <div className="check-page page-enter">
       <section className="hero">
@@ -612,6 +679,35 @@ export default function CheckScreen({
                 </div>
               </div>
             )}
+            <div className={`planner-switch ${llmOk ? "" : "unavailable"}`}>
+              <label>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  className="switch-input"
+                  checked={llmOk && aiPref}
+                  disabled={!llmOk || busy}
+                  onChange={(e) => toggleAi(e.target.checked)}
+                  aria-describedby="planner-note"
+                />
+                <span className="switch-track" aria-hidden="true">
+                  <span className="switch-thumb" />
+                </span>
+                <span className="switch-label">
+                  <Sparkles size={14} aria-hidden="true" />
+                  Local AI reasoning
+                </span>
+              </label>
+              <p id="planner-note" className="switch-note">
+                {llmOk
+                  ? aiPref
+                    ? `${health?.ollama?.model || "The local model"} picks the next step; results still come from the rules.`
+                    : "Off. The rules pick every step."
+                  : health?.ollama
+                    ? "Unavailable: the local model is not running. The rules pick every step."
+                    : "Unavailable: no local model detected. The rules pick every step."}
+              </p>
+            </div>
             <button
               className="button primary check-submit"
               type="submit"
@@ -747,6 +843,29 @@ export default function CheckScreen({
               </p>
             </div>
             <div className="result-content">
+              {busy && asked && (
+                <AnsweredThread
+                  question={asked.question}
+                  answer={asked.answer}
+                  busy={busy}
+                />
+              )}
+              {busy && !PUBLIC_DEMO && (
+                <ThinkingPanel
+                  blocks={thinking}
+                  live
+                  idleLabel={
+                    snapshot.history?.length
+                      ? `Working: ${String(
+                          snapshot.history[snapshot.history.length - 1]
+                            ?.summary || "checking the evidence",
+                        ).replace(/\.$/, "")}`
+                      : photo && !snapshot.thread_id
+                        ? "Reading the pack"
+                        : "Checking the available evidence"
+                  }
+                />
+              )}
               {snapshot.final && (
                 <VerdictCard
                   snapshot={snapshot}
@@ -794,165 +913,14 @@ export default function CheckScreen({
                     )}
                   </section>
                 ) : (
-                  <section className="ask-card">
-                    {kind === "box_photo" && (
-                      <div className="carton-upload">
-                        <button
-                          className="button secondary"
-                          type="button"
-                          onClick={() => cartonRef.current?.click()}
-                        >
-                          <Camera size={18} />
-                          Add a carton photo
-                        </button>
-                        <input
-                          ref={cartonRef}
-                          className="visually-hidden"
-                          aria-label="Upload carton photo"
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file || !snapshot) return;
-                            if (file.size > 15 * 1024 * 1024) {
-                              setError("Choose a photo under 15 MB.");
-                              return;
-                            }
-                            const form = new FormData();
-                            form.append("images", file);
-                            execute(
-                              `/api/checks/${snapshot.thread_id}/resume`,
-                              {
-                                method: "POST",
-                                body: form,
-                              },
-                            );
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div className="ask-icon">
-                      <ScanLine size={25} />
-                    </div>
-                    <h3>
-                      {String(
-                        pending.question || "Confirm the printed details",
-                      )}
-                    </h3>
-                    {Boolean(pending.error) && (
-                      <p role="alert" className="notice error-notice">
-                        {String(pending.error)}
-                      </p>
-                    )}
-                    {kind === "confirm_batch" &&
-                      Array.isArray(pending.positions) && (
-                        <p>
-                          Look at positions{" "}
-                          {(pending.positions as number[]).join(", ").replace(/, (\d+)$/, " and $1")} on the
-                          pack, or type the entire batch below.
-                        </p>
-                      )}
-                    {(kind === "confirm_char" || kind === "confirm_field") &&
-                      Array.isArray(pending.options) && (
-                        <div className="button-row">
-                          {(pending.options as unknown[]).map((option, i) => {
-                            const value =
-                              typeof option === "object" && option
-                                ? String(
-                                    (option as Record<string, unknown>).value ||
-                                      (option as Record<string, unknown>).label,
-                                  )
-                                : String(option);
-                            return (
-                              <button
-                                key={i}
-                                className="button secondary"
-                                onClick={() => resume({ choice: value })}
-                              >
-                                {value}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    {(kind === "confirm_batch" ||
-                      kind === "confirm_char" ||
-                      kind === "type_batch") && (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (answer.trim()) resume({ typed: answer.trim() });
-                        }}
-                      >
-                        <label className="field">
-                          <span>Type the full batch exactly as printed</span>
-                          <input
-                            value={answer}
-                            onChange={(e) =>
-                              setAnswer(e.target.value.toUpperCase())
-                            }
-                            maxLength={50}
-                            autoComplete="off"
-                            className="batch-input"
-                            autoFocus
-                          />
-                        </label>
-                        <button
-                          className="button primary"
-                          disabled={!answer.trim()}
-                        >
-                          Confirm printed batch <ArrowRight size={17} />
-                        </button>
-                      </form>
-                    )}
-                    {(kind === "box_photo" ||
-                      kind === "provide_fields" ||
-                      kind === "confirm_product" ||
-                      kind === "type_fields") && (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          resume({ fields: details });
-                        }}
-                      >
-                        <p>Add the details you can read on the carton.</p>
-                        {(["product", "maker", "mfg", "exp"] as const).map(
-                          (k) => (
-                            <label key={k} className="field">
-                              <span>
-                                {k === "mfg"
-                                  ? "Manufactured"
-                                  : k === "exp"
-                                    ? "Expires"
-                                    : k === "maker"
-                                      ? "Manufacturer"
-                                      : "Product"}
-                              </span>
-                              <input
-                                value={details[k]}
-                                onChange={(e) =>
-                                  setDetails({
-                                    ...details,
-                                    [k]: e.target.value,
-                                  })
-                                }
-                              />
-                            </label>
-                          ),
-                        )}
-                        <button className="button primary">
-                          Check these details
-                        </button>
-                      </form>
-                    )}
-                    <button
-                      className="text-button skip-button"
-                      onClick={() => resume({ skip: true })}
-                    >
-                      I can’t confirm this detail
-                    </button>
-                  </section>
+                  <AskConversation
+                    key={`${String(pending.kind)}|${String(pending.question)}|${String(pending.asks_used ?? "")}|${String(pending.error ?? "")}`}
+                    pending={pending}
+                    fields={{ ...emptyFields, ...snapshot.fields }}
+                    hints={hints}
+                    onAnswer={resume}
+                    onCarton={sendCarton}
+                  />
                 ))}
               <details
                 className="reasoning glass-card"
@@ -968,6 +936,9 @@ export default function CheckScreen({
                     <ChevronDown size={17} />
                   </span>
                 </summary>
+                {!busy && blocks.length > 0 && (
+                  <ThinkingPanel blocks={blocks} />
+                )}
                 <StepTimeline steps={snapshot.history || []} />
                 {busy && (
                   <div className="working">
@@ -1052,7 +1023,11 @@ export default function CheckScreen({
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <h3>{d.name || d.title || String(d.id ?? "").replaceAll("_", " ")}</h3>
+                    <h3>
+                      {d.name ||
+                        d.title ||
+                        String(d.id ?? "").replaceAll("_", " ")}
+                    </h3>
                     <p>{d.description}</p>
                   </div>
                   <ChevronRight size={19} />
