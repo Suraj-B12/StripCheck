@@ -63,6 +63,8 @@ The compiled Swift API verification and live server round-trips pass. [GitHub ve
 
 ### Live phone demo (Cloudflare quick tunnel, Windows)
 
+Step-by-step script for a review: [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md). On Windows, double-click `Start StripCheck Demo.cmd` (it also starts Ollama and loads the model when they are installed).
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-demo-tunnel.ps1
 ```
