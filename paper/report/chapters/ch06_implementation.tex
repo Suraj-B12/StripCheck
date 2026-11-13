@@ -57,7 +57,7 @@ The Review~2 design used LangGraph and Streamlit. LangGraph was replaced by a co
 
 Algorithm~\ref{alg:loop} is one call of \texttt{investigate()} in \texttt{core/investigator.py}. The server calls it when a check starts and after every answer; between calls the state is stored as a JSON document in SQLite.
 
-\begin{algorithm}[htbp]
+\begin{algorithm}[!t]
 \caption{Bounded investigation of one check (one call)}
 \label{alg:loop}
 \footnotesize
@@ -69,18 +69,24 @@ Algorithm~\ref{alg:loop} is one call of \texttt{investigate()} in \texttt{core/i
   \State \textsc{ApplyAnswer}$(\sigma, f, a)$; $\sigma.\mathit{asks} \gets \sigma.\mathit{asks}+1$ \Comment{malformed answer: re-ask}
 \EndIf
 \State $\mathit{canAsk} \gets \sigma.\mathit{asks} < Q \wedge |\sigma.H| < S-4$
-\If{no alert data \textbf{or} batch length outside 2--40 \textbf{or} unparseable date \textbf{or} $|\sigma.H| \ge S-3$} $\ell \gets$ \CANTV
-\ElsIf{no batch \textbf{or} two photos disagree} \textbf{if} $\mathit{canAsk}$ \textbf{return} \textsc{Ask}(\texttt{type\_batch}) \textbf{else} $\ell \gets$ \CANTV
+\If{no alert data \textbf{or} batch length outside 2--40 \textbf{or} unparseable date
+  \textbf{or} $|\sigma.H| \ge S-3$}
+  \State $\ell \gets$ \CANTV
+\ElsIf{no batch \textbf{or} two photos disagree}
+  \State \textbf{if} $\mathit{canAsk}$ \textbf{return} \textsc{Ask}(\texttt{type\_batch}) \textbf{else} $\ell \gets$ \CANTV
 \Else
   \State $E \gets \textsc{SearchExact}(A, \mathit{key}(f))$
-  \If{$E = \emptyset$ \textbf{and} \textsc{Decide}$(\{\texttt{search\_variants}, \texttt{draft\_verdict}\}) = \texttt{draft\_verdict}$} \Comment{branch (b)}
-    \State \textsc{Log}(verifier send-back, rule R4) \Comment{at most once}
+  \If{$E = \emptyset$ \textbf{and} \textsc{Decide}$(\{\texttt{search\_variants}, \texttt{draft\_verdict}\}) = \texttt{draft\_verdict}$}
+    \State \textsc{Log}(verifier send-back, rule R4) \Comment{branch (b), at most once}
   \EndIf
   \State $V \gets \textsc{SearchVariants}(A, \mathit{key}(f))$ \Comment{$\le 2$ substitutions, $\le 2000$ keys}
   \State $C \gets \textsc{Grade}(\text{first } K \text{ of } E \cup V, f)$
   \If{a date conflict in $C$ \textbf{or} more than $K$ candidates} $\ell \gets$ \CANTV
   \ElsIf{a candidate in $C$ needs a person}
-    \If{$\mathit{canAsk} \wedge \textsc{Decide}(\{\texttt{ask\_user}, \texttt{draft\_verdict}\}) = \texttt{ask\_user}$} \Return \textsc{Ask}(kind) \Comment{branch (c)} \EndIf
+    \If{$\mathit{canAsk} \wedge \textsc{Decide}(\{\texttt{ask\_user}, \texttt{draft\_verdict}\}) = \texttt{ask\_user}$}
+      \Comment{branch (c)}
+      \State \Return \textsc{Ask}(kind)
+    \EndIf
     \State $\ell \gets$ \CANTV
   \ElsIf{a candidate $c \in C$ is accepted}
     \If{batch evidence is not QR, typed, confirmed or two agreeing reads}
@@ -88,7 +94,8 @@ Algorithm~\ref{alg:loop} is one call of \texttt{investigate()} in \texttt{core/i
     \Else{} $\ell \gets$ \SFAKE{} if $c$ is spurious, else \FLAGGED \EndIf
   \Else{} $\ell \gets$ \NLISTED \EndIf
 \EndIf
-\State \Return \textsc{Verify}(\textsc{Render}$(\ell, f, c)$, $\sigma$) \Comment{template text; a failing draft becomes \CANTV}
+\State \Return \textsc{Verify}(\textsc{Render}$(\ell, f, c)$, $\sigma$)
+\Comment{template text; a failing draft becomes \CANTV}
 \end{algorithmic}
 \end{algorithm}
 
@@ -113,10 +120,10 @@ where $r$ is the read key, $v$ the variant, $S$ the substituted positions and $n
 \section{Prompt Design}
 \label{sec:impl-prompt-design}
 
-The language model is used only by \texttt{plan\_decision} in \texttt{core/llm.py}, at the two branch points. Each request to Ollama's \texttt{/api/chat} carries a fixed system message, a user message that wraps a task sentence, the evidence object, the allowed actions and the rule suggestion as JSON, and a JSON schema that requires a \texttt{thought} of at most 240 characters and an \texttt{action} from the allowed list, with temperature~0 and at most 256 reply tokens. Appendix~\ref{app:prompts} gives the verbatim strings (Listings~\ref{lst:app-system} and~\ref{lst:app-planner}).
+The language model is used only by \texttt{plan\_decision} in \texttt{core/llm.py}, at the two branch points. Each request to Ollama's \texttt{/api/chat} carries a fixed system message, a user message that wraps a task sentence, the evidence object, the allowed actions and the rule suggestion as JSON, and a JSON schema that requires a \texttt{thought} of at most 240 characters and an \texttt{action} from the allowed list, with temperature~0 and at most 256 reply tokens. The reply is streamed when a client is watching, and the \texttt{thought} parsed from the partial JSON is passed to the client as the check runs. Appendix~\ref{app:prompts} gives the verbatim strings (Listings~\ref{lst:app-system} and~\ref{lst:app-planner}).
 
 
-The system message and the JSON wrapping keep pack and alert text inside data fields, because OCR text from a photo is untrusted input that could contain instructions. The schema, passed as Ollama's \texttt{format} \cite{ollama2026structured}, restricts the action to the allowed list, so the model can reorder evidence gathering but cannot invent a tool or a verdict. The evidence object holds only derived facts (read batch and source, hit counts or candidate status, questions left, learned confusions). Temperature~0 makes the choice repeatable. The thought is capped at 240 characters, stripped of non-printable characters and replaced by a fixed notice if it contains a banned phrase. No prompt produces user-facing text.
+The system message and the JSON wrapping keep pack and alert text inside data fields, because OCR text from a photo is untrusted input that could contain instructions. The schema, passed as Ollama's \texttt{format} \cite{ollama2026structured}, restricts the action to the allowed list, so the model can reorder evidence gathering but cannot invent a tool or a verdict. The evidence object holds only derived facts (read batch and source, hit counts or candidate status, questions left, learned confusions). Temperature~0 makes the choice repeatable. The thought is capped at 240 characters, stripped of non-printable characters and replaced by a fixed notice if it contains a banned phrase. Streamed text is held to a stricter guard: each update is tested against the banned list and a pattern for reassuring phrases (such as ``fine to use'' or ``no risk''), a trailing word that could begin such a phrase is held back until the next word arrives, and a hit ends the block as redacted so that the rule reason is shown. Model text never enters verdict text.
 
 \section{Guardrails and Loop Bounds}
 \label{sec:impl-guardrails-and-loop-bounds}
@@ -153,9 +160,9 @@ R10 & The verdict language is a reviewed one (English) \\
 \section{User Interface}
 \label{sec:impl-user-interface}
 
-\paragraph{API.} \texttt{server/app.py} serves a FastAPI application on 127.0.0.1:8000. \texttt{POST /api/checks} accepts one or two photos or typed fields, and \texttt{POST /api/checks/<id>/resume} accepts an answer; both stream server-sent events (\texttt{fields}, \texttt{strip}, \texttt{candidates}, \texttt{step}, \texttt{interrupt}, \texttt{snapshot}, \texttt{final}, \texttt{report}, \texttt{done}, \texttt{error}), and the work continues if the browser disconnects. A check that is running, or that changed since the client loaded it, refuses a second answer. Further endpoints serve the alert library, quarantine, the cabinet, the per-check trace and phone pairing; with \texttt{--lan} every request needs a pairing token.
+\paragraph{API.} \texttt{server/app.py} serves a FastAPI application on 127.0.0.1:8000. \texttt{POST /api/checks} accepts one or two photos or typed fields, and \texttt{POST /api/checks/<id>/resume} accepts an answer; both stream server-sent events (\texttt{fields}, \texttt{strip}, \texttt{candidates}, \texttt{thinking}, \texttt{step}, \texttt{interrupt}, \texttt{snapshot}, \texttt{final}, \texttt{report}, \texttt{done}, \texttt{error}), and the work continues if the browser disconnects. Steps are emitted as the investigator runs, each once. The request may set the planner (\texttt{rules} or \texttt{hybrid}); the choice is validated and kept in the check context, so a resumed check keeps it, and \texttt{/api/health} reports whether the model is reachable. A check that is running, or that changed since the client loaded it, refuses a second answer. Further endpoints serve the alert library, quarantine, the cabinet, the per-check trace and phone pairing; with \texttt{--lan} every request needs a pairing token.
 
-\paragraph{Clients.} Figure~\ref{fig:ui-check} in Appendix~\ref{app:supp} shows the start of a check in the React web client. While a check runs, the screen shows a step timeline (action, source, summary) and a batch strip whose character cells change from read to uncertain or confirmed; a question appears as a card with one input per requested character or a choice between the read and the listed batch, and the verdict card shows the template text with its citation. A SwiftUI client for iOS uses the same API with the camera; it was built and tested in the simulator in CI and not on a physical device. \texttt{cli.py} runs sync, ingest, checks, diagnostics and the evaluation.
+\paragraph{Clients.} Figure~\ref{fig:ui-check} in Appendix~\ref{app:supp} shows the start of a check in the React web client. While a check runs, the screen shows a step timeline (action, source, summary) and a batch strip whose character cells change from read to uncertain or confirmed; a ``Local AI reasoning'' switch, enabled only when the model is reachable, selects the hybrid planner. A thinking panel shows the planner's thought as it streams and collapses to ``Thought for N s'' with the model and the chosen action; it is rebuilt from the history after a reload and states that results come only from the rules and the verifier. A question appears as a card with a typing indicator, the reason for asking, a question counter, the crop of the batch line from the photo, one input per requested character or a choice between the read and the listed batch with the differing characters highlighted, and the verdict card shows the template text with its citation. A SwiftUI client for iOS uses the same API with the camera; it was built and tested in the simulator in CI and not on a physical device. \texttt{cli.py} runs sync, ingest, checks, diagnostics and the evaluation.
 
 \section{Repository Structure}
 \label{sec:impl-repository-structure}

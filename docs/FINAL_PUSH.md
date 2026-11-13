@@ -33,3 +33,4 @@ Source plan: `C:\Users\suraj\Downloads\StripCheck_Project_Plan.md` (Parts 6 to 8
 - Report draft in paper/report/ (committed as WIP); resume workflow wf_2f7d1645-32a. After it ends: remove the Team No. line from the title page; build; copy PDF to docs/submission/.
 - Then: restart site with Ollama (qwen2.5:3b) + tunnel; image prompt is in data/samples/realistic_pack_prompt.md.
 - 2026-11-13: live thinking + question UI committed (4e15613), verified over the tunnel and in the browser (thinking streams, question card, answer -> result, no console errors). Ollama started from %LOCALAPPDATA%\Programs\Ollama\ollama serve; model warmed. Report workflow resumed (wjfble803).
+- 2026-11-13: AAT report final (96 pp, main body 49 pp, clean build): docs/submission/StripCheck_AAT_Report.pdf; demo guide docs/DEMO_GUIDE.md + Start StripCheck Demo.cmd.

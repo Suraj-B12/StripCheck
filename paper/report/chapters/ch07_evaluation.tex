@@ -28,7 +28,7 @@ counts that the current code does not fill, so token usage is not reported; the 
 duration of each model call are recorded in the OpenTelemetry span described next. Cost is zero by
 construction, because the only model is a local one. A failure in the tracer is swallowed, so
 writing a trace can never fail a check. The same events stream to the client over server-sent
-events and drive its live step timeline.\par\endgroup
+events as the investigator runs and drive its live step timeline.\par\endgroup
 
 \paragraph{OpenTelemetry and Phoenix.} When \texttt{STRIPCHECK\_TRACING=1} is set, the same check
 is exported as OpenTelemetry spans to a local Arize Phoenix server (version 21.0.0) using the
@@ -54,7 +54,7 @@ the fallback is designed for.
 \centering
 \begin{tikzpicture}
 \node[anchor=south west,inner sep=0] (img) at (0,0)
-  {\includegraphics[width=\linewidth]{fig_phoenix_tree.png}};
+  {\includegraphics[width=\linewidth]{fig_phoenix_tree_print.png}};
 \begin{scope}[x={(img.south east)},y={(img.north west)},
   callout/.style={circle,fill=BrickRed,text=white,font=\bfseries\footnotesize,inner sep=1.2pt,minimum size=13pt}]
   \node[callout] at (0.405,0.914) {1};  % trace latency and cost

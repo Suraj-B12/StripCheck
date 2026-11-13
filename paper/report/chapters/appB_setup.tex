@@ -35,20 +35,21 @@ Optional tracing & OpenTelemetry SDK and OTLP/HTTP exporter 1.45.1; Arize Phoeni
 \section{First setup on a fresh clone}
 \label{sec:app-run-setup}
 
-On Windows PowerShell:
-\begin{lstlisting}[language={},numbers=none]
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}On Windows PowerShell:\par\vspace{2pt}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 git clone https://github.com/Suraj-B12/StripCheck.git
 cd StripCheck
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
 npm.cmd --prefix web ci
 npm.cmd --prefix web run build
-.\.venv\Scripts\python.exe cli.py sync --full     # fetch every published month (several minutes)
-.\.venv\Scripts\python.exe cli.py serve           # website and API on http://127.0.0.1:8000
-\end{lstlisting}
+# fetch every published month (several minutes)
+.\.venv\Scripts\python.exe cli.py sync --full
+# website and API on http://127.0.0.1:8000
+.\.venv\Scripts\python.exe cli.py serve
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 
 On macOS or Linux:
-\begin{lstlisting}[language={},numbers=none]
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt -r requirements-dev.txt
@@ -56,24 +57,29 @@ npm --prefix web ci
 npm --prefix web run build
 python cli.py sync --full
 python cli.py serve
-\end{lstlisting}
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 
 The pinned Python versions recorded on the macOS build machine can be applied with
-\begin{lstlisting}[language={},numbers=none]
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock.txt
-\end{lstlisting}
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 For later Windows launches, \texttt{./start-stripcheck.ps1} starts the server (add \texttt{-Lan} for token-protected phone pairing). If port 8000 is in use, run \texttt{python cli.py serve --port 8001}. API documentation is served at \texttt{/api/docs}.
 
 \section{Alert data}
 \label{sec:app-run-data}
 
-\begin{lstlisting}[language={},numbers=none]
-python cli.py sync            # refresh the newest three published months
-python cli.py sync --full     # all published months (requests at least 1.5 s apart)
-python cli.py sync --offline  # rebuild the index from stored snapshots, no network
-python cli.py stats           # statistics of the local database
-python cli.py doctor          # installed readers, local database, Ollama and Phoenix status
-\end{lstlisting}
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
+# refresh the newest three published months
+python cli.py sync
+# all published months (requests at least 1.5 s apart)
+python cli.py sync --full
+# rebuild the index from stored snapshots, no network
+python cli.py sync --offline
+# statistics of the local database
+python cli.py stats
+# installed readers, local database, Ollama and Phoenix status
+python cli.py doctor
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 
 Each sync stores the exact source bytes with their SHA-256 checksum and link under \texttt{data/raw/portal/}. Repeating an unchanged import adds no duplicate rows, and rejected rows stay visible in the quarantine view. Photos, snapshots, the SQLite database and logs stay in the ignored \texttt{data/} and \texttt{runs/} directories; \texttt{STRIPCHECK\_DATA\_DIR}, \texttt{STRIPCHECK\_DB\_PATH} and \texttt{STRIPCHECK\_RUNS\_DIR} move them elsewhere.
 
@@ -107,11 +113,13 @@ Active alerts & rows used by checks and by the evaluation & \ResAlertCount{} \\
 \label{sec:app-run-check}
 
 The web client at \url{http://127.0.0.1:8000} accepts one or two photos or typed details. The same checks run from the command line:
-\begin{lstlisting}[language={},numbers=none]
-python cli.py check front.jpg back.jpg              # one or two photos, rule planner
-python cli.py check front.jpg --planner hybrid      # local LLM at the branch points
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
+# one or two photos, rule planner
+python cli.py check front.jpg back.jpg
+# local LLM at the branch points
+python cli.py check front.jpg --planner hybrid
 python cli.py check --text LM2408B --product "..." --maker "..."
-\end{lstlisting}
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 
 \section{Configuration, local model and tracing}
 \label{sec:app-run-optional}
@@ -119,53 +127,58 @@ python cli.py check --text LM2408B --product "..." --maker "..."
 Settings are environment variables, listed in \texttt{.env.example}. A local copy named \texttt{.env} is read at start-up and must never be committed. No setting holds a third-party key. The pairing token for phone access (\texttt{STRIPCHECK\_LAN\_TOKEN}) is generated per session by the launch scripts and is not written into any file in the repository.
 
 The hybrid planner needs a local Ollama server with the model pulled. Without it, every branch point falls back to the rules and the check completes.
-\begin{lstlisting}[language={},numbers=none]
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 ollama pull qwen2.5:3b
 $env:STRIPCHECK_PLANNER = "hybrid"      # default is "rules"
-python cli.py doctor                    # reports whether Ollama is up and which models it has
-\end{lstlisting}
+# reports whether Ollama is up and which models it has
+python cli.py doctor
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 A cold model load can take longer than the per-call timeout, in which case the first decision falls back to the rules; the walkthrough script therefore preloads the model before its first check.
 
 Tracing to Arize Phoenix is off by default; the JSONL step log is always written.
-\begin{lstlisting}[language={},numbers=none]
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 .\.venv\Scripts\python.exe -m pip install -r requirements-observability.txt
 python -m venv .venv-phoenix
 .\.venv-phoenix\Scripts\python.exe -m pip install arize-phoenix
-.\.venv-phoenix\Scripts\phoenix.exe serve      # UI on http://127.0.0.1:6006
+# UI on http://127.0.0.1:6006
+.\.venv-phoenix\Scripts\phoenix.exe serve
 $env:STRIPCHECK_TRACING = "1"
-\end{lstlisting}
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 
 \begin{sloppypar}The trace walkthrough of Appendix~\ref{app:traces} is reproduced by \texttt{docs/\allowbreak trace/\allowbreak run\_walkthrough.py}, which uses a temporary data folder and one invented alert record, so the real database is not touched.\end{sloppypar}
 
 \section{Live phone demonstration}
 \label{sec:app-run-tunnel}
 
-\begin{lstlisting}[language={},numbers=none]
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 powershell -ExecutionPolicy Bypass -File .\scripts\start-demo-tunnel.ps1
-\end{lstlisting}
-The script starts the server on localhost, opens a temporary Cloudflare quick tunnel and prints a phone link that carries a pairing token generated for that session, together with a QR code. Requests without the token receive HTTP 401. Ctrl-C stops both processes. The script needs \texttt{cloudflared} and no account. The link should not be shared beyond the people taking part in the demonstration.
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
+On Windows, \texttt{Start StripCheck Demo.cmd} runs this script after starting Ollama if needed and loading the model. The script starts the server on localhost, opens a temporary Cloudflare quick tunnel and prints a phone link that carries a pairing token generated for that session, together with a QR code. Requests without the token receive HTTP 401. Ctrl-C stops both processes. The script needs \texttt{cloudflared} and no account. The link should not be shared beyond the people taking part in the demonstration.
 
 \section{Tests}
 \label{sec:app-run-tests}
 
-\begin{lstlisting}[language={},numbers=none]
-python -m pytest -q           # runs without Ollama, Phoenix or internet
-python cli.py selftest        # offline end-to-end run of the synthetic scenarios
-python cli.py eval --quick    # the 11 authored diagnostic scenarios
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
+# runs without Ollama, Phoenix or internet
+python -m pytest -q
+# offline end-to-end run of the synthetic scenarios
+python cli.py selftest
+# the 11 authored diagnostic scenarios
+python cli.py eval --quick
 npm --prefix web run build
 npm --prefix web test         # Vitest
-\end{lstlisting}
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 Test counts at the commit described are given in Chapter~\ref{ch:req}.
 
 \section{Reproducing the evaluation}
 \label{sec:app-run-eval}
 
 The following commands regenerate the evaluation set and every number in Chapters~\ref{ch:eval} and~\ref{ch:exp}. The hybrid arm needs Ollama with \texttt{qwen2.5:3b}.
-\begin{lstlisting}[language={},numbers=none]
+\par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 .venv\Scripts\python.exe cli.py props --eval --n 60 --seed 7
 .venv\Scripts\python.exe cli.py eval --arms baseline,agent_rules --hitl oracle,none --seed 7
 .venv\Scripts\python.exe cli.py eval --arms agent_hybrid --hitl oracle,none --seed 7
-\end{lstlisting}
+\end{lstlisting}\end{minipage}\par\smallskip\noindent
 \begin{sloppypar}The commands write \texttt{runs/eval\_<timestamp>.json} and \texttt{.md}, the merged \texttt{runs/eval\_seed7\_latest.json}, \texttt{docs/results/eval\_seed7.md}, and the LaTeX files \texttt{paper/generated/results.tex} and \texttt{results\_tables.tex} that this report reads. The development set uses \texttt{--seed 1}. The packs are rendered from rows of the local index, so a later sync can change the set; the reported run used \res{ResAlertCount} indexed alerts and the evaluation manifest with hash \texttt{73de16c2934fa4a0}. The report itself is built with \texttt{cd paper/report; latexmk main.tex}, with output in \texttt{paper/report/build/}.\end{sloppypar}
 
 \section{Engine modules}

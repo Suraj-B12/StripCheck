@@ -19,14 +19,14 @@ With tracing on, the same check is exported to Phoenix. Figure~\ref{fig:app-phoe
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{fig_phoenix_list.png}
+\includegraphics[width=\textwidth]{fig_phoenix_list_print.png}
 \caption{Phoenix project \texttt{stripcheck} with the walkthrough checks (cropped: sidebar and empty columns removed). Each table row is one root \texttt{check} span of kind \textsc{agent}; the input column starts with the fields read by OCR and the output column with the status \texttt{waiting} at the question. Screenshot from the local Phoenix 21.0.0 server, 8~November~2026.}
 \label{fig:app-phoenix-list}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{fig_phoenix_io.png}
+\includegraphics[width=\textwidth]{fig_phoenix_io_print.png}
 \caption{Root \texttt{check} span of Trace~1 in Phoenix (cropped). The input holds the fields read by OCR, with the batch \texttt{LM24088} and source \texttt{ocr}; the output at the pause holds the status \texttt{waiting} and the \texttt{confirm\_char} question that offers \texttt{LM24088} and \texttt{LM2408B}. The span duration 8.4~s is the 8.49~s of the exported span, truncated by Phoenix.}
 \label{fig:app-phoenix-io}
 \end{figure}

@@ -347,10 +347,14 @@ def fig_latency(ev):
             ax.barh(i + 0.19, med, height=0.36, color=col, zorder=2)
             ax.barh(i - 0.19, p95, height=0.36, facecolor="white", edgecolor=col, hatch="////", linewidth=1.0, zorder=2)
             fmt = (lambda v: f"{v:.2f}") if key == "latency_s" else (lambda v: f"{v:.3f}")
-            ax.text(med + 0.15, i + 0.19, fmt(med), va="center", fontsize=9.5)
-            ax.text(p95 + 0.15, i - 0.19, fmt(p95), va="center", fontsize=9.5)
+            off = 0.15 if key == "latency_s" else 0.35
+            ax.text(med + off, i + 0.19, fmt(med), va="center", fontsize=9.5)
+            ax.text(p95 + off, i - 0.19, fmt(p95), va="center", fontsize=9.5)
             rows.append([arm, key, med, p95])
         ax.set_xlim(0, xmax)
+        if key == "reasoning_s":
+            ax.text(11.3, 1.5, "Bars under 0.11 s are too short\nto see; their values are printed.",
+                    ha="right", va="center", fontsize=8.5, color=NEUTRAL)
         ax.set_xticks([0, 2, 4, 6, 8, 10])
         ax.set_xlabel(xlabel)
         vgrid(ax)

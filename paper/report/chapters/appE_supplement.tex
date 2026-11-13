@@ -64,7 +64,7 @@ Model call & 2 attempts, 15\,s each (configurable 1 to 90\,s, at most 45 used) &
 Photo read & 60\,s per photo, 30\,s per reader, 20\,s barcode, 1 re-read & Empty fields; the person is asked to type the batch \\
 Upload & 15\,MB, 24 million pixels, 2{,}400\,px per side & Larger uploads are refused; larger images are shrunk \\
 Portal request & $\ge$1.5\,s apart, 20\,s timeout, 3 attempts, 16\,MB & Sync stops; the existing index stays in use \\
-Tracing and streaming & 0.25\,s probe, 3\,s export; queue of 256 events, 15\,s heartbeat & Spans are skipped; a tracer failure never fails a check \\
+Tracing and streaming & 0.25\,s probe, 3\,s export; queue of 2{,}048 events, 15\,s heartbeat & Spans are skipped; a tracer failure never fails a check \\
 \bottomrule
 \end{tabularx}
 \end{table}
