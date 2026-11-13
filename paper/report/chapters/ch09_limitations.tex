@@ -1,15 +1,53 @@
 %---------------------------------------------------------------------
-% Chapter 9: Limitations, Ethics and Safety (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Chapter 9: Limitations, Ethics and Safety
+% Sources: FACTS.md sections 1, 4, 5, 9, 11, 12, 14, 22; paper/sections/08_limitations.tex;
+% core/investigator.py, core/verifier.py, core/llm.py, core/templates.py, core/config.py at HEAD 25fb3f8.
+% Numbers: \res{} macros (paper/generated/results.tex, run 2), \RunOne* (paper/run1_results.tex),
+% stats macros (paper/generated/stats.tex), seed 1 from paper/report/data/eval_seed1.md.
 %---------------------------------------------------------------------
 \chapter{Limitations, Ethics and Safety}
 \label{ch:lim}
 
+This chapter states what the results do not show, how StripCheck can fail and who could be harmed by a wrong result.
+
 \section{Limitations}
 \label{sec:lim-limitations}
+
+\subsection{Data}
+A \NLISTED{} verdict is only as good as the lists behind it. CDSCO tests only sampled batches, so a batch absent from the lists can still be substandard, and every \NLISTED{} result says so (verifier rule R9). The lists also describe the past: in the design-phase snapshot the median time from manufacture to the alert month is \LagMedian{} months (interquartile range \LagQOne{} to \LagQThree{}), so a batch that is substandard today may appear on a list many months later.
+
+The index covers the portal from \FirstMonth{} to \LastMonth{}; alerts published only as PDF files before 2019 are absent. A brand name is present in only \BrandPresentPct\% of NSQ rows, so grading relies on the generic product text, the manufacturer and the printed dates, and the collisions and look-alike neighbours among batch keys (Section~\ref{sec:intro-motivation-and-why-agentic-ai}) keep the confirmation questions necessary.
+
+\subsection{Method}
+The confusion-aware search only explores the look-alike pairs in the fixed \texttt{CONFUSABLE} table of \texttt{core/textutils.py}, with at most two substitutions and at most 2,000 variant keys per search. A misread outside the table, or one with three changed characters, is not recovered, and the check then ends in \NLISTED{} for a listed batch. The vision-language second reader in the design was not built (decision D7), so independent batch evidence comes only from a QR code, a second photo that reads the same batch, or the person holding the pack.
+
+The agent's recall depends on the person answering its questions: with every question skipped its hit recall falls to \res{ResRulesSkipHitRecallK}, below the lookup's \res{ResBaseSkipHitRecallK} (Chapter~\ref{ch:eval}), so the system is useful only to a person who can read the printed batch. The 3-billion-parameter model's thoughts are not always exact: in the walkthrough one thought swapped the read and listed batch (Appendix~\ref{app:traces}), an error that stays in the trace because the action comes from an allowed list.
+
+A person who confirms the wrong character teaches the local confusion prior a wrong pair; the prior never skips a question, which limits the damage, but no mechanism yet removes a wrong entry.
+
+\subsection{Evaluation}
+Every pack in the evaluation and in the demonstrations is synthetic, rendered from real alert rows; no photographs of real medicine strips were taken. Rendered text flatters OCR (60 of 60 batches read correctly on seed~7), and embossed foil, curved bottles, glare and poor light are untested, so the results say nothing yet about accuracy on real strips. The OCR errors of the misread and sibling scenarios are simulated on the carton (decision D24). The oracle user answers every question correctly, while a real person may misread the pack or skip the question.
+
+The test set is small. Each scenario holds at most eight packs, so the Wilson 95\% interval for a collision false-alarm rate of 0/8 still reaches \res{ResRulesOracleFARCollisionCI}, and small differences between arms are noise. Three defects found in run~1 were fixed before run~2 (decision D25), so run~2 is no longer a held-out test and its scores are an optimistic estimate; the development seed, from the same generator, gave the same agent results (Chapter~\ref{ch:exp}). The test set over-represents traps by design: 12 of the 60 packs are collisions or siblings. How often such traps occur on a real shelf was not measured, so neither the lookup's false-alarm rate in use nor the positive predictive value of an alarm can be read from these results. Latency was measured on one laptop, and the model's device was recorded only for the seed-1 run (GPU), so the latency of the two seeds is not compared. No usability study, no ablation of the confirmation gate (rule R-B of the design) and no comparison of language models were run. No LLM judge is used: every verdict is scored against the label stored in the evaluation manifest.
 
 \section{Failure Modes and Guardrails}
 \label{sec:lim-failure-modes-and-guardrails}
 
+Table~\ref{tab:lim-risks} in Appendix~\ref{app:supp} pairs ten failure modes with the guardrail that addresses each and the place where it is enforced. The main ones are the variant search with a character question for a confident misread, record-linkage grading for a batch collision, the allowed-action list, timeout and rule fallback for a failing model, JSON-only prompts for instructions hidden in pack text, the banned-phrase rule for reassuring wording, and the step, question and candidate limits for unbounded loops. All guardrails are deterministic code; none depends on the language model behaving well.
+
+Several were exercised in recorded runs. The model fallback with Ollama stopped is reported in Section~\ref{sec:eval-tracing-and-monitoring}. With every question skipped, the agent raised no false alarm on the 20 \NLISTED{} packs and abstained on \res{ResRulesSkipAbstainK} packs (Appendix~\ref{app:traces}); on the clean scenario a \FLAGGED{} draft built on an OCR-only batch returned \CANTV{} with rules R2 and R8 recorded. Safety violations were \res{ResRulesOracleSafety} in every arm and condition.
+
+Some failure modes have no complete guardrail. A person who confirms the wrong character produces a wrong but confirmed batch, and the system cannot detect this. A listed batch that the reader misreads outside the look-alike table ends in \NLISTED{}, which is why that verdict never appears in green and always says that it does not certify the medicine.
+
 \section{Ethical and Responsible-Use Considerations}
 \label{sec:lim-ethical-and-responsible-use-considerations}
+
+\paragraph{Who could be harmed.} A false alarm could worry a patient and, in the worst case, lead them to stop a prescribed medicine, so every alarm carries the fixed advice to show the pack to a pharmacist and not to stop a prescribed medicine without medical advice, and cites the CDSCO record. A false alarm could also harm a manufacturer, so only the listed batch is flagged, never a brand. A missed alarm could reassure a person wrongly, so the \NLISTED{} wording says that the result does not certify the medicine. Reassuring words and instructions to stop a medicine are blocked by the verifier, and the language model writes no user-facing text.
+
+\paragraph{Advisory status.} StripCheck is a student project and not a CDSCO service, and the interface says so. Its output is advisory and directs the person to a pharmacist. No listed result is shown on a batch read only by OCR: the batch must come from a QR code, from two agreeing photos or from the person (rule R2).
+
+\paragraph{Privacy.} Photos, checks, the confusion memory and the alert data stay on the user's computer; no account is created, and the check path makes no network call. Phone access needs a pairing token, and anyone holding the tunnel link can use the demonstration while it runs, so the tunnel is meant only for short supervised sessions.
+
+\paragraph{Fairness and access.} The system serves people who can photograph a pack and read English; regional-language templates are withheld until a native speaker reviews them (rule R10). The OCR models were not evaluated on the range of print styles found on Indian packs, and errors could fall more heavily on some manufacturers' packaging.
+
+\paragraph{Data.} The alert data from the CDSCO portal~\cite{cdsco2026portal} is fetched politely (requests at least 1.5~s apart, TLS verification on), kept locally and cited on every alarm, and this report publishes only derived statistics. The use of AI coding assistants is described in Appendix~\ref{app:contrib}.

@@ -171,7 +171,8 @@ def fig_alerts_per_year(rows):
     bars[-1].set_edgecolor(NEUTRAL)
     bars[-1].set_hatch("////")
     for x, v in zip(xs, vals):
-        ax.text(x, v + 35, f"{v:,}", ha="center", va="bottom", fontsize=10)
+        ax.text(x, v + 35, f"{v:,}", ha="center", va="bottom", fontsize=10, zorder=3,
+                bbox=dict(fc="white", ec="none", pad=0.5))
     ax.set_xticks(list(xs))
     ax.set_xticklabels([str(y) if y < 2026 else "2026\n(Jan to Sep)" for y in years])
     ax.set_ylabel("Alerts listed (count)")
@@ -268,7 +269,7 @@ def fig_headline(ev):
 
 def fig_scenarios(ev):
     res = ev["results"]["oracle"]
-    fig, axes = plt.subplots(1, 3, figsize=(FULL, 3.5), sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(FULL, 3.1), sharey=True)
     rows = []
     order = list(reversed(SCENARIOS))
     n_of = {sc: res["baseline"]["summary"]["by_scenario"][sc]["n"] for sc in order}
@@ -299,7 +300,7 @@ def fig_hitl(ev):
     metrics = [("hit_recall", "Hit recall\n(listed packs)"), ("abstention", "Abstention rate\n(all packs)"),
                ("far_all", "False-alarm rate\n(not-listed packs)")]
     arm = "agent_rules"
-    fig, ax = plt.subplots(figsize=(FULL, 3.2))
+    fig, ax = plt.subplots(figsize=(FULL, 2.8))
     width = 0.34
     rows = []
     for j, policy in enumerate(["oracle", "none"]):
@@ -335,7 +336,7 @@ def fig_hitl(ev):
 
 def fig_latency(ev):
     res = ev["results"]["oracle"]
-    fig, axes = plt.subplots(1, 2, figsize=(FULL, 2.7), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(FULL, 2.5), sharey=True)
     rows = []
     for ax, key, xlabel, xmax in [(axes[0], "latency_s", "Time per pack, end to end (s)", 11.5),
                                   (axes[1], "reasoning_s", "Reasoning time only (s)", 11.5)]:
@@ -371,7 +372,7 @@ def fig_run1_run2(ev, run1):
     c1 = run1["C_oracle"]
     metrics = [("hit_recall", "Hit recall", "Hit recall"), ("hit_recall_clean_qr", "Hit recall (clean + QR)", "Hit recall\n(clean + QR)"),
                ("accuracy", "Overall accuracy", "Overall\naccuracy")]
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(FULL, 3.9), gridspec_kw={"width_ratios": [1.0, 1.0]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(FULL, 3.4), gridspec_kw={"width_ratios": [1.0, 1.0]})
     rows = []
     h = 0.36
     morder = list(reversed(metrics))
@@ -404,13 +405,14 @@ def fig_run1_run2(ev, run1):
         k2, n2 = b2["correct"], b2["n"]
         ax2.barh(i + h / 2, k1, height=h * 0.92, facecolor="white", edgecolor=ARM_COLOR[arm], hatch="////", linewidth=1.0, zorder=2)
         ax2.barh(i - h / 2, k2, height=h * 0.92, color=ARM_COLOR[arm], zorder=2)
-        ax2.text(k1 + 0.1, i + h / 2, label_kn(k1, n1), va="center", fontsize=9)
-        ax2.text(k2 + 0.1, i - h / 2, label_kn(k2, n2), va="center", fontsize=9)
+        # one label per scenario row (run 1 -> run 2), so stacked labels cannot touch
+        ax2.text(max(k1, k2) + 0.15, i, label_kn(k1, n1) + r" $\rightarrow$ " + label_kn(k2, n2),
+                 va="center", fontsize=9.5)
         rows.append(["scenario", sc, "run 1", k1, n1, "", "", ""])
         rows.append(["scenario", sc, "run 2", k2, n2, "", "", ""])
     ax2.set_yticks(range(len(order)))
     ax2.set_yticklabels([SCEN_LABEL[sc] for sc in order])
-    ax2.set_xlim(0, 10.2)
+    ax2.set_xlim(0, 12.6)
     ax2.set_xticks(range(0, 9, 2))
     ax2.set_xlabel("Correct verdicts (packs)")
     ax2.set_ylim(-0.6, len(order) - 0.4)
@@ -426,7 +428,7 @@ def fig_run1_run2(ev, run1):
 def fig_seeds(ev7, ev1):
     metrics = [("hit_recall", "Hit recall (listed packs)"), ("accuracy", "Overall accuracy (all packs)"),
                ("far_all", "False-alarm rate (not-listed packs)"), ("far_collision", "False-alarm rate (collision packs)")]
-    fig, axes = plt.subplots(2, 2, figsize=(FULL, 4.4), sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(FULL, 4.0), sharey=True)
     rows = []
     h = 0.36
     for ax, (m, xlabel) in zip(axes.flat, metrics):

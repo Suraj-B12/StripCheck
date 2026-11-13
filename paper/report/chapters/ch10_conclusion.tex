@@ -1,6 +1,7 @@
 %---------------------------------------------------------------------
 % Chapter 10: Conclusion and Future Work (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Numbers: \res{...} from ../generated/results.tex (run 2, seed 7), stats macros from
+% ../generated/stats.tex, run-1 macros from ../run1_results.tex. No new results here.
 %---------------------------------------------------------------------
 \chapter{Conclusion and Future Work}
 \label{ch:concl}
@@ -8,5 +9,86 @@
 \section{Conclusion}
 \label{sec:concl-conclusion}
 
+This report addressed a gap between CDSCO's batch-level quality alerts and the medicine pack in a
+person's hand. The design follows from two properties measured in the alert data: batch numbers
+collide across unrelated products, and listed batches have confusable siblings from the same
+manufacturer. A batch match alone therefore cannot justify an alarm, and a confident OCR reading
+cannot justify a miss. StripCheck answers with a bounded agent that searches for likely misreads,
+grades every candidate field by field, asks the person to read the characters in doubt before any
+alarm, and lets a rule-based verifier downgrade any draft the evidence does not support. Every loop
+is bounded and every model call has a fallback, so the whole check runs offline on a laptop.
+
+On the evaluation set of \res{ResN} rendered packs, with a person answering the questions, the
+agent removed the baseline's collision and sibling false alarms (\res{ResRulesOracleFARCollisionK}
+and \res{ResRulesOracleFARSiblingK} against \res{ResBaseOracleFARCollisionK} and
+\res{ResBaseOracleFARSiblingK}) and raised hit recall from \res{ResBaseOracleHitRecall} to
+\res{ResRulesOracleHitRecall} at \res{ResRulesOracleQuestions} questions per pack. Without answers
+it abstained on \res{ResRulesSkipAbstainK} packs and still raised no false alarm, so the questions
+carry the recall. These numbers come from the second run on the same packs. The first run reached
+the same decision with a hit recall of \RunOneRulesOracleHitRecall; three general defects found in
+it were fixed before the second run, so the reported figures are optimistic and the set is no
+longer a blind test. Table~\ref{tab:concl-objectives} revisits each objective of
+Section~\ref{sec:intro-objectives}.
+
+\begin{table}[htbp]
+\centering
+\caption{Objectives from Section~\ref{sec:intro-objectives} and the outcome for each}
+\label{tab:concl-objectives}
+\small
+\begin{tabularx}{\textwidth}{@{}c X l@{}}
+\toprule
+No. & Outcome & Status \\
+\midrule
+1 & The ingest stores every portal snapshot with its hash and quarantines invalid rows; the index
+holds \res{ResAlertCount} alerts from \FirstMonth{} to \LastMonth{}. The snapshot analysis measured
+\CollisionKeys{} collision keys, \SiblingKeys{} same-manufacturer siblings and a median lag of
+\LagMedian{} months from manufacture to alert. & Met \\
+2 & The rule agent completed every evaluation check offline, at \res{ResRulesOracleSteps} steps per
+pack and a median reasoning time of \res{ResRulesOracleReasonMedian}\,s, within the bounds of 16
+steps and two questions. & Met \\
+3 & The verifier rejects any alarm draft without confirmed batch evidence; the false-alarm rate on not-listed packs
+was \res{ResRulesOracleFARK} with answers and \res{ResRulesSkipFARK} without, and no arm produced
+a safety violation. & Met \\
+4 & Every check writes a step-level trace with action, source and rationale; the export to a local
+Phoenix server was demonstrated on a recorded walkthrough. & Met \\
+5 & Under the decision rule the agent is adopted when the person answers
+(\res{ResRulesOracleDecision}) and not adopted when nobody answers
+(\res{ResRulesSkipDecision}). The result is optimistic, as stated above. & Met, with caveat \\
+6 & The hybrid planner gave the same label on all \res{ResN} packs and met the latency condition on
+the median, so the rule held; the rule planner was kept as default because the hybrid's
+95th-percentile time was \res{ResHybridOracleLatPNinetyFive}\,s against
+\res{ResRulesOracleLatPNinetyFive}\,s. & Met \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+On these packs the gain over the lookup came from the deterministic parts of the agent, since
+the optional LLM planner changed no verdict. How much each part contributes was not measured,
+because the planned ablation of the confirmation gate was not run. The system stays advisory throughout. A \NLISTED{} result states which
+lists were loaded and that it does not certify the medicine, and every alarm directs the person to
+a pharmacist.
+
 \section{Future Work}
 \label{sec:concl-future-work}
+
+Each item below follows from a limitation stated in Chapter~\ref{ch:lim}.
+\begin{enumerate}[itemsep=2pt]
+\item \emph{Real packs and a held-out set.} All evaluation packs are rendered images, and the
+evaluation seed was run twice with fixes in between. The next step is a fresh seed together with
+photos of real strips, bottles and cartons under varied light, which would measure OCR errors
+instead of simulating them.
+\item \emph{A study with people.} The oracle answers every question correctly, while real users may
+misread a character or skip the question, and the recall depends on those answers. A usability
+study should measure how often people answer, how accurately, and whether they understand that
+\NLISTED{} does not certify a medicine.
+\item \emph{Wider list coverage.} The index starts in January 2019. An adapter for the earlier PDF
+months and for state-level alert feeds would extend the coverage that every \NLISTED{} result
+depends on.
+\item \emph{Regional languages.} Verdicts are shown in English only, because no Hindi or Kannada
+template has been reviewed by native speakers. Reviewed templates, together with voice prompts,
+would serve users who do not read English.
+\item \emph{An independent second reader and a pharmacy workflow.} A local vision-language reader
+was planned as independent batch evidence but not built. Adding it, and a pharmacist workflow that
+checks a whole delivery against the lists, would move the check earlier, before a listed batch
+reaches a patient.
+\end{enumerate}

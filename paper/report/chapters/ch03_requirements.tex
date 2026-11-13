@@ -1,24 +1,169 @@
 %---------------------------------------------------------------------
 % Chapter 3: Requirements and System Analysis (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Sources: FACTS.md sections 1, 2, 4, 6, 9, 11, 13, 16 and 23 (added by this chapter's writer);
+% core/config.py, core/portal.py, core/ingest.py, core/llm.py at commit 25fb3f8;
+% ../generated/stats.tex, ../generated/results.tex; local data/ folder (read-only).
 %---------------------------------------------------------------------
 \chapter{Requirements and System Analysis}
 \label{ch:req}
 
+This chapter turns the problem of Chapter~\ref{ch:intro} into requirements. The functional
+requirements (FR) state what a check must do and the non-functional requirements (NFR) state the
+limits it must respect. Chapter~\ref{ch:design} designs against both lists, and
+Chapter~\ref{ch:eval} tests them. The report describes the code at commit \texttt{25fb3f8}, at which
+the suite reported 226 passing Python tests and 76 passing web tests; later commits are not
+described. Every requirement listed here is implemented at that commit; features that the design
+specification planned but the build did not deliver are listed in Section~\ref{sec:req-feasibility}
+and are not stated as requirements.
+
 \section{Stakeholders and Users}
 \label{sec:req-stakeholders-and-users}
+
+The primary user is the person holding a medicine pack: a patient, or a family member who buys and
+manages medicines for someone else. This person can photograph the pack and read printed
+characters, but has no access to the laboratory reports behind an alert. Four further roles do not
+operate the tool but are reached or concerned by its verdicts: the community pharmacist, who needs
+the listed batch, list month and source row to check a claim; the manufacturer named on a list, who
+needs no alarm on a different batch or on a brand as a whole; CDSCO and the testing laboratories,
+who need correct attribution and polite access to the portal; and the project team, who need
+reproducible syncs, traces and an evaluation with a stated decision rule.
+Table~\ref{tab:req-stakeholders} in Appendix~\ref{app:supp} maps each role to the requirements below.
 
 \section{Functional Requirements}
 \label{sec:req-functional-requirements}
 
+Each functional requirement in Table~\ref{tab:req-fr} is a testable statement. The last column
+names the test module in \texttt{tests/} or the evaluation metric that checks it. All test modules
+run offline with \texttt{pytest -q}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Functional requirements and where each is tested}
+\label{tab:req-fr}
+\small\renewcommand{\_}{\textunderscore\allowbreak}
+\begin{tabularx}{\linewidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.7cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Requirement: the system shall} & \textbf{Verified by} \\ \midrule
+FR1 & accept a check as one or two photos of a pack (QR code, printed text, one enhanced re-read) or as typed details, and keep the source of every field & \texttt{test\_perception\_*}, \texttt{test\_api\_runtime} \\
+FR2 & search the alert index by the exact normalised batch key and then by look-alike variants of at most two character substitutions & \texttt{test\_engine\_reference}, \texttt{test\_engine\_amendments}; misread and sibling scenarios \\
+FR3 & grade every candidate on batch, product, brand, printed dates and manufacturer, and reject or question a candidate whose product, brand or manufacturer disagrees with the pack & \texttt{test\_engine\_workflow}, \texttt{test\_manual\_check\_resilience}; collision scenario \\
+FR4 & ask the person a question of one of five kinds, at most two per check, and pause, store and resume the check across a server restart & \texttt{test\_engine\_workflow}, \texttt{test\_api\_runtime} \\
+FR5 & return one of four verdicts (\FLAGGED, \SFAKE, \NLISTED, \CANTV) as template text with a citation of list, month, row, source URL and SHA-256 digest, after a verifier has approved the draft or downgraded it to \CANTV & \texttt{test\_engine\_workflow}, \texttt{test\_agentic\_observability}; safety-violation count \\
+FR6 & sync the CDSCO portal (newest three months by default, full history on request, or offline from stored snapshots) and ingest it idempotently with validation and quarantine & \texttt{test\_data\_portal}, \texttt{test\_data\_storage}, \texttt{test\_data\_resilience} \\
+FR7 & re-check every saved pack after a sync, without questions, and notify the person of a new listing or of an expiry within 30 days & \texttt{test\_api\_supervisor} \\
+FR8 & record a step-level trace for every check (action, source, summary, time, rationale) and stream the steps to the client & \texttt{test\_agentic\_observability} \\
+FR9 & offer a web client, a command-line interface and a native iOS client over one local API & \texttt{test\_api\_*}, Vitest suite, iOS CI \\
+FR10 & evaluate the agent against a lookup baseline under stated decision rules, with Wilson intervals and a McNemar test & \texttt{test\_evaluation\_golden}, \texttt{test\_evaluation\_runtime} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \section{Non-Functional Requirements}
 \label{sec:req-non-functional-requirements}
+
+The non-functional requirements carry a number wherever the code enforces one. The values are
+constants in \texttt{core/config.py} and the reader and model modules, so each limit can be
+read from one place.
+
+\begin{description}[itemsep=1pt,font=\normalfont\bfseries]
+\item[NFR1] Offline operation: a check completes with the language model, the tracing server and
+the internet all unavailable. The check path makes no network call except the optional request to a
+model server on the same machine (\texttt{127.0.0.1}, \texttt{localhost} or \texttt{::1}).
+\item[NFR2] Bounded work: at most 16 steps and two questions per check, at most 20 graded
+candidates, at most 2{,}000 variant keys per search and one verifier send-back
+(Table~\ref{tab:design-bounds}, Appendix~\ref{app:supp}).
+\item[NFR3] Latency: one photo read ends within a 60\,s deadline; each model call has a 15\,s
+default timeout (bounded to 1 to 90\,s by configuration) and at most two attempts. The hybrid
+planner may become the default only if its median time per pack is at most twice that of the rule
+planner (decision rule R-C).
+\item[NFR4] Safety of wording: user-facing verdict text comes only from the templates in
+\texttt{core/templates.py}; no verdict contains the banned phrases (for example ``safe'',
+``genuine'' or ``stop taking''); only the listed batch is flagged, never a brand; and \NLISTED{} is
+never shown in green. The target is zero violations in every evaluation arm.
+\item[NFR5] Provenance: every alert row traces to a stored raw snapshot through its source URL,
+SHA-256 digest and row number, and every pack field used in a verdict has a recorded source (QR,
+OCR, enhanced OCR, carton photo or the person).
+\item[NFR6] Testability and traceability: \texttt{pytest -q} passes with no model, tracer or
+network; tests that need them carry the markers \texttt{llm} and \texttt{net} and are skipped by
+default. Every check writes a JSON Lines (JSONL) trace.
+\item[NFR7] Cost: no paid API and no automatic model download; the only model is a local
+\texttt{qwen2.5:3b} served by Ollama~\cite{ollama2026structured}.
+\item[NFR8] Polite and secure data access: portal requests at least 1.5\,s apart, at most three
+attempts each, a 20\,s network timeout and TLS verification always on; a portal response or
+snapshot larger than 16\,MB is refused.
+\item[NFR9] Privacy and input limits: photos, checks and alert data stay on the user's machine;
+the server binds to \texttt{127.0.0.1} by default and phone access needs a pairing token; an
+upload is at most 15\,MB and 24 million pixels, and a reader sees at most 2{,}400\,px per side.
+\end{description}
 
 \section{Data Sources}
 \label{sec:req-data-sources}
 
+StripCheck uses one public data source and three data sets that the team created.
+Table~\ref{tab:req-data} lists them. The alert data are real; every pack image used for
+evaluation or demonstration is synthetic and is marked as such.
+
+The CDSCO lists are published through an online viewer embedded from the SUGAM portal, whose page
+script calls JSON endpoints that serve every month back to January 2019~\cite{cdsco2026portal,cdsco2026nsqpage}.
+The responses are encoded in ISO-8859-1 (latin-1). The design-phase snapshot of \SnapshotDate{}
+holds \NumAlertRows{} published rows: \NumNsqRows{} NSQ rows over \NumMonths{} months from
+\FirstMonth{} to \LastMonth{}, and \NumSpuriousTabRows{} rows on the separate spurious feed. A
+brand name is present in only \BrandPresentPct\% of the NSQ rows. After cleaning, de-duplication
+and quarantine, the local index used by the evaluation holds \ResAlertCount{} active alerts, and
+75 rows are held in quarantine with their reasons. The raw snapshots stay on the local machine
+(the \texttt{data/} folder is excluded from version control), every alarm cites its source, and
+this report publishes only derived statistics and no batch string from an alert row.
+
+\begin{table}[!htbp]
+\centering
+\caption{Data sources used in StripCheck}
+\label{tab:req-data}
+\small\renewcommand{\_}{\textunderscore\allowbreak}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.7cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{2.7cm}@{}}
+\toprule
+\textbf{Source} & \textbf{Description and format} & \textbf{Size} & \textbf{Origin and licence} \\ \midrule
+CDSCO NSQ and spurious lists & Monthly JSON from the SUGAM portal (latin-1), stored as raw snapshots with a metadata file (URL, fetch time, SHA-256) & 93 NSQ and 15 spurious-feed monthly files, 3.8\,MB; \ResAlertCount{} indexed alerts & Public portal~\cite{cdsco2026portal}; kept local, cited on every alarm \\
+Synthetic diagnostics & Authored scenarios with expected verdicts (clean, misread, collision, sibling, date conflict, unreadable pack and others) & 11 scenarios & Created by the team; \emph{synthetic} \\
+Golden evaluation sets & Cartons rendered from real alert rows, each bannered ``DEMO PROP - NOT A MEDICINE''; seed~1 for development, seed~\ResSeed{} for evaluation & \ResN{} images per seed (4.4\,MB for seed~\ResSeed) & Generated by the team; \emph{synthetic images}, real alert rows \\
+Confirmed confusions & Character pairs (read, printed) that a person confirmed on a photographed pack & Grows with use; empty in the evaluation database & Created by users on their own machine \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The golden sets have eight scenarios (Table~\ref{tab:eval-mix}, Appendix~\ref{app:supp}). Misread
+and sibling packs print the misread string on the carton, so the OCR error is simulated rather than
+measured on a real strip. No photograph of a real medicine was taken for this project.
+
 \section{Hardware and Software Requirements}
 \label{sec:req-hardware-and-software-requirements}
 
+Development used two machines (a Windows laptop and a second development machine) that shared one
+Git branch. The data sync, the language model, the evaluation runs and the figures of this report
+were produced on the laptop (AMD Ryzen AI 9 HX 370, 31.1\,GB of usable memory, NVIDIA GeForce RTX
+4050 Laptop GPU, Windows 11 Home). A check needs no graphics processor: OCR runs on the CPU through
+ONNX Runtime, and the rule planner calls no model. Ollama uses the GPU when it detects one; its log
+shows the model fully on the GPU during the seed-1 run of 12 November 2026, while the device used
+for the seed-7 runs was not recorded. The back end needs Python 3.12 with FastAPI, SQLite,
+RapidFuzz and RapidOCR~\cite{rapidai2021rapidocr,du2020ppocr}; the web client needs Node with React,
+Vite and TypeScript; Ollama with \texttt{qwen2.5:3b} (1.9\,GB) and Arize Phoenix are
+optional~\cite{arize2026openinference}. The iOS client needs iOS 17 or later. Table~\ref{tab:stack}
+in Chapter~\ref{ch:impl} gives the exact versions.
+
 \section{Feasibility}
 \label{sec:req-feasibility}
+
+\paragraph{Technical.} The portal serves the lists as JSON, so the system reads structured rows
+rather than parsing PDF tables, and a full history sync from January 2019 fits in 3.8\,MB. The
+median perception time on the evaluation set was 1.33\,s per image, and retrieval is a dictionary
+lookup on the batch key followed by at most 2{,}000 variant lookups, so the rule planner's reasoning
+took a median of \res{ResRulesOracleReasonMedian}\,s per pack.
+
+\paragraph{Cost and rate limits.} No paid API is used, so a check and the full evaluation cost
+nothing. A hybrid check makes at most six model decisions (two branch points in each of at most
+three runs) of at most two requests each. Token counts were not recorded; the request options cap
+the context at 4{,}096 and the reply at 256 tokens. The only external rate limit is the portal (NFR8).
+
+\paragraph{Time and scope.} To fit one semester, features of the design specification were cut,
+among them a vision-language second reader, LangGraph orchestration, reviewed Hindi and Kannada
+templates, the confirm-gate ablation (decision rule R-B) and a usability study. Chapter~\ref{ch:impl}
+lists them as deviations and Chapter~\ref{ch:lim} as limitations.

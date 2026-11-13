@@ -1,0 +1,24 @@
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {1.1}{\ignorespaces Alerts in the local StripCheck index by year of the CDSCO list month ($n = 6{,}923$ indexed alerts). The 2026 bar covers January to September only.}}{2}{figure.caption.7}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {6.1}{\ignorespaces Start of a check in the web client: photo capture or upload (left) and typed batch details (right)}}{34}{figure.caption.42}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {7.1}{\ignorespaces Phoenix trace of the Review~3 misread walkthrough (synthetic pack, hybrid planner). (1)~trace latency 8.8\,s and cost \$0 (local model); (2)~root \texttt {check} span of kind \textsc {agent}; (3)~branch point after the empty exact search, where the model chose \texttt {search\_variants} (4.6\,s); (4)~branch point after grading, where the model chose \texttt {ask\_user} (3.9\,s); (5)~the resumed half of the check under the same root; (6)~the input fields, with the batch read by OCR as \texttt {LM24088}; (7)~the check pauses with a \texttt {confirm\_char} question that offers \texttt {LM24088} and \texttt {LM2408B}.}}{36}{figure.caption.46}%
+\contentsline {figure}{\numberline {7.2}{\ignorespaces Correct verdicts per scenario on seed~7 with a person answering ($n=8$ per scenario, 4 for siblings). ``Not listed'' denotes the not-listed control packs. The baseline fails on the misread, collision and sibling packs.}}{40}{figure.caption.50}%
+\contentsline {figure}{\numberline {7.3}{\ignorespaces Effect of the human answer for the agent with the rule planner, seed~7. Without answers the agent abstains (\textsc {cant\_verify}) on 36 of 60 packs, so hit recall falls while the false-alarm rate stays at zero.}}{40}{figure.caption.51}%
+\contentsline {figure}{\numberline {7.4}{\ignorespaces Time per pack on seed~7 ($n=60$, oracle). Left: end-to-end time (shared perception plus reasoning). Right: reasoning time only. Solid bars are medians and hatched bars 95th percentiles. The hybrid planner's local model calls set its tail.}}{41}{figure.caption.52}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {8.1}{\ignorespaces Headline metrics on the development set (seed~1) and the evaluation set (seed~7), a person answering, $n=60$ each. Labels give $k/n$ and whiskers are Wilson 95\% intervals. The agent arms give the same counts on both sets; the lookup differs by one pack.}}{45}{figure.caption.60}%
+\contentsline {figure}{\numberline {8.2}{\ignorespaces Agent with the rule planner on seed~7 before (run~1) and after the three D25 fixes (run~2), a person answering. Left: rates with Wilson 95\% intervals. Right: correct verdicts per scenario. Run~1 is reported in full; because the fixes were made after it, run~2 is not a blind test.}}{46}{figure.caption.62}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {C.1}{\ignorespaces Phoenix project \texttt {stripcheck} with the walkthrough checks; each row is one root \texttt {check} span of kind AGENT. Screenshot from the local Phoenix 21.0.0 server, 8~November~2026.}}{72}{figure.caption.74}%
+\contentsline {figure}{\numberline {C.2}{\ignorespaces Span tree of Trace~1 in Phoenix. Each step is a \texttt {planner:~<action>} span holding its tool span; the two \texttt {planner\_llm} spans (4.6~s and 3.9~s) are the model calls at the branch points, and \texttt {check.resume} holds the half of the check that runs after the answer. The right pane shows the root span's input (the fields read by OCR) and its output at the pause (the question).}}{72}{figure.caption.75}%
+\addvspace {10\p@ }

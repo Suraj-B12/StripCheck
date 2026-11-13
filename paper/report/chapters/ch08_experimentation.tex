@@ -1,18 +1,167 @@
 %---------------------------------------------------------------------
-% Chapter 8: Experimentation (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Chapter 8: Experimentation
+% Run 2 numbers: \res{...} (../generated/results.tex). Run 1: \RunOne... (../run1_results.tex).
+% Seed-1 numbers are typed by hand from data/eval_seed1.md (FACTS.md sections 22 and 23).
 %---------------------------------------------------------------------
 \chapter{Experimentation}
 \label{ch:exp}
 
+The evaluation of Chapter~\ref{ch:eval} doubles as a controlled experiment with two questions. The
+first is whether the agentic layer (confusion-aware search, record-linkage grading, questions and
+the verifier) is worth its cost compared with a plain lookup. The second is whether letting a local
+language model choose the action at the branch points improves on the rule planner. This chapter
+states the hypotheses and decision rules, the setup, the outcome on both seeds and on both runs of
+the evaluation seed, and the configuration decision that followed.
+
 \section{Hypothesis}
 \label{sec:exp-hypothesis}
+
+Both hypotheses and their decision rules were written into the design specification and stated at
+Review~2, before the evaluation run, following the practice of preregistration~\cite{nosek2018preregistration}.
+The decision log has no separately dated freeze entry for them, which we note as a limitation of
+the registration.
+
+\paragraph{H1 (agent against lookup, rule R-A).} With a person answering its questions, the agent
+lowers the false-alarm rate on collision packs by at least 50\% relative to the lookup, while its hit
+recall is no more than five percentage points lower. The rule is falsifiable on the collision and
+listed packs of the evaluation set, and it is coded in \texttt{core/evaluate.py} as
+$1-\mathrm{FAR}_{\text{agent}}/\mathrm{FAR}_{\text{lookup}}\geq 0.5$ and
+$R_{\text{lookup}}-R_{\text{agent}}\leq 0.05$. The registered prediction adds four specific
+outcomes per scenario, listed in Table~\ref{tab:exp-predictions}.
+
+\paragraph{H2 (hybrid against rule planner, rule R-C).} The hybrid planner becomes the default only
+if its accuracy is not significantly lower than the rule planner's (exact McNemar test,
+$\alpha=0.05$) and its median latency is at most twice the rule planner's. Both conditions are
+necessary; together they permit the change without requiring it. A further check, that the hybrid
+planner does better on packs with a partial product match, was registered as exploratory.
 
 \section{Experimental Setup}
 \label{sec:exp-experimental-setup}
 
+Table~\ref{tab:exp-setup} in Appendix~\ref{app:supp} lists what was varied and what was held
+fixed. The arms are those of Section~\ref{sec:eval-baselines}, under the oracle and no-answer
+policies. The lookup and the agent differ in the whole reasoning layer, so H1 compares two systems;
+perception (read once per image and cached), index, packs, templates, verifier rules and loop bounds
+are shared, so any difference comes from the reasoning between the read batch and the verdict. H2
+changes a single factor: the planner at the two branch points. The rule arms are deterministic, so
+the variation that matters is the choice of packs, which we probe with a second seed of the
+generator. Seed~7 was run twice (run~1 at commit \texttt{\RunOneCommit}, run~2 after decision D25)
+and seed~1 once with the run-2 code, all on one Windows~11 laptop; the model ran on the GPU in the
+seed-1 run (Ollama log), and the device for the seed-7 runs was not recorded.
+
 \section{Results}
 \label{sec:exp-results}
 
+\paragraph{H1 and rule R-A.} With the oracle user the agent with the rule planner cut collision false
+alarms from \res{ResBaseOracleFARCollisionK} to \res{ResRulesOracleFARCollisionK}, a 100\% relative
+reduction, and raised hit recall from \res{ResBaseOracleHitRecallK} to \res{ResRulesOracleHitRecallK}.
+The exact McNemar test on per-pack correctness found \res{ResRulesOracleMcNemarB} packs that only the
+agent got right and \res{ResRulesOracleMcNemarC} that only the lookup got right
+($p={}$\res{ResRulesOracleMcNemarP}). The decision under R-A is \textbf{\res{ResRulesOracleDecision}}.
+The hybrid arm gives the same counts. With every question skipped, hit recall falls to
+\res{ResRulesSkipHitRecallK}, sixty points below the lookup, and the decision is
+\res{ResRulesSkipDecision} ($p={}$\res{ResRulesSkipMcNemarP}, with \res{ResRulesSkipMcNemarB}
+agent-only and \res{ResRulesSkipMcNemarC} lookup-only correct packs). The agent's benefit therefore
+holds only when a person answers.
+
+\paragraph{H2 and rule R-C.} The hybrid and rule planners returned identical labels on all
+\res{ResN} packs under both policies, so there is no discordant pair and accuracy is not lower. The
+median latency was \res{ResHybridOracleLatMedian}\,s against \res{ResRulesOracleLatMedian}\,s, about
+1.1 times, within the factor of two. R-C therefore holds. The cost appears in the tail
+(Figure~\ref{fig:eval-latency}, Appendix~\ref{app:supp}): the 95th percentile was \res{ResHybridOracleLatPNinetyFive}\,s
+against \res{ResRulesOracleLatPNinetyFive}\,s and the mean \res{ResHybridOracleLatMean}\,s against
+\res{ResRulesOracleLatMean}\,s, from \res{ResHybridOracleLLMSteps} model calls with
+\res{ResHybridOracleFallbackSteps} fallbacks. The model's choices changed no verdict on these packs.
+The exploratory check on
+partial product matches was not evaluable, because no pack of seed~7 produced one.
+
+\paragraph{Spread across seeds.} Figure~\ref{fig:exp-seeds} in Appendix~\ref{app:supp} repeats the headline metrics on the
+development set (seed~1), run for this report with the same code as run~2. The agent arms give the
+same counts on both sets: hit recall 40/40, accuracy 60/60 and no false alarm. The lookup differs by
+one pack in hit recall (31/40 against \res{ResBaseOracleHitRecallK}) and in accuracy (39/60 against
+\res{ResBaseOracleAccuracyK}). This is a net difference of two effects: on seed~1 the reader
+returned a batch different from the rendered text on 4 of 60 images (60 of 60 on seed~7), which
+cost the lookup two listed packs, while the lookup found the listed batch on one misread pack. The paired test on seed~1 gives 21 agent-only
+and 0 lookup-only correct packs ($p=10^{-6}$), so R-A again gives adopt; without answers the agent
+reaches 7/40 hit recall with 37/60 abstentions. The hybrid planner again has a long tail: a median of
+1.25\,s against 1.19\,s for rules and a 95th percentile of 9.63\,s against 1.76\,s. The two
+seeds are not a like-for-like latency comparison, because the model ran on the GPU in the seed-1
+run and the device for the seed-7 runs was not recorded. Seed~1 is the
+development set, so it shows the size of the variation between generated sets; it is not an
+independent test.
+
+\paragraph{Run 1 and run 2.} The evaluation seed was run twice, and every table in
+Chapter~\ref{ch:eval} reports the second run. Run~1 (commit \texttt{\RunOneCommit}) used the same
+packs, arms and rules and also gave \RunOneRulesOracleDecision{} under R-A: the rule agent reached hit
+recall \RunOneRulesOracleHitRecallK{} with \RunOneRulesOracleFARCollisionK{} collision false alarms,
+and McNemar gave $p=\RunOneRulesOracleMcNemarP$ (\RunOneRulesOracleMcNemarB{} agent-only,
+\RunOneRulesOracleMcNemarC{} lookup-only). Two parts of the prediction failed: the agent was correct on
+\RunOneRulesOracleCleanK{} clean packs and on \RunOneRulesOracleMisreadK{} misread packs.
+Figure~\ref{fig:exp-runs} sets the two runs side by side and Table~\ref{tab:exp-predictions} gives
+the prediction outcomes for every run.
+
+The \RunOneRulesOracleMisses{} alarms the agent missed in run~1 were all on cartons that print a brand
+line above the generic name. Their traces showed three defects, recorded as decision D25.
+(1)~The investigator passed only the product and brand fields to grading, so a brand line could hide
+the generic name and a listed batch was rejected as a collision; grading now sees the full product
+text the reader returned. (2)~Verifier rule R2 required a full product match while grading accepts a
+partial match when dates and maker both agree, so a person could answer every question and still
+receive \CANTV; R2 now accepts what grading accepts. (3)~The batch confirmation asked only the first
+two look-alike positions, so a misread at a third position could confirm the wrong batch; it now asks
+every look-alike position. Each fix changes a general rule of the engine and none refers to a pack,
+batch or threshold of the evaluation set. They were still made after we had seen run~1 on the
+evaluation seed, so run~2 is no longer a held-out test and its numbers are optimistic. A fresh seed
+and photographs of real packs are needed for an unbiased estimate.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics{fig_run1_run2.pdf}
+\caption{Agent with the rule planner on seed~7 before (run~1) and after the three D25 fixes (run~2),
+a person answering. Left: rates with Wilson 95\% intervals. Right: correct verdicts per scenario.
+Labels on the right read run~1 $\rightarrow$ run~2. Run~1 is reported in full; because the fixes
+were made after it, run~2 is not a blind test.}
+\label{fig:exp-runs}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{Registered predictions and their outcomes (oracle user) on each run}
+\label{tab:exp-predictions}
+\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}X ccc@{}}
+\toprule
+\textbf{Prediction} & \textbf{Seed 7, run 1} & \textbf{Seed 7, run 2} & \textbf{Seed 1} \\
+\midrule
+Clean packs: all arms tie & \RunOnePredictionOne{} (7/8) & \res{ResPredictionOne} & held \\
+Collisions: lookup alarms on all, agent on at most 10\% & \RunOnePredictionTwo & \res{ResPredictionTwo} & held \\
+Misreads: lookup misses all, agent recovers $\geq$80\% at $\leq$1 question & \RunOnePredictionThree{} (6/8) & \res{ResPredictionThree} & did not hold\textsuperscript{a} \\
+Hybrid gives the same labels as rules & \RunOnePredictionFour & \res{ResPredictionFour} & held \\
+Hybrid better on partial product matches & not evaluable & \res{ResPredictionFive} & did not hold\textsuperscript{b} \\
+\bottomrule
+\multicolumn{4}{@{}p{\linewidth}@{}}{\footnotesize \textsuperscript{a}The lookup found the listed
+batch for 1 of 8 misread packs; the agent recovered 8/8 at 1.0 questions per misread pack.
+\textsuperscript{b}One pack had a partial product match; both planners got it right (a tie).}
+\end{tabularx}
+\end{table}
+
 \section{Discussion and Decision}
 \label{sec:exp-discussion-and-decision}
+
+H1 was supported on both seeds and on both runs of the evaluation seed: R-A gave adopt each time, and
+the collision false alarms fell from all of them to none. The benefit depends on the person
+answering, since without answers the agent abstains on most listed packs. We judged that trade
+acceptable for this task. An abstention says that more evidence is needed, while a false alarm on a
+collision accuses a batch of the wrong product. We therefore adopted the agent in place of the lookup
+in every client and kept the questions mandatory before any alarm. The lookup survives only as
+baseline arm~A.
+
+H2 was also supported in the sense of the rule: R-C held on both seeds. The rule permits the hybrid
+planner as the default and does not require it, and on these packs the model changed no verdict
+while it raised the 95th-percentile latency from under 2\,s to about 9\,s. We therefore kept the rule
+planner as the default (decision D26, \texttt{STRIPCHECK\_PLANNER=rules}). The hybrid planner stays
+available per check, and its written reason for each branch decision helps a reviewer follow the
+traces of Chapter~\ref{ch:eval}.
+
+The limits of the experiment (small scenarios, an optimistic run~2, rendered packs and
+over-represented traps) are discussed in Section~\ref{sec:lim-limitations}; a third seed generated
+after the code is frozen and a set of real photographs are the next tests.

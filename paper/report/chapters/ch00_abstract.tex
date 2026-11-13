@@ -1,2 +1,26 @@
 % Abstract: one paragraph, 200 to 300 words, then keywords (see GUIDANCE.md).
-% PLACEHOLDER: written last.
+% Numbers: \res{...} from ../generated/results.tex (run 2, seed 7; FACTS.md sections 11-12).
+India's Central Drugs Standard Control Organisation publishes monthly lists of drug batches that
+failed quality tests or were declared spurious, yet a patient or pharmacist holding a strip of
+tablets cannot easily compare its batch number with these lists. The check is harder
+than a lookup: optical character recognition misreads single characters with full confidence, the
+same batch number appears on unrelated products, and some listed batches have a sibling from the
+same manufacturer that differs in one look-alike character. A single language-model prompt cannot
+query the lists or ask the person, and a lookup script cannot tell a collision from a match. We built StripCheck, an offline agent whose bounded plan-act-observe loop calls tools for
+exact and confusion-aware batch search, grades each candidate field by field as in record linkage,
+asks the person to confirm doubtful characters before any alarm, and passes each draft verdict to a
+rule-based verifier that turns unsupported drafts into an abstention. An optional local large
+language model can choose the next action at two branch points, with a deterministic fallback. We compared the agent with a lookup baseline on \res{ResN} synthetic packs
+rendered from real alert rows, under a decision rule fixed before the run. With a person answering
+its questions, the agent raised a false alarm on \res{ResRulesOracleFARCollisionK} batch-collision
+packs against \res{ResBaseOracleFARCollisionK} for the baseline, and its hit recall was
+\res{ResRulesOracleHitRecall} against \res{ResBaseOracleHitRecall}. Without answers it abstained on
+\res{ResRulesSkipAbstainK} packs. The language-model planner changed no verdict and raised the
+95th-percentile time per pack from \res{ResRulesOracleLatPNinetyFive}\,s to
+\res{ResHybridOracleLatPNinetyFive}\,s. The main limitation is the test material: every pack is a
+rendered image, and the reported run follows three fixes made after a first run on the same packs,
+so the results are optimistic and do not measure performance on real strips.
+
+\medskip
+\noindent\textbf{Keywords:} agentic AI, human-in-the-loop, substandard medicines, optical character
+recognition, record linkage, abstention.

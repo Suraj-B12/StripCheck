@@ -1,18 +1,103 @@
 %---------------------------------------------------------------------
 % Chapter 2: Literature Survey and Existing Practice (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Sources: paper/sections/02_related_work.tex, research_notes/StripCheck literature survey/*.md,
+% paper/generated/stats.tex (dataset numbers). Facts and sources: FACTS.md section 23.
 %---------------------------------------------------------------------
 \chapter{Literature Survey and Existing Practice}
 \label{ch:lit}
 
+This chapter describes how a failed batch reaches the public alert lists in India, reviews the techniques StripCheck uses, compares existing tools and states the gap.
+
 \section{Existing Practice in the Sector}
 \label{sec:lit-existing-practice-in-the-sector}
+
+The World Health Organization (WHO) separates \emph{substandard} products, which are authorised but fail their specifications, from \emph{falsified} products, which misrepresent their identity, composition or source~\cite{who2017definitions}. Under the Drugs and Cosmetics Act, 1940, a drug is \emph{not of standard quality} (NSQ) when it fails the standards of the Second Schedule, and \emph{spurious} when, among other conditions, it purports to come from a manufacturer that did not make it~\cite{dcact1940s17b}. WHO estimated that 10.5\% of medical products in low- and middle-income countries fail quality tests~\cite{who2017oneinten}, and most failures are substandard rather than falsified~\cite{ozawa2022characterizing}. A substandard batch from a licensed maker carries correct packaging, so inspecting the pack does not reveal it.
+
+The public process has four steps.
+\begin{enumerate}[leftmargin=*,itemsep=1pt]
+  \item \textbf{Testing.} Drugs inspectors draw samples and a Government Analyst tests them; a failed sample is declared NSQ or spurious, and the report goes through the Drugs Inspector to the State Licensing Authority~\cite{cdsco2024recall}. In 2024--25 laboratories tested 116,323 samples, of which 3,104 were declared NSQ and 245 spurious or adulterated~\cite{roy2025fiveyears}.
+  \item \textbf{Recall.} Only a Class~I recall, the most serious, is carried to consumers through mass media; Class~II recalls stop at wholesale and retail, and Class~III at wholesale~\cite{cdsco2024recall}. Units of other batches already in a household are not actively reached.
+  \item \textbf{Publication.} CDSCO publishes monthly lists of central-laboratory NSQ, state-laboratory NSQ and spurious drugs, historically as PDF files released about three weeks after the month~\cite{cdsco2026latestalerts}. Since a notice of 28 August 2025 the NSQ alerts sit behind a searchable link~\cite{cdsco2025nsqlink}, a viewer embedded from the SUGAM portal whose JSON endpoints serve every month back to January 2019~\cite{cdsco2026nsqpage,cdsco2026portal}.
+  \item \textbf{Look-up.} The holder reads the batch off the strip, searches the lists and compares the fields by eye.
+\end{enumerate}
+
+The look-up step is where the process fails. Batch codes are short strings printed on foil, and characters such as \texttt{B} and \texttt{8} are easy to confuse for a person and for optical character recognition (OCR). The design-phase snapshot of \SnapshotDate{} holds \NumAlertRows{} published rows over \NumMonths{} monthly lists (Section~\ref{sec:req-data-sources}). A brand name appears in only \BrandPresentPct\% of NSQ rows and Indian brand names collide across unrelated molecules~\cite{neelakantan2024lookalike}, while batch keys are shared across unrelated products (Section~\ref{sec:intro-motivation-and-why-agentic-ai}), so neither a brand nor a batch number alone identifies an entry.
+
+Other channels do not close this gap. The QR code required since August 2023 on the 300 brands of Schedule~H2 carries a manufacturer-assigned identifier, batch and dates, but no test result~\cite{cdsco2023faqqr}; WHO notes that such identifiers cannot check the medicine inside and reports rogue verification services that answered every query positively~\cite{who2021traceability}. Few field screening devices have field evidence~\cite{vickers2018field,kovacs2014technologies}. A review of 25 medicine-checking apps found none that checked a regulator's quality list~\cite{ciapponi2021mobile}, and a scoping review found few consumer-facing interventions at all~\cite{pal2025assessing}.
 
 \section{Related Technical Work}
 \label{sec:lit-related-technical-work}
 
+The technical literature is grouped into seven themes. Table~\ref{tab:lit-themes} lists the main works in each theme, the idea StripCheck takes from them and the point where its design departs from them; the subsections below discuss each theme.
+
+\begin{table}[htbp]
+\centering
+\caption{Themes of the technical literature and their use in StripCheck.}
+\label{tab:lit-themes}
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.7cm} >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Theme} & \textbf{Main works} & \textbf{Use in StripCheck} \\
+\midrule
+Reasoning and acting with tools & \cite{yao2023react,schick2023toolformer,karpas2022mrkl} & Deterministic tools for lookup, variant search and grading; rule planner with an optional small model at two branch points \\
+Retrieval and grounding & \cite{gao2023alce,rashkin2023ais,fellegi1969theory,christen2012survey} & Retrieval over a structured index; field-by-field grading; verdict text from templates with a citation \\
+Reflection and verification & \cite{shinn2023reflexion,huang2024cannot,kambhampati2024llmmodulo} & External verifier with ten hard rules and at most one send-back \\
+Multi-agent collaboration & \cite{wu2023autogen,hong2023metagpt,wang2023survey} & Fixed roles with fixed hand-offs \\
+OCR and error correction & \cite{du2020ppocr,kernighan1990spelling,kolak2003generative,laroca2021efficient} & Closed vocabulary of listed batch keys; confirmation before any alarm \\
+Abstention and human input & \cite{chow1970reject,madras2018defer,bucinca2021trust,batteux2022residual} & Rule-based abstention; questions that ask for characters; residual-risk wording \\
+Evaluation of agents & \cite{yao2024taubench,kapoor2024agents,zhu2025agentic} & Lookup baseline, separate development seed for tuning, end-state scoring, latency and wording checks \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Reasoning and acting with tools}
+ReAct~\cite{yao2023react} interleaves reasoning traces with tool actions so that a model gathers evidence before answering, and Toolformer~\cite{schick2023toolformer} shows that models can learn when to call tools. MRKL systems~\cite{karpas2022mrkl} place the model in front of discrete modules that hold knowledge and do exact reasoning. StripCheck follows the MRKL division: exact lookup, variant search and field grading are deterministic tools, and each observation is recorded in a ReAct-style history. The default planner is a fixed rule order; an optional small local model is consulted at two branch points and may only choose among allowed actions, with a rule fallback on any timeout or invalid answer. Practitioner guidance favours such simple workflows with programmatic checks and human checkpoints~\cite{schluntz2024building}. Small models are argued to suffice for narrow agent calls~\cite{belcak2025slm}, but open models follow instructions weakly~\cite{liu2024agentbench} and strict output formats can reduce reasoning accuracy~\cite{tam2024speak}, so StripCheck keeps the schema to one action and one sentence and re-validates it in code.
+
+\subsection{Retrieval-augmented generation and grounding}
+Retrieval alone does not make generated text attributable: in the ALCE benchmark even the best models lacked complete citation support on about half of ELI5 answers~\cite{gao2023alce}, and attribution must be checked against the source~\cite{rashkin2023ais}. StripCheck keeps retrieval and removes free generation from the verdict. It searches a structured index by exact batch key and then by confusion variants, grades each retrieved row field by field, and renders the verdict from templates that cite list, month, row and snapshot hash. The grading follows record linkage: Fellegi and Sunter sort pairs into links, non-links and possible links for manual review~\cite{fellegi1969theory}, which StripCheck maps to an alarm, \NLISTED{} and a question. Because errors in a blocking key lose true matches, practical systems use several blocking passes~\cite{winkler2006overview,christen2012survey,papadakis2020survey}; the confusion variants serve as these passes. Language models match entities well but are prompt-sensitive~\cite{peeters2025entity}, so the matcher stays deterministic.
+
+\subsection{Reflection, verification and multi-agent collaboration}
+Reflexion~\cite{shinn2023reflexion} and Self-Refine~\cite{madaan2023selfrefine} let a model critique and revise its own output. Without external feedback, however, models generally fail to correct their own reasoning~\cite{huang2024cannot}; critique grounded in tools helps~\cite{gou2024critic}, and the LLM-Modulo framework pairs a proposing model with sound external verifiers~\cite{kambhampati2024llmmodulo}. StripCheck applies this pattern: an independent verifier checks every draft against the stored state with ten hard rules, may send a draft back once, and otherwise replaces a failing draft with \CANTV{}. Its banned-phrase rule is a deterministic output rail in the sense of NeMo Guardrails~\cite{rebedea2023nemo}; a learned guard~\cite{inan2023llamaguard} has not been tested for medical over-reassurance. AutoGen~\cite{wu2023autogen} and CAMEL~\cite{li2023camel} coordinate agents through open conversation, while MetaGPT~\cite{hong2023metagpt} fixes specialised roles in a pipeline~\cite{wang2023survey,xi2023rise}; StripCheck adopts fixed roles (ingest, investigator, verifier, supervisor) with fixed hand-offs, which keeps every step bounded and traceable.
+
+\subsection{Reading codes on packs and correcting OCR errors}
+On 27 pharmaceutical pack images a region-based detector reached an F1 score of 80.9 against 47.1 for Tesseract~\cite{koponen2024novel}; StripCheck uses the PP-OCR family~\cite{du2020ppocr,li2022ppocrv3} through RapidOCR~\cite{rapidai2021rapidocr}. Neural confidence scores are poorly calibrated~\cite{guo2017calibration} and vision-language models fall back on language priors for degraded text~\cite{he2025seeing}, so a confident reading is no evidence that a code is right. Noisy-channel correction ranks candidates by how likely the observed characters are under each~\cite{kernighan1990spelling,brill2000improved}, and over a closed vocabulary cut OCR word error by 70\%~\cite{kolak2003generative}; routing only disputed words to people raised accuracy to 99.1\%~\cite{vonahn2008recaptcha}. Licence-plate reading is the closest analogue: its confusable pairs (\texttt{B}/\texttt{8}, \texttt{D}/\texttt{0}, \texttt{S}/\texttt{5}) match those on batch codes~\cite{laroca2021efficient}, one city audit logged about one misread per five unverified hotlist hits~\cite{seattleoig2023alpr}, and a court stressed visual verification after a misread~\cite{green2014ninth}. StripCheck therefore uses the listed batch keys as the closed vocabulary, lets the channel score only order candidates, and shows no alarm until the batch comes from a QR code, the person, or two agreeing reads.
+
+\subsection{Abstention and the human in the loop}
+The reject option~\cite{chow1970reject}, selective classification~\cite{geifman2017selective} and learning to defer~\cite{madras2018defer,mozannar2020defer} formalise answering only when confident. Models handle these choices poorly: When2Call finds much room for improvement in deciding whether to call a tool, ask, or decline~\cite{ross2025when2call}, and models rarely abstain on medical questions~\cite{cocchieri2026abstain}. In StripCheck abstention and asking are decided by rules. Because people over-rely on automated advice~\cite{parasuraman2010complacency} and cognitive forcing reduces this~\cite{bucinca2021trust}, a question asks the person to type characters or choose the printed batch, never to press yes. A residual-risk sentence raised correct understanding of a negative test from 54\% to 89\%~\cite{batteux2022residual}, which supports the \NLISTED{} text saying the result does not certify the medicine.
+
+\subsection{Evaluation of LLM-based systems}
+In $\tau$-bench, function-calling agents completed fewer than half of the tasks~\cite{yao2024taubench}. Kapoor et al.\ ask agent studies to report cost and to compare against simple baselines on held-out data~\cite{kapoor2024agents}, and flawed scoring can misstate agent performance by up to 100\% in relative terms~\cite{zhu2025agentic}. MedAgentBench scores medical agents on task outcomes~\cite{jiang2025medagentbench}, and tracing conventions make each call inspectable~\cite{otel2026genai,arize2026openinference}. Chapter~\ref{ch:eval} therefore uses a plain lookup baseline, a separate development seed for tuning, end-state scoring and latency per pack. The evaluation seed was rerun after fixes, so it is not a held-out test (Chapter~\ref{ch:exp}).
+
 \section{Comparative Summary}
 \label{sec:lit-comparative-summary}
 
+Table~\ref{tab:lit-compare} compares the manual practice and the open tools that use CDSCO alert data with StripCheck; entries for third-party tools come from their public documentation as read in October 2026, without a code audit. Nazar reads QR codes and the printed batch from a photo and returns ``can't tell'' on look-alike characters~\cite{rastogi2026nazar}, and RecallOps India matches alerts to distributor stock and queues conflicts for staff review~\cite{ibnweb32026recallops}. Other projects use the data for analytics only~\cite{swahub2026nsq,shayadmeri2026nsq,shaikfayaz2026medicine}.
+
+\begin{table}[H]
+\centering
+\caption{Existing practice and tools that use CDSCO alert data, compared with StripCheck. \checkmark{} = documented; P = partial; -- = absent; ? = not described. Partial entries: Nazar warns only on a label mismatch; SafeDose compares the drug name only; RecallOps India normalises only O/0, reviews conflicts in a staff queue and has an offline mode without its language model.}
+\label{tab:lit-compare}
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{1.95cm} c c c c c@{}}
+\toprule
+\textbf{Practice or tool} & \textbf{User} & \textbf{\shortstack{Photo\\or QR}} & \textbf{\shortstack{Look-alike\\handling}} & \textbf{\shortstack{Field\\corrob.}} & \textbf{\shortstack{Asks during\\the check}} & \textbf{Offline} \\
+\midrule
+CDSCO viewer, manual look-up~\cite{cdsco2025nsqlink} & Public & -- & -- & by eye & -- & -- \\
+Blacklisted~\cite{blacklisted2026} & Consumer & -- & ? & ? & -- & -- \\
+Nazar~\cite{rastogi2026nazar} & Consumer & \checkmark & \checkmark & P & -- & -- \\
+SafeDose~\cite{shaurya2026safedose} & Patient & -- & -- & P & -- & ? \\
+RecallOps India~\cite{ibnweb32026recallops} & Distributor & -- & P & \checkmark & P & P \\
+\textbf{StripCheck (ours)} & Consumer & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+No single column of the table is new for StripCheck: Nazar already reads photos and abstains on look-alikes, and RecallOps India already corroborates fields and routes doubt to people.
+
 \section{Research Gap}
 \label{sec:lit-research-gap}
+
+Among the practices and tools reviewed (searched in October 2026), none combines photo reading of a consumer pack, confusion-aware search, field corroboration and a question to the person during the check in one loop that runs offline. No reviewed medicine-alert tool places a hard-rule verifier between its planner and the verdict. StripCheck addresses this gap with a bounded, traceable agent that asks only about characters in doubt, cites the stored source for every alarm, and abstains when the evidence does not pass its verifier.

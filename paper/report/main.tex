@@ -26,6 +26,7 @@
 \usepackage[most]{tcolorbox}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
+\usepackage{xurl}                % StripCheck: lets long URLs in the references break anywhere
 \usepackage{hyperref}
 \hypersetup{
     bookmarksopen=true,
@@ -145,6 +146,8 @@
   backgroundcolor=\color{gray!6},numbers=left,numberstyle=\tiny\color{gray},
   keywordstyle=\color{bmsblue}\bfseries,commentstyle=\color{ForestGreen},
   stringstyle=\color{BrickRed},showstringspaces=false,columns=fullflexible,keepspaces=true}
+% Align the listing frame with the text block (frame sep 3pt plus rule 0.4pt).
+\lstset{xleftmargin=3.4pt,xrightmargin=3.4pt}
 
 %=====================================================================
 %  STRIPCHECK ADDITIONS (everything above this block is the AAT template preamble, verbatim
@@ -176,6 +179,9 @@
 % Draft helper. Must not appear in the submitted PDF (grep for \todo before submission).
 \newcommand{\todo}[1]{\textcolor{orange}{[TODO: #1]}}
 
+% Allow a little extra inter-word stretch so long names and \texttt paths do not overrun the margin.
+\setlength{\emergencystretch}{2em}
+
 % Figures produced by scripts in tools/ live in figures/.
 \graphicspath{{figures/}}
 
@@ -202,7 +208,7 @@
 {\normalsize\bfseries Bachelor of Engineering}\\[2pt]
 {\normalsize in}\\[2pt]
 {\normalsize\bfseries Computer Science and Engineering (Data Science)}\\[14pt]
-{\normalsize Submitted by (Team No.\ \TeamNo)}\\[6pt]
+{\normalsize Submitted by}\\[6pt]
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{l@{\hspace{1.5cm}}l}
 \textbf{\USNa} & \textbf{\NameA} \\
@@ -309,5 +315,6 @@ Date: \rule{3.5cm}{0.4pt}
 \input{chapters/appB_setup}
 \input{chapters/appC_traces}
 \input{chapters/appD_prompts}
+\input{chapters/appE_supplement}
 
 \end{document}

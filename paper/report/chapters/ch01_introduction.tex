@@ -1,25 +1,213 @@
 %---------------------------------------------------------------------
 % Chapter 1: Introduction (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Sources: FACTS.md sections 1, 2, 4, 9, 11, 13, 14 and 22; ../generated/stats.tex (snapshot of
+% 25 October 2026); figures/fig_alerts_per_year.csv (indexed DB); paper/sections/01_problem.tex.
 %---------------------------------------------------------------------
 \chapter{Introduction}
 \label{ch:intro}
-\nocite{cdsco2026portal}% SKELETON ONLY: keeps BibTeX from failing while nothing is cited; delete once the chapter has real \cite commands.
+
+This report describes StripCheck, an agent that checks whether a medicine pack in a person's hand
+comes from a batch that India's drug regulator has listed as failing a quality test or as spurious.
+The chapter sets out the regulatory process in which the problem arises, states the decision the
+agent supports, explains why the task calls for an agent with tools, a critic and a person in the
+loop, and fixes the objectives and scope against which the later chapters are measured.
 
 \section{Background}
 \label{sec:intro-background}
 
+Substandard and falsified medicines harm patients in every region, and low- and middle-income
+countries (LMICs) carry most of the burden~\cite{ozawa2018prevalence}. Most failures are
+substandard batches from licensed manufacturers (Section~\ref{sec:lit-existing-practice-in-the-sector}),
+and such a batch looks correct in every respect, so packaging cues give the holder no warning.
+
+In India, central and state drug-testing laboratories test samples drawn from the market. The
+Central Drugs Standard Control Organisation (CDSCO) publishes the batches that fail as monthly
+alerts of drugs Not of Standard Quality (NSQ) and of spurious drugs~\cite{cdsco2026portal}.
+Until mid-2025 the alerts were monthly PDF tables;
+since August 2025 they appear in a month-by-month web viewer whose JavaScript Object Notation
+(JSON) endpoints serve every month back to January 2019~\cite{cdsco2025nsqlink,cdsco2026nsqpage,cdsco2026portal}.
+The volume of alerts has grown quickly. Figure~\ref{fig:intro-alerts-per-year}
+counts the alerts in our local index by year of the list month: 399 in 2019, 1,914 in 2025, and
+1,897 in the first nine months of 2026.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.96\textwidth]{fig_alerts_per_year.pdf}
+\caption{Alerts in the local StripCheck index by year of the CDSCO list month ($n = 6{,}923$ indexed
+alerts). The 2026 bar covers January to September only.}
+\label{fig:intro-alerts-per-year}
+\end{figure}
+
+A listed batch usually stays in circulation. CDSCO's recall guidelines carry a recall down to the
+consumer only for the most serious class of defect~\cite{cdsco2024recall}, so for most listed
+batches the published list is the only signal a patient or a pharmacist can reach. In the portal
+snapshot of \SnapshotDate{} the median batch is listed \LagMedian{} months after manufacture,
+when it still has \ShelfMedian{} months of shelf life left; \ShelfTwelvePlusPct\% of listed batches
+have at least a year left and only \ExpiredAtAlertPct\% have expired. Packaging codes do not close
+this gap: the Quick Response (QR) code that the top 300 brands carry since August 2023 identifies
+the pack and carries no test result, so a batch that a licensed manufacturer made badly carries a
+valid code, and existing medicine apps do not check the regulator's lists
+(Section~\ref{sec:lit-existing-practice-in-the-sector}).
+
 \section{Problem Statement}
 \label{sec:intro-problem-statement}
+
+A patient, a caregiver or a pharmacist holding a strip, bottle or carton cannot tell, at the point
+of use, whether that pack belongs to a batch on a CDSCO alert list. The input is what the pack
+shows: one or two photos of the printed batch line, dates, product and manufacturer, or the same
+details typed by hand. The reference is the set of monthly NSQ and spurious lists, which are tables
+of product names, batch numbers, dates and manufacturers. Comparing the two by hand means finding
+the right months, reading a batch code from foil and matching it character by character against
+thousands of rows. Two errors are possible and both matter. A missed listed batch leaves the holder
+without a warning the regulator has already issued, and a false alarm on an unlisted batch can
+frighten a patient away from a prescribed medicine. The output must therefore be one of a small
+set of advisory verdicts, each tied to its evidence (Table~\ref{tab:intro-verdicts}). The verdict
+labels are internal codes used in the code, traces and tables; the person sees only the fixed
+template headlines, and for \SFAKE{} the headline reads ``This batch is listed as purported
+spurious''.
+\textbf{The decision supported is: is this exact pack from a batch on a CDSCO alert list, and if the
+evidence cannot settle that, what must the person confirm?}
+
+\begin{table}[htbp]
+\centering
+\caption{The four verdicts and the condition under which each is returned}
+\label{tab:intro-verdicts}
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+Verdict & Returned when \\
+\midrule
+\FLAGGED & The confirmed batch matches an NSQ entry, and the product together with the dates or the
+maker corroborates it. \\
+\SFAKE & The confirmed batch matches an entry that the list records as purported spurious. \\
+\NLISTED & No candidate survives the exact and the confusion-aware search of the lists loaded. This
+does not certify the medicine, because the regulator tests only sampled batches. \\
+\CANTV & The evidence stays too weak after a bounded number of steps and at most two questions, so
+the agent abstains. \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \section{Motivation and Why Agentic AI}
 \label{sec:intro-motivation-and-why-agentic-ai}
 
+Automating the check looks like a lookup, and the simplest program reads the batch, normalises it
+and searches the lists. Our evaluation includes exactly this program as a baseline. It fails in two
+ways, and both are measurable in the CDSCO data.
+
+\emph{Reading.} Optical character recognition (OCR) on blister foil makes confident
+single-character errors. In our tests a scuffed \texttt{B} was read as \texttt{3} with a reported
+confidence of 1.0, and an enhanced re-read returned the same string, so the reader's confidence
+cannot settle a character (Section~\ref{sec:lit-related-technical-work}). A misread batch either
+misses a listed batch or lands on a different one.
+
+\emph{Matching.} Batch numbers are short and each manufacturer chooses its own, so one string can
+appear on unrelated products. In the portal snapshot, \CollisionKeys{} batch keys are shared by
+products with no name token in common, \NeighbourKeys{} keys (\NeighbourKeysPct\%) have another
+listed key one look-alike substitution away, and \SiblingKeys{} of these (\SiblingKeysPct\% of all keys)
+share the manufacturer, as in a pair of the form \texttt{AB1119} and \texttt{AB1719} (a schematic
+example; the report prints no batch string from an alert row). Manufacturers number batches
+in sequence and the regulator tests only samples, so an unlisted sibling of a listed batch can sit
+on the same shelf as the listed one. A confident misread can land exactly on a listed sibling, and
+every other field on the pack will then agree with the alert.
+
+These two properties rule out the simpler designs. A lookup script raises an alarm on any batch
+hit, so it alarms on every collision and on every misread that lands on a sibling, and it misses
+every listed batch that the reader got wrong. A fixed pipeline that always runs the same steps
+cannot follow what the previous tool returned: an empty exact search calls for a variant search, a
+variant hit for a question about one character, and weak evidence for abstention. A single prompt to a large
+language model (LLM) cannot read the pack reliably, cannot query thousands of alert rows, cannot
+ask the person a question and wait for the answer, and gives no guarantee that its wording stays
+within what the evidence supports; language models also rarely abstain on medical
+questions~\cite{cocchieri2026abstain}.
+
+The task therefore needs a small set of agentic capabilities, each tied to a property of the
+problem (Table~\ref{tab:intro-capabilities}). The loop follows the reason-and-act pattern of
+interleaving decisions with tool calls~\cite{yao2023react}, kept to the simple, composable form
+that practitioner guidance recommends~\cite{schluntz2024building}. The critic is external and
+rule-based, in line with the LLM-Modulo argument that a model's plans should be checked by sound
+external verifiers~\cite{kambhampati2024llmmodulo}. The planner that chooses among the allowed actions is a
+deterministic rule set by default; an optional local LLM can make the choice at two branch points,
+and any failure falls back to the rule choice. The agentic structure lies in the loop, the tools,
+the verifier and the questions, and it works with or without the model.
+
+\begin{table}[htbp]
+\centering
+\caption{Properties of the problem and the agentic capability each one requires}
+\label{tab:intro-capabilities}
+\small
+\begin{tabularx}{\textwidth}{@{}X X@{}}
+\toprule
+Property of the problem & Capability in StripCheck \\
+\midrule
+The pack must be read from a photo and the alerts must be searched & Tool use: QR decoding, OCR
+with one enhanced re-read, field extraction, exact and variant batch search \\
+A misread can hide a listed batch & Retrieval over confusion variants of the batch key (at most two
+substitutions), followed by grading of every candidate \\
+A batch match alone is weak evidence & Record-linkage grading of product, brand, dates and maker,
+with collision rejection \\
+The next step depends on the last observation & A bounded plan-act-observe loop with branch points
+\\
+Only the holder can see the printed character & Human-in-the-loop questions (at most two per check)
+and a confirmation gate before any alarm \\
+A wrong or overconfident verdict causes harm & A rule-based verifier with ten hard rules that
+downgrades an unsupported draft to \CANTV{} \\
+Readers repeat the same confusions & Memory of confirmed character corrections that reorders
+candidates and questions, but never skips a question \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \section{Objectives}
 \label{sec:intro-objectives}
+
+The project set six objectives, revisited in Section~\ref{sec:concl-conclusion}.
+\begin{enumerate}[itemsep=2pt]
+\item To build a provenance-keeping ingest of the CDSCO portal that stores every raw snapshot,
+validates and quarantines rows, and indexes the alerts from January 2019 onward, and to measure in
+these data the batch collisions, confusable siblings and alert timing that motivate the design.
+\item To design and implement a bounded plan-act-observe agent that searches the index by exact and
+confusion-aware batch keys, grades every candidate by record linkage, and completes every check
+offline, with no LLM and no network, within 16 steps and two questions.
+\item To implement a human-in-the-loop confirmation gate, so that no alarm is raised on a batch read
+only by OCR, together with a rule-based verifier that downgrades any unsupported draft to an
+abstention.
+\item To instrument every check with a step-level trace, recording for each step the action, its
+source (rules, LLM, fallback, verifier or user) and a short rationale, with optional export to a
+local tracing server.
+\item To evaluate the agent against a lookup baseline on 60 rendered packs under a decision rule
+stated before the run (Section~\ref{sec:exp-hypothesis}).
+\item To compare, in an A/B experiment, the rule planner with a hybrid planner that consults a local
+LLM at branch points, under a second stated decision rule.
+\end{enumerate}
 
 \section{Scope of the Project}
 \label{sec:intro-scope-of-the-project}
 
+\paragraph{Included.} StripCheck covers the NSQ and spurious alerts that CDSCO publishes through
+its portal, from \FirstMonth{} to the latest month synced (\LastMonth{} at the time of the
+evaluation). A check starts from one or two photos of a pack or from typed details. The agent
+returns one of the four verdicts in Table~\ref{tab:intro-verdicts}, each alarm cites the list,
+month, row and stored source of the entry, and every check runs on a laptop without a network
+connection, a graphics processor or a paid service. The system includes web and command-line
+interfaces, an iOS client tested in continuous integration only, a cabinet of saved packs that is
+re-checked after each sync, and an evaluation harness.
+
+\paragraph{Excluded.} StripCheck does not assess the quality of a medicine. A \NLISTED{} result
+means only that no matching entry was found on the lists loaded, and the verdict text says so.
+The system flags only a listed batch and never a brand, and it gives no medical advice beyond
+showing the pack to a pharmacist. It is a student project and not a CDSCO service. Lists published
+only as PDF before 2019 and state-level feeds are outside the index. A vision-language second
+reader and reviewed Hindi and Kannada verdict text were planned but not built. The evaluation uses
+synthetic packs rendered from real alert rows; no photos of real medicine strips were taken, so no
+claim is made about accuracy on real packs.
+
 \section{Organisation of the Report}
 \label{sec:intro-organisation-of-the-report}
+
+Chapter~\ref{ch:lit} reviews existing practice and related work, Chapter~\ref{ch:req} states the
+requirements, Chapters~\ref{ch:design} to~\ref{ch:impl} present the design, the agentic concepts
+and the implementation, Chapters~\ref{ch:eval} and~\ref{ch:exp} report the evaluation and the
+planner experiment, Chapter~\ref{ch:lim} discusses limitations and responsible use, and
+Chapter~\ref{ch:concl} concludes. The appendices give the team contributions, setup instructions,
+sample traces, the prompts and supplementary tables and figures.

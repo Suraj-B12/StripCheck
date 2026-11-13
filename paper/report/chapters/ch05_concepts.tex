@@ -1,12 +1,99 @@
 %---------------------------------------------------------------------
-% Chapter 5: Agentic Concepts Demonstrated (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Chapter 5: Agentic Concepts Demonstrated
+% Sources: core/investigator.py, core/llm.py, core/verifier.py, core/supervisor.py (HEAD 25fb3f8);
+% docs/trace/run1_trace.jsonl, run2_trace.jsonl, README.md (walkthrough of 8 Nov 2026);
+% paper/generated/results.tex (run 2). See FACTS.md sections 4-12 and 25.
 %---------------------------------------------------------------------
 \chapter{Agentic Concepts Demonstrated}
 \label{ch:concepts}
 
+This chapter maps StripCheck to the concept checklist of the course guidelines. Each entry in the matrix points to evidence that a reader can inspect: a trace recorded by the running system, a section of this report or a generated evaluation number. The trace excerpts come from the walkthrough of Section~\ref{sec:design-data-flow} (hybrid planner, \texttt{qwen2.5:3b}, one invented alert record, so the traces report one loaded record).
+
 \section{Concept Coverage Matrix}
 \label{sec:concepts-concept-coverage-matrix}
 
+Table~\ref{tab:concepts} lists the five mandatory and the five bonus concepts. All mandatory concepts are implemented. Multi-agent collaboration is marked partial: the work is split into components with separate jobs, but only one of them makes decisions and the components do not converse.
+
+\begin{table}[htbp]
+\centering
+\caption{Coverage of the agentic-concept checklist}
+\label{tab:concepts}
+\footnotesize
+\begin{tabularx}{\linewidth}{@{}l >{\raggedright\arraybackslash}p{3.4cm} c >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Tier} & \textbf{Concept} & \textbf{Status} & \textbf{Evidence} \\ \midrule
+Mandatory & Tool / function use & \checkmark & Listing~\ref{lst:trace-run1}; Table~\ref{tab:tools} \\
+Mandatory & Agentic RAG & \checkmark & Exact search, variant re-query and grading in Listing~\ref{lst:trace-run1}; collision results, Chapter~\ref{ch:eval} \\
+Mandatory & Planning and reasoning & \checkmark & Branch-point decision, Listing~\ref{lst:app-branch-b}; Algorithm~\ref{alg:loop} \\
+Mandatory & Observability / tracing & \checkmark & JSONL trace per check; Phoenix spans, Section~\ref{sec:eval-tracing-and-monitoring}, Appendix~\ref{app:traces} \\
+Mandatory & Evaluation & \checkmark & \ResN{} labelled packs against a lookup baseline, Chapter~\ref{ch:eval} \\
+Bonus & Multi-agent collaboration & Partial & Supervisor, investigator and verifier with separate roles \\
+Bonus & Memory & \checkmark & Confusion prior and cabinet re-check, Listing~\ref{lst:app-trace-run2} \\
+Bonus & Human-in-the-loop, guardrails & \checkmark & Five question kinds; verifier rules R1 to R10, Table~\ref{tab:verifier} \\
+Bonus & Durable workflow & \checkmark & Check state saved in SQLite; \texttt{check.resume} joins the same trace \\
+Bonus & Experimentation & \checkmark & Rule planner against hybrid planner, Chapter~\ref{ch:exp} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \section{Evidence for Each Concept}
 \label{sec:concepts-evidence-for-each-concept}
+
+\subsection{Tool use}
+\label{sec:concepts-tool-use}
+
+The investigator acts only through named tools, and each call becomes one step in the check's history with its action, the planner source that chose it, a summary and a duration. Listing~\ref{lst:trace-run1} gives the step events of the walkthrough check that Section~\ref{sec:design-data-flow} follows step by step (\texttt{docs/trace/run1\_trace.jsonl}, timing fields removed).
+
+\begin{lstlisting}[language={},numbers=none,caption={Step events of walkthrough run 1 (\texttt{docs/trace/run1\_trace.jsonl}, timing fields omitted)},label={lst:trace-run1}]
+{"step": 1, "action": "extract_fields", "source": "rules", "summary": "Using the printed details supplied for this check."}
+{"step": 2, "action": "search_exact", "source": "rules", "summary": "Checked the exact batch against 1 loaded records; 0 candidate(s)."}
+{"step": 3, "action": "search_variants", "source": "llm", "summary": "Checked bounded character alternatives; 1 candidate(s). No printed character was changed."}
+{"step": 4, "action": "grade", "source": "rules", "summary": "Compared product, brand, dates and manufacturer for every candidate."}
+{"step": 5, "action": "ask_user", "source": "llm", "summary": "A printed detail needs your confirmation."}
+{"event": "interrupt", "kind": "confirm_char", "question": "One or more characters may be unclear. Which batch is printed on your pack: LM24088 or LM2408B?"}
+{"step": 6, "action": "answer", "source": "user", "summary": "Printed details updated by the user."}
+{"step": 7, "action": "search_exact", "source": "rules", "summary": "... 1 candidate(s)."}
+{"step": 8, "action": "search_variants", "source": "rules", "summary": "... 0 candidate(s). ..."}
+{"step": 9, "action": "grade", "source": "rules", "summary": "..."}
+{"step": 10, "action": "draft_verdict", "source": "rules", "summary": "...", "verifier": "approved"}
+{"event": "final", "label": "FLAGGED"}
+\end{lstlisting}
+
+The order of calls depends on what each tool returned: the variant search runs because the exact search was empty, and the second pass runs because the person changed the batch. Table~\ref{tab:tools} in Appendix~\ref{app:supp} lists the tools with their inputs, outputs and failure behaviour.
+
+\subsection{Agentic RAG}
+\label{sec:concepts-agentic-rag}
+
+StripCheck retrieves from a structured index of CDSCO alert rows keyed by the normalised batch number, without text chunks or embeddings (Section~\ref{sec:impl-data-preparation-and-indexing} gives the reason). The retrieval is agentic in three ways. The agent grades every retrieved candidate before using it, comparing product, brand, dates and maker as a record-linkage step \cite{fellegi1969theory,christen2012survey}. It re-queries when the first retrieval is weak: an empty exact search leads to a search over look-alike variants, and an answer from the person leads to a fresh search on the corrected batch (steps~7 to~9 of Listing~\ref{lst:trace-run1}). It abstains with \CANTV{} when the grades stay weak after the bounded steps and questions. The effect of grading shows in the evaluation: on the \ResMixCollision{} collision packs, which carry a listed batch number on a different product and maker, the lookup baseline raised an alarm on \ResBaseOracleFARCollisionK{} and the rule agent on \ResRulesOracleFARCollisionK{}, because the grader rejected each candidate on the product evidence (Section~\ref{sec:eval-results}).
+
+\subsection{Planning and reasoning}
+\label{sec:concepts-planning}
+
+The planner is a bounded loop with a fixed rule order (Algorithm~\ref{alg:loop}). In hybrid mode a local language model chooses the next action at two branch points, and only from an allowed list. Listing~\ref{lst:app-branch-b} in Appendix~\ref{app:traces} gives the recorded model input and output at branch point (b), after the empty exact search of run~1. The JSON schema allowed only \texttt{search\_variants} and \texttt{draft\_verdict}; the model chose the variant search and gave a one-sentence reason.
+
+
+Three safeguards bound this choice. When the model times out, is unreachable, returns invalid JSON or names an action outside the list, the rule suggestion is used and the step is recorded with source \texttt{rules(fallback)}; Section~\ref{sec:eval-tracing-and-monitoring} reports a check run with Ollama stopped. A draft chosen before the variant search is sent back once by the verifier under rule R4, and the investigator re-plans with source \texttt{rules(verifier)}. The model's thought goes only to the trace. In run~1 the thought at step~5 swapped the read batch and the listed batch; the action was still valid, and the verdict text came from the templates.
+
+\subsection{Observability}
+\label{sec:concepts-observability}
+
+Every check writes a JSON-lines trace to \texttt{data/traces/<thread\_id>.jsonl} (events \texttt{fields}, \texttt{strip}, \texttt{candidates}, \texttt{step}, \texttt{interrupt}, \texttt{learning}, \texttt{snapshot}, \texttt{final}, \texttt{done}, \texttt{error}); run~1 produced 23 lines. With \texttt{STRIPCHECK\_TRACING=1} the check is also exported as OpenTelemetry spans to a local Arize Phoenix server under the OpenInference conventions \cite{otel2026genai,arize2026openinference}. Run~1 produced 25 spans, and almost all of its time was spent in the two model calls (Section~\ref{sec:eval-tracing-and-monitoring}, Appendix~\ref{app:traces}). The JSONL schema has fields for the model name and token counts that no caller fills; the planner's model name and call time are recorded in the OpenTelemetry LLM span.
+
+\subsection{Evaluation}
+\label{sec:concepts-evaluation}
+
+The system is evaluated on \ResN{} labelled synthetic cartons rendered from rows of the local index (seed~\ResSeed{}) against a lookup baseline, with rule-based metrics, 95\% Wilson intervals \cite{wilson1927probable} and an exact McNemar test \cite{mcnemar1947note}. With a person answering every question, the rule agent reached hit recall \ResRulesOracleHitRecallK{} against \ResBaseOracleHitRecallK{} for the baseline, and a false-alarm rate on not-listed packs of \ResRulesOracleFARK{} against \ResBaseOracleFARK{} (Chapter~\ref{ch:eval}).
+
+\subsection{Bonus concepts}
+\label{sec:concepts-bonus}
+
+\paragraph{Memory.} When a person confirms a character on a photographed pack, the server stores the pair (read character, printed character) in the \texttt{confusions} table. On later checks the pair is a prior that reorders variant candidates and the characters asked about; it never removes the question. Listing~\ref{lst:app-trace-run2} in Appendix~\ref{app:traces}, from the second walkthrough check on the same photo, shows the prior in the step summary and in the question, and the person is still asked. The cabinet of saved packs is a second memory: the supervisor re-checks it after every sync without questions and raises a notification when a saved batch becomes listed or expires within 30 days.
+
+
+\paragraph{Human-in-the-loop and guardrails.} The investigator can pause with five kinds of question (Section~\ref{sec:design-component-description}), at most two per check, and every question accepts ``Can't tell''. No \FLAGGED{} or \SFAKE{} result is shown unless the batch came from a QR code, from the person or from two agreeing reads, and the verifier replaces any draft that breaks one of its ten rules with the \CANTV{} template. When no question is answered, the rule agent abstains on \ResRulesSkipAbstainK{} packs and raises no false alarm (\ResRulesSkipFARK{}).
+
+\paragraph{Durable workflow.} The whole state of a check is a JSON document saved in SQLite after every call, so a pending question survives a server restart, and the resumed half appears as a \texttt{check.resume} span in the same trace. This follows the checkpointing idea of LangGraph \cite{langchain2026persistence} with a smaller engine (Section~\ref{sec:impl-core-agent-loop}).
+
+\paragraph{Experimentation.} Chapter~\ref{ch:exp} compares the rule and hybrid planners on the same packs under a decision rule stated before the run.
+
+\paragraph{Multi-agent collaboration (partial).} The supervisor runs sync, ingest and the cabinet re-check on its own clock, the investigator handles one pack while a person waits, and the verifier checks each draft independently of the drafting code. They are components called in sequence and do not exchange messages.

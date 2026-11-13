@@ -1,0 +1,205 @@
+% Appendix E: supplementary tables and figures moved out of the main body to keep it within
+% the 50-page limit. Content unchanged; sources as noted in each chapter file.
+\chapter{Supplementary Tables and Figures}
+\label{app:supp}
+
+This appendix holds tables and figures that support the main chapters. Each is referred to
+from the chapter named in its section heading.
+
+\section{Requirements and system analysis}
+
+\begin{table}[H]
+\centering
+\caption{Stakeholders of StripCheck and what each needs from the system}
+\label{tab:req-stakeholders}
+\small\renewcommand{\_}{\textunderscore\allowbreak}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.3cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Role} & \textbf{Need} & \textbf{Requirement} \\ \midrule
+Patient or caregiver holding a pack (primary user) & A clear answer on whether this batch is listed, with the list and month, and a next step that does not cause harm & FR1, FR5, NFR4 \\
+Community pharmacist & A result that names the listed batch, the list month and the source row, so that the claim can be checked against the CDSCO list & FR5, NFR5 \\
+Manufacturer or marketer named on a list & No alarm on a different batch or on a brand as a whole; a false alarm on a sibling batch harms a product that was not listed & FR3, FR4, NFR4 \\
+CDSCO and state drug-testing laboratories (publishers of the lists) & Correct attribution of every alert, polite access to the portal, and no claim that the tool is an official service & FR6, NFR5, NFR8 \\
+Project team (operators and evaluators) & Reproducible data sync, step-level traces and an evaluation command with a stated decision rule & FR8, FR10, NFR6 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Agent design}
+
+\begin{table}[H]
+\centering
+\caption{Fields of the agent state saved after every run}
+\label{tab:design-state}
+\small\renewcommand{\_}{\textunderscore\allowbreak}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{4.1cm} >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Field} & \textbf{Content} \\ \midrule
+\texttt{history} & Ordered steps: action, source, summary, time in ms, and where present the thought, the prior used and the verifier result \\
+\texttt{asks}, \texttt{declined} & Number of questions asked so far; question kinds the person answered with ``Can't tell'' \\
+\texttt{batch\_evidence} & How the batch is known: \texttt{qr}, \texttt{ocr}, \texttt{dual\_read}, \texttt{user\_typed}, \texttt{user\_confirmed} or \texttt{none} \\
+\texttt{provenance} & Source of each pack field (\texttt{qr}, \texttt{ocr}, \texttt{ocr\_enh}, \texttt{carton}, \texttt{user}) \\
+\texttt{candidates}, \texttt{pending} & Graded candidates with status and per-field evidence; the open question, if any \\
+\texttt{rejected\_keys}, \texttt{confirmed\_keys}, \texttt{conflict\_ids} & Effects of earlier answers that later runs must respect \\
+\texttt{exact\_searched}, \texttt{variants\_searched}, \texttt{truncated} & Search coverage flags that the verifier checks for \NLISTED \\
+\texttt{planner}, \texttt{decisions}, \texttt{session} & Planner mode, the source of each branch-point decision, and the trace identifiers \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Loops and limits in the design and how each terminates}
+\label{tab:design-bounds}
+\small\renewcommand{\_}{\textunderscore\allowbreak}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Loop or limit} & \textbf{Bound} & \textbf{On reaching it} \\ \midrule
+Steps per check & 16 (\texttt{MAX\_STEPS}) & No new question after 12 steps; at 13 steps the run abstains; R6 downgrades any draft above 16 \\
+Questions per check & 2 (\texttt{MAX\_ASKS}) & The pending candidate is drafted as \CANTV{} with its reason \\
+Variant search & 2 substitutions, 2{,}000 keys & The search stops at the limit and returns what it found \\
+Candidates graded & 20 & More matches end in \CANTV{} (``too many records share this batch'') \\
+Verifier send-back & 1 (\texttt{MAX\_REVISIONS}) & Only for a model draft before the variant search; any other failure downgrades \\
+Model call & 2 attempts, 15\,s each (configurable 1 to 90\,s, at most 45 used) & Rule suggestion with source \texttt{rules(fallback)}; model skipped for 30\,s after a connection error; loopback endpoint only \\
+Photo read & 60\,s per photo, 30\,s per reader, 20\,s barcode, 1 re-read & Empty fields; the person is asked to type the batch \\
+Upload & 15\,MB, 24 million pixels, 2{,}400\,px per side & Larger uploads are refused; larger images are shrunk \\
+Portal request & $\ge$1.5\,s apart, 20\,s timeout, 3 attempts, 16\,MB & Sync stops; the existing index stays in use \\
+Tracing and streaming & 0.25\,s probe, 3\,s export; queue of 256 events, 15\,s heartbeat & Spans are skipped; a tracer failure never fails a check \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Implementation}
+
+\begin{table}[H]
+\centering
+\caption{Tools used by the agent and by the background pipeline}
+\label{tab:tools}
+\footnotesize
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.7cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{4.3cm}@{}}
+\toprule
+\textbf{Tool (module)} & \textbf{Input $\rightarrow$ output} & \textbf{Bounds and errors} \\ \midrule
+\texttt{decode\_qr} (\texttt{pack\_tools}) & image $\rightarrow$ batch, dates, GTIN from GS1 payload & Separate process, 20\,s; failure gives no fields \\
+\texttt{ocr\_read} (\texttt{pack\_tools}) & image $\rightarrow$ text lines with box, score, engine & 30\,s per reader, 60\,s per photo; failure gives no lines \\
+\texttt{extract\_fields} & lines, QR fields $\rightarrow$ batch, product, brand, dates, maker with provenance & Empty field when no label matches \\
+\texttt{search\_exact} (\texttt{matching}) & batch key $\rightarrow$ alert rows with that key & At most 21 rows \\
+\texttt{search\_variants} & batch key, prior $\rightarrow$ rows at look-alike keys, substitutions, score & $\le 2$ substitutions, $\le 2{,}000$ keys, $\le 21$ rows \\
+\texttt{grade} & alert row, pack fields $\rightarrow$ evidence per field and a status & Deterministic; unknown stays unknown \\
+\texttt{ask\_user} (\texttt{templates}) & kind, candidate $\rightarrow$ question payload; check pauses & At most 2 per check; ``Can't tell'' offered \\
+\texttt{draft\_verdict} & label, fields, entry $\rightarrow$ templated verdict with citation & Verified; failure gives \CANTV \\
+\texttt{sync}, \texttt{ingest} & portal months $\rightarrow$ snapshots $\rightarrow$ validated rows & 1.5\,s spacing, 3 attempts; failure keeps index \\
+\texttt{recheck\_cabinet} & saved packs $\rightarrow$ verdicts, notifications & Same investigator, no questions \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig_ui_check_crop.png}
+\caption{Start of a check in the web client: photo capture or upload (left) and typed batch details (right). Screenshot of the local client at 770 by 569 pixels.}
+\label{fig:ui-check}
+\end{figure}
+
+\section{Observability and evaluation}
+
+\begin{table}[H]
+\centering
+\caption{Scenario mix of the evaluation set (seed~7, $n=60$) and the truth label of each scenario}
+\label{tab:eval-mix}
+\small
+\begin{tabularx}{\linewidth}{@{}l c l X@{}}
+\toprule
+\textbf{Scenario} & \textbf{$n$} & \textbf{Truth} & \textbf{What the pack tests} \\
+\midrule
+Clean & \res{ResMixClean} & \FLAGGED & Listed batch printed clearly; OCR only \\
+Glare & \res{ResMixGlare} & \FLAGGED & Listed batch under a bright band near the batch line, or blurred (alternating) \\
+QR code & \res{ResMixQr} & \FLAGGED & Listed batch also encoded in a GS1 QR code with the dates \\
+Misread & \res{ResMixMisread} & \FLAGGED & Carton prints a look-alike string of a listed batch \\
+Spurious & \res{ResMixSpurious} & \SFAKE & Batch from an entry listed as purported spurious \\
+Not-listed control & \res{ResMixGenuine} & \NLISTED & Invented batch with no listed key within two look-alike substitutions \\
+Collision & \res{ResMixCollision} & \NLISTED & Listed batch number on a different product and maker \\
+Sibling & \res{ResMixSibling} & \NLISTED & Unlisted batch one look-alike character from a listed one \\
+\midrule
+Total & \res{ResN} & & 40 listed, 20 not listed \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics{fig_hitl_seed7.pdf}
+\caption{Effect of the human answer for the agent with the rule planner, seed~7. Without answers
+the agent abstains (\CANTV) on 36 of 60 packs, so hit recall falls while the false-alarm rate
+stays at zero.}
+\label{fig:eval-hitl}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics{fig_latency_seed7.pdf}
+\caption{Time per pack on seed~7 ($n=60$, oracle). Left: end-to-end time (shared perception plus
+reasoning). Right: reasoning time only. Solid bars are medians and hatched bars 95th percentiles.
+The hybrid planner's local model calls set its tail.}
+\label{fig:eval-latency}
+\end{figure}
+
+\section{Experimentation}
+
+\begin{table}[H]
+\centering
+\caption{Setup of the experiment}
+\label{tab:exp-setup}
+\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth} X@{}}
+\toprule
+\textbf{Item} & \textbf{Setting} \\
+\midrule
+Arms & A: lookup script; B: agent, rule planner; C: agent, hybrid planner (\texttt{qwen2.5:3b} through
+Ollama 0.17.7, temperature~0, JSON-schema output restricted to the allowed actions) \\
+Human policy & Oracle (answers every question from the manifest) and none (every question skipped) \\
+Packs & \res{ResN} rendered cartons per seed; seed~7 is the evaluation set, seed~1 the development
+set on which thresholds were tuned \\
+Held fixed & Perception output (read once per image and cached), index of \res{ResAlertCount}
+alerts, verdict templates, verifier rules, loop bounds \\
+Metrics & As defined in Section~\ref{sec:eval-metrics-and-evaluation-rubric} \\
+Runs & Seed~7 twice (run~1 at commit \texttt{\RunOneCommit}, run~2 after decision D25); seed~1 once
+with the run-2 code \\
+Hardware & One Windows~11 laptop; OCR on the CPU; the model on the GPU in the seed-1 run (Ollama log), device not recorded for the seed-7 runs \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics{fig_seeds.pdf}
+\caption{Headline metrics on the development set (seed~1) and the evaluation set (seed~7), a person
+answering, $n=60$ each. Labels give $k/n$ and whiskers are Wilson 95\% intervals. The agent arms give
+the same counts on both sets; the lookup differs by one pack.}
+\label{fig:exp-seeds}
+\end{figure}
+
+\section{Limitations and safety}
+
+\begin{table}[H]
+\centering
+\caption{Failure modes, guardrails and where each guardrail is enforced}
+\label{tab:lim-risks}
+\footnotesize
+\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.27\linewidth} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{0.2\linewidth}@{}}
+\toprule
+\textbf{Failure mode} & \textbf{Guardrail} & \textbf{Enforced in} \\
+\midrule
+OCR reads a look-alike character with high confidence (\texttt{B} as \texttt{8}) & Variant search over look-alike pairs; \texttt{confirm\_char} question; an alarm needs a batch from QR, the person or two agreeing reads & \texttt{matching.py}, investigator, verifier R2 \\
+Batch key shared by an unrelated product (collision) & Record-linkage grading on product, brand, dates and maker; a mismatch rejects the candidate & \texttt{grade()}, verifier R2 \\
+Listed sibling batch one character away & Variant search runs even after an exact hit; \texttt{confirm\_batch} asks every look-alike position & investigator, decision D25 \\
+LLM drafts before the variant search, is slow or unavailable, or returns invalid JSON & Action restricted to an allowed list; one send-back (R4); 15~s timeout, two attempts, rule fallback, 30~s circuit breaker & \texttt{llm.py}, investigator \\
+Instructions hidden in pack or alert text & Text enters prompts only as JSON data; system message marks it untrusted; local endpoint only; model writes no user text & \texttt{llm.py}, \texttt{templates.py} \\
+Wording that implies assurance or medical instruction & Banned-phrase check on every draft (R5); LLM thoughts redacted by the same check & verifier, \texttt{templates.py} \\
+Loop or questions without end & At most 16 steps, 2 questions, 20 candidates, 1 send-back (R6) & \texttt{config.py}, verifier \\
+Person skips a question, or a printed date disagrees with the entry & \CANTV{} with wording that sends the person to a pharmacist; \texttt{confirm\_field} question for a date (R7) & investigator, verifier \\
+Lists stale, incomplete or malformed & \NLISTED{} states the lists loaded and the latest month and that it does not certify the medicine (R9); quarantine with reasons; rows keep source URL, SHA-256 and row number & verifier, \texttt{ingest.py} \\
+Hostile upload, or access to the laptop by others & 15~MB and 24 megapixel limits, 60~s deadline in a killable worker; server on localhost, pairing token for LAN and tunnel & \texttt{pack\_tools.py}, \texttt{server/app.py} \\
+\bottomrule
+\end{tabularx}
+\end{table}

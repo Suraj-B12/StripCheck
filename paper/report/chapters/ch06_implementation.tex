@@ -1,30 +1,165 @@
 %---------------------------------------------------------------------
-% Chapter 6: Implementation (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Chapter 6: Implementation
+% Sources: core/*.py, server/app.py, server/sse.py at HEAD 25fb3f8 (working copies of
+% core/investigator.py, core/llm.py, core/templates.py, server/* are being edited by another
+% workflow; facts here are from HEAD); versions from FACTS.md section 16; DB counts from a
+% read-only query of data/stripcheck.db (FACTS.md section 25).
 %---------------------------------------------------------------------
 \chapter{Implementation}
 \label{ch:impl}
+\sloppy
+
+This chapter describes how the design of Chapter~\ref{ch:design} was built: the software stack, the ingestion of the CDSCO portal data, the bounded agent loop, the tools, the prompt, the guardrails, the interfaces and the repository. With Appendix~\ref{app:run} it is meant to let another student rebuild and run the system.
 
 \section{Technology Stack}
 \label{sec:impl-technology-stack}
 
+Table~\ref{tab:stack} lists the components with the versions installed on the Windows~11 laptop used for the evaluation (\texttt{pip list} and \texttt{ollama --version}, 12 November 2026). A check must finish with no network, no language model and no tracing server, and the project may not use paid services, so every component runs on the user's machine and the language model is optional.
+
+\begin{table}[htbp]
+\centering
+\caption{Technology stack and installed versions}
+\label{tab:stack}
+\footnotesize
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{5.2cm} >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Layer} & \textbf{Choice (version)} & \textbf{Reason} \\ \midrule
+Language & Python 3.12.7 & One language for engine, ingest and evaluation \\
+Agent engine & Own bounded loop, \texttt{core/investigator.py} & Small, testable, resumable (decision D18) \\
+Storage & SQLite (standard library), WAL mode & One local file for alerts, checks, memory \\
+API server & FastAPI 0.162.0, Uvicorn 0.54.0, Pydantic 2.14.1 & Streams steps and questions as server-sent events \\
+Text reading & RapidOCR 3.10.0, PP-OCRv6-small on ONNX Runtime 1.31.1; Apple Vision on macOS & Local, CPU only, no download at run time \cite{rapidai2021rapidocr,du2020ppocr} \\
+Barcodes & zxing-cpp 3.1.1; OpenCV headless 4.14.0.94 & GS1 payloads carry a check digit \\
+Images & Pillow 13.0.0, pillow\_heif 1.8.1 & Validation, resizing, HEIC photos \\
+Fuzzy matching & RapidFuzz 3.14.6 & Maker similarity in grading \\
+Local LLM (optional) & Ollama 0.17.7, \texttt{qwen2.5:3b} & JSON-schema output from a local model \cite{ollama2026structured} \\
+Tracing (optional) & OpenTelemetry SDK 1.45.1; Arize Phoenix 21.0.0 & Standard spans, viewed locally \cite{otel2026genai,arize2026openinference} \\
+Clients & React 19.3.1, TypeScript 6.0.3, Vite 8.3.5; SwiftUI (iOS 17) & Step timeline, question cards, camera \\
+Tests & pytest 9.1.1; Vitest 5.0.5 & Offline by default \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The Review~2 design used LangGraph and Streamlit. LangGraph was replaced by a compact engine whose whole state is one JSON document, because the loop has few nodes and had to be resumable from any client (D18); Streamlit was replaced by FastAPI with a React client, because its rerun model fits poorly with a check that pauses for a question and streams each step (D2, D16).
+
 \section{Data Preparation and Indexing}
 \label{sec:impl-data-preparation-and-indexing}
+
+\paragraph{Portal sync.} CDSCO's viewer for Not of Standard Quality (NSQ) and spurious drug alerts is embedded from the SUGAM portal, whose page script calls plain JSON endpoints \cite{cdsco2026portal}. \texttt{core/portal.py} calls \texttt{reportingYears} and \texttt{publicReportingMonths} to discover the published months of each tab, then fetches each month from \texttt{filteredNsqDrugTable} or \texttt{filteredSpuriousDrugTable}. A normal sync fetches the newest three months, which late state reports still change; \texttt{sync --full} fetches the history. Requests keep TLS verification on and obey the limits of Table~\ref{tab:design-bounds} (Appendix~\ref{app:supp}). The responses are Latin-1 (ISO-8859-1) and are decoded as such. The exact bytes are written atomically to \texttt{data/raw/portal/<kind>/YYYY-MM.json} (kind \texttt{nsq} or \texttt{spurious}) with a \texttt{.meta.json} file (URL, fetch time, SHA-256, row count, encoding), and a copy kept under its hash preserves older versions of a month. The database records 111 imported snapshots: 108 current months (93 NSQ, 15 spurious) and 3 superseded versions of NSQ months. An offline sync rebuilds the index from these files alone.
+
+\paragraph{Parsing and validation.} \texttt{core/ingest.py} maps the portal fields (\texttt{str\_product\_name}, \texttt{str\_brand\_name}, \texttt{str\_batch\_no}, \texttt{str\_manufactured\_by}, \texttt{dt\_manufacturing\_date}, \texttt{dt\_expiry\_date}, \texttt{str\_nsq\_result}, \texttt{str\_reported\_by\_lab\_or\_state} and others) to one row shape. Descriptive text is repaired only when it shows reversible UTF-8/Latin-1 damage, and batch and date cells are never repaired. A brand in brackets after the product name moves to the brand field, a GS1 prefix ``(10)'' is removed from the batch, and a cell that lists several batches is split into one row per batch. Dates are parsed to year and month, the maker is separated from the marketer, and the entry type (NSQ, spurious, misbranded or adulterated) is derived from the tab, the spurious flag and the result text. Rows that can still be matched keep warning flags; rows that cannot be matched reliably go to a quarantine table with their reasons and stay visible in the interface. No language model repairs rows. Of the rows fetched, 75 are in quarantine; Table~\ref{tab:ingest} in Appendix~\ref{app:run} gives the outcomes by reason.
+
+
+\paragraph{Idempotent import and indexing.} Each cleaned row gets a hash of its raw cells, list month, list kind and batch key. A snapshot whose SHA-256 and cleaning version were already imported adds no rows; a changed snapshot of the same month supersedes the old source and marks vanished rows as removed. The table holds 6{,}953 rows, of which \ResAlertCount{} are active and 30 removed, and each import runs in one transaction. The match key is the batch in upper case with every character other than A--Z and 0--9 removed, under a partial SQLite index on active rows. A check fetches only the exact key and up to 2{,}000 look-alike keys with \texttt{IN} queries in chunks of 400. Embeddings and a vector store do not fit this task: a batch number is an identifier, and semantic similarity would retrieve exactly the near neighbours that must not be confused. Retrieval therefore uses exact keys and an explicit table of look-alike characters, and the uncertainty of the reading becomes a question.
 
 \section{Core Agent Loop}
 \label{sec:impl-core-agent-loop}
 
+Algorithm~\ref{alg:loop} is one call of \texttt{investigate()} in \texttt{core/investigator.py}. The server calls it when a check starts and after every answer; between calls the state is stored as a JSON document in SQLite.
+
+\begin{algorithm}[htbp]
+\caption{Bounded investigation of one check (one call)}
+\label{alg:loop}
+\footnotesize
+\begin{algorithmic}[1]
+\Require fields $f$, alert rows $A$, stored state $\sigma$ or none, answer $a$ or none; $S{=}16$ steps, $Q{=}2$ questions, $K{=}20$ candidates
+\If{$\sigma$ is none} $\sigma \gets$ new state; \textsc{Log}(\texttt{extract\_fields}) \EndIf
+\If{$\sigma.\mathit{pending}$}
+  \If{$a$ is none} \Return $\sigma$ \Comment{still waiting} \EndIf
+  \State \textsc{ApplyAnswer}$(\sigma, f, a)$; $\sigma.\mathit{asks} \gets \sigma.\mathit{asks}+1$ \Comment{malformed answer: re-ask}
+\EndIf
+\State $\mathit{canAsk} \gets \sigma.\mathit{asks} < Q \wedge |\sigma.H| < S-4$
+\If{no alert data \textbf{or} batch length outside 2--40 \textbf{or} unparseable date \textbf{or} $|\sigma.H| \ge S-3$} $\ell \gets$ \CANTV
+\ElsIf{no batch \textbf{or} two photos disagree} \textbf{if} $\mathit{canAsk}$ \textbf{return} \textsc{Ask}(\texttt{type\_batch}) \textbf{else} $\ell \gets$ \CANTV
+\Else
+  \State $E \gets \textsc{SearchExact}(A, \mathit{key}(f))$
+  \If{$E = \emptyset$ \textbf{and} \textsc{Decide}$(\{\texttt{search\_variants}, \texttt{draft\_verdict}\}) = \texttt{draft\_verdict}$} \Comment{branch (b)}
+    \State \textsc{Log}(verifier send-back, rule R4) \Comment{at most once}
+  \EndIf
+  \State $V \gets \textsc{SearchVariants}(A, \mathit{key}(f))$ \Comment{$\le 2$ substitutions, $\le 2000$ keys}
+  \State $C \gets \textsc{Grade}(\text{first } K \text{ of } E \cup V, f)$
+  \If{a date conflict in $C$ \textbf{or} more than $K$ candidates} $\ell \gets$ \CANTV
+  \ElsIf{a candidate in $C$ needs a person}
+    \If{$\mathit{canAsk} \wedge \textsc{Decide}(\{\texttt{ask\_user}, \texttt{draft\_verdict}\}) = \texttt{ask\_user}$} \Return \textsc{Ask}(kind) \Comment{branch (c)} \EndIf
+    \State $\ell \gets$ \CANTV
+  \ElsIf{a candidate $c \in C$ is accepted}
+    \If{batch evidence is not QR, typed, confirmed or two agreeing reads}
+      \State \textbf{if} $\mathit{canAsk}$ \textbf{return} \textsc{Ask}(\texttt{confirm\_batch}) \textbf{else} $\ell \gets$ \CANTV
+    \Else{} $\ell \gets$ \SFAKE{} if $c$ is spurious, else \FLAGGED \EndIf
+  \Else{} $\ell \gets$ \NLISTED \EndIf
+\EndIf
+\State \Return \textsc{Verify}(\textsc{Render}$(\ell, f, c)$, $\sigma$) \Comment{template text; a failing draft becomes \CANTV}
+\end{algorithmic}
+\end{algorithm}
+
+\textsc{ApplyAnswer} validates the answer against the pending question (for example one letter or digit per requested position) and returns an error without counting it when the answer is malformed. A new question is allowed only while fewer than two have been asked and the history has fewer than 12 steps, so the steps after the last answer still fit within 16. The variant search runs after an exact hit too, so a listed sibling batch one character away is not missed. \textsc{Decide} returns the rule suggestion in rule mode and whenever the model fails. \textsc{Log} drops steps once 16 are recorded, and verifier rule R6 rejects any draft whose history exceeds 16 steps or two questions, so the loop stays bounded even if a later change breaks a guard.
+
 \section{Tools and Function Definitions}
 \label{sec:impl-tools-and-function-definitions}
+
+The agent calls the tools named in Algorithm~\ref{alg:loop}; Table~\ref{tab:tools} in Appendix~\ref{app:supp} lists each with its input, output, bounds and failure behaviour. None is mocked: every tool runs on the real index or the real image. The demonstration packs and evaluation cartons are synthetic images, and their records are marked synthetic and excluded from real checks.
+
+\paragraph{OCR pipeline on Windows and macOS.} \texttt{read\_pack} validates the upload (at most 15\,MB and 24 million pixels), shrinks it so no side exceeds 2{,}400 pixels and gives the whole read a 60\,s deadline. Barcodes are tried first (zxing-cpp, then Apple Vision on macOS, then OpenCV) in a process killed at its deadline; GS1 application identifiers 10, 11 and 17 give the batch and dates. Text is read by Apple Vision on macOS and, on Windows, by Tesseract if installed or otherwise by a persistent RapidOCR worker that loads the pinned PP-OCRv6-small models once (D23) and never downloads models. When no batch is found, the image is read once more after grey-scaling, auto-contrast and sharpening. Label-anchored patterns (``B.No.'', ``Batch No'', ``Lot'', ``BN'') then find the batch, dates and maker, and every value keeps its source (\texttt{qr} or \texttt{ocr}).
+
+\paragraph{Matching and noisy-channel ranking.} \texttt{search\_variants} generates every key reachable from the read key by one or two substitutions from a table of characters that OCR confuses on printed codes (for example \texttt{B}/\texttt{8}/\texttt{3}, \texttt{0}/\texttt{O}/\texttt{D}/\texttt{Q}/\texttt{C}, \texttt{1}/\texttt{I}/\texttt{L}/\texttt{7}/\texttt{T}, \texttt{5}/\texttt{S}, \texttt{2}/\texttt{Z}). Hits are ordered by the number of substitutions, then by the channel score of Equation~\eqref{eq:channel}, then by row id:
+\begin{equation}
+s(v \mid r) = \sum_{i \in S} \log \frac{n_{r_i v_i} + \alpha}{n_{r_i r_i} + \alpha}, \qquad \alpha = 1,
+\label{eq:channel}
+\end{equation}
+where $r$ is the read key, $v$ the variant, $S$ the substituted positions and $n_{ab}$ the number of times a read character $a$ was confirmed as printed $b$. This follows the noisy-channel view of spelling and OCR correction \cite{kernighan1990spelling,brill2000improved,kolak2002ocr}. With no stored counts the score is zero. The score never changes a character by itself: a variant hit always needs the person's confirmation, and the same counts order the positions asked in a batch confirmation, most doubtful first (D25).
+
+\paragraph{Grading.} \texttt{grade} compares each candidate with the pack field by field. Product and brand evidence is the share of the entry's name tokens found on the pack, ignoring dosage words (match from 0.8, partial from 0.5); dates are compared by year and month; the maker matches at a RapidFuzz token-set ratio of at least 85. A product or brand mismatch rejects the candidate as a collision. An exact batch with an unknown product or a disagreeing maker needs more evidence, a one-digit date difference becomes a date question and a larger one is a conflict that ends in \CANTV{}. A variant batch needs a character confirmation. An NSQ entry is accepted when the dates or the maker agree, a spurious entry when the dates agree or the entry lists none, because the listed maker of a spurious entry is often ``under investigation''.
 
 \section{Prompt Design}
 \label{sec:impl-prompt-design}
 
+The language model is used only by \texttt{plan\_decision} in \texttt{core/llm.py}, at the two branch points. Each request to Ollama's \texttt{/api/chat} carries a fixed system message, a user message that wraps a task sentence, the evidence object, the allowed actions and the rule suggestion as JSON, and a JSON schema that requires a \texttt{thought} of at most 240 characters and an \texttt{action} from the allowed list, with temperature~0 and at most 256 reply tokens. Appendix~\ref{app:prompts} gives the verbatim strings (Listings~\ref{lst:app-system} and~\ref{lst:app-planner}).
+
+
+The system message and the JSON wrapping keep pack and alert text inside data fields, because OCR text from a photo is untrusted input that could contain instructions. The schema, passed as Ollama's \texttt{format} \cite{ollama2026structured}, restricts the action to the allowed list, so the model can reorder evidence gathering but cannot invent a tool or a verdict. The evidence object holds only derived facts (read batch and source, hit counts or candidate status, questions left, learned confusions). Temperature~0 makes the choice repeatable. The thought is capped at 240 characters, stripped of non-printable characters and replaced by a fixed notice if it contains a banned phrase. No prompt produces user-facing text.
+
 \section{Guardrails and Loop Bounds}
 \label{sec:impl-guardrails-and-loop-bounds}
+
+Every bound and timeout is listed with its termination behaviour in Table~\ref{tab:design-bounds} (Appendix~\ref{app:supp}). The values are constants in \texttt{core/config.py}, \texttt{investigator.py}, \texttt{llm.py}, \texttt{pack\_tools.py} and \texttt{server/sse.py}; settings read from the environment are clamped to the ranges shown there.
+
+
+\paragraph{Verifier.} \texttt{core/verifier.py} re-checks every draft against the stored state, independently of the drafting code, with the rules of Table~\ref{tab:verifier}. On any violation the draft is replaced by the \CANTV{} template and the rule identifiers are stored with the check; when only the batch gate (R2) fails, the text names the batch and month that would match and asks the person to have a pharmacist check the batch.
+
+\begin{table}[htbp]
+\centering
+\caption{Verifier rules as implemented}
+\label{tab:verifier}
+\footnotesize
+\begin{tabularx}{\linewidth}{@{}l >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Rule} & \textbf{Condition checked on the draft and the stored state} \\ \midrule
+R1 & The label is one of the four verdicts \\
+R2 & An alarm needs an accepted candidate with an exact or confirmed batch, batch evidence from QR, two agreeing reads or the person, a product match (or a partial match with dates and maker), no field mismatch, and equal batch keys \\
+R3 & \SFAKE{} only for a spurious entry; \FLAGGED{} only for NSQ, misbranded or adulterated entries \\
+R4 & \NLISTED{} needs a grounded batch, both searches run, no pending or accepted candidate, loaded data, no truncation \\
+R5 & An alarm cites the entry with a source URL or SHA-256; no text contains a banned phrase \\
+R6 & At most 16 steps and 2 questions \\
+R7 & Outside \CANTV, no candidate has an unresolved date conflict \\
+R8 & Outside \CANTV, every field used has a grounded source (person, OCR, QR, enhanced OCR, carton) \\
+R9 & \NLISTED{} states the lists loaded and the latest list month \\
+R10 & The verdict language is a reviewed one (English) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Templates.} All user-facing text comes from \texttt{core/templates.py}. The headlines are fixed: ``This batch is on an alert list'' (\FLAGGED), ``This batch is listed as purported spurious'' (\SFAKE), ``No matching alert found'' (\NLISTED) and ``More evidence is needed'' (\CANTV). An alarm names the list month, the failed test and the reporting laboratory and ends with ``Show this pack to your pharmacist. Do not stop any prescribed medicine without medical advice.'' A not-listed result states the lists loaded and the latest month, and adds that it does not certify the medicine because CDSCO tests only sampled batches. A case-insensitive pattern blocks the banned words of the safety policy (with Hindi equivalents) in every template and in text copied from alert rows, and the verifier and the tests enforce it. Only the listed batch is flagged, never a brand, and the web client never shows \NLISTED{} in green.
 
 \section{User Interface}
 \label{sec:impl-user-interface}
 
+\paragraph{API.} \texttt{server/app.py} serves a FastAPI application on 127.0.0.1:8000. \texttt{POST /api/checks} accepts one or two photos or typed fields, and \texttt{POST /api/checks/<id>/resume} accepts an answer; both stream server-sent events (\texttt{fields}, \texttt{strip}, \texttt{candidates}, \texttt{step}, \texttt{interrupt}, \texttt{snapshot}, \texttt{final}, \texttt{report}, \texttt{done}, \texttt{error}), and the work continues if the browser disconnects. A check that is running, or that changed since the client loaded it, refuses a second answer. Further endpoints serve the alert library, quarantine, the cabinet, the per-check trace and phone pairing; with \texttt{--lan} every request needs a pairing token.
+
+\paragraph{Clients.} Figure~\ref{fig:ui-check} in Appendix~\ref{app:supp} shows the start of a check in the React web client. While a check runs, the screen shows a step timeline (action, source, summary) and a batch strip whose character cells change from read to uncertain or confirmed; a question appears as a card with one input per requested character or a choice between the read and the listed batch, and the verdict card shows the template text with its citation. A SwiftUI client for iOS uses the same API with the camera; it was built and tested in the simulator in CI and not on a physical device. \texttt{cli.py} runs sync, ingest, checks, diagnostics and the evaluation.
+
 \section{Repository Structure}
 \label{sec:impl-repository-structure}
+
+The repository has \texttt{cli.py} at the top, the engine in \texttt{core/} (Table~\ref{tab:modules} in Appendix~\ref{app:run}), the API in \texttt{server/}, the clients in \texttt{web/} and \texttt{ios/}, tests in \texttt{tests/}, decisions and results in \texttt{docs/}, evaluation outputs in \texttt{runs/} and the paper and this report in \texttt{paper/}. The \texttt{data/} folder (snapshots, database, uploads, traces) is excluded from version control, because the alert data stay local.
+
+\fussy

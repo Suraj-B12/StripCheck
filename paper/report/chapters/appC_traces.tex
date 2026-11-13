@@ -1,3 +1,162 @@
-% Appendix: Sample Traces and Screenshots (see GUIDANCE.md). PLACEHOLDER
+% Appendix C: Sample Traces and Screenshots.
+% Sources: docs/trace/run1_trace.jsonl, run2_trace.jsonl, walkthrough_runs.json, phoenix_spans_run1.json,
+% README.md (all from the R3 walkthrough of 8 Nov 2026); runs/eval_seed7_latest.json (run 2 rows for
+% s7_001_clean and s7_017_misread); core/investigator.py and core/templates.py at HEAD 25fb3f8.
+% Screenshots copied from docs/trace/01_phoenix_trace_list.png and 02_phoenix_run1_misread_trace.png.
 \chapter{Sample Traces and Screenshots}
 \label{app:traces}
+
+This appendix gives three annotated traces. Trace~1 is a successful check in which the person confirms a misread character and the agent raises a cited alarm. Trace~2 repeats the same check after the correction has been stored, and shows the feedback loop. Trace~3 shows what happens when no one answers: the agent abstains with \CANTV{} instead of raising an alarm on an unconfirmed batch.
+
+Traces~1 and~2 come from the trace walkthrough of 8~November~2026 (\texttt{docs/trace/}). They ran through the real server API with the local OCR, the hybrid planner on Ollama with \texttt{qwen2.5:3b} and Phoenix tracing switched on. The input photo is the rendered synthetic prop~03, and the alert store held one invented record (\texttt{example.invalid} source) so that no CDSCO row is copied into the repository. Trace~3 comes from the run-2 evaluation records in \texttt{runs/eval\_seed7\_latest.json}.
+
+\section{How the traces are recorded}
+\label{sec:app-traces-format}
+
+Every check writes one JSON line per event to \texttt{data/traces/<thread\_id>.jsonl}. Each line has the UTC time, the thread id and the event name; step events also carry the step number, action, source (\texttt{rules}, \texttt{llm}, \texttt{rules(fallback)}, \texttt{rules(verifier)} or \texttt{user}), a summary, the time in milliseconds and, at decisions, a thought. The events recorded in Trace~1 are \texttt{fields}, \texttt{strip}, \texttt{step}, \texttt{candidates}, \texttt{interrupt} (the question), \texttt{learning}, \texttt{snapshot}, \texttt{final} (the verdict) and \texttt{done}. The JSONL schema also has fields for a model name and token counts, but the check path leaves them empty; the planner's model name and call time are recorded in the OpenTelemetry LLM span instead.
+
+With tracing on, the same check is exported to Phoenix. Figure~\ref{fig:app-phoenix-list} shows the project view with the walkthrough checks. The span tree of Trace~1 is Figure~\ref{fig:phoenix-trace} in Chapter~\ref{ch:eval}, and Figure~\ref{fig:app-phoenix-io} shows the input and output of its root span.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig_phoenix_list.png}
+\caption{Phoenix project \texttt{stripcheck} with the walkthrough checks (cropped: sidebar and empty columns removed). Each table row is one root \texttt{check} span of kind \textsc{agent}; the input column starts with the fields read by OCR and the output column with the status \texttt{waiting} at the question. Screenshot from the local Phoenix 21.0.0 server, 8~November~2026.}
+\label{fig:app-phoenix-list}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig_phoenix_io.png}
+\caption{Root \texttt{check} span of Trace~1 in Phoenix (cropped). The input holds the fields read by OCR, with the batch \texttt{LM24088} and source \texttt{ocr}; the output at the pause holds the status \texttt{waiting} and the \texttt{confirm\_char} question that offers \texttt{LM24088} and \texttt{LM2408B}. The span duration 8.4~s is the 8.49~s of the exported span, truncated by Phoenix.}
+\label{fig:app-phoenix-io}
+\end{figure}
+
+\section{Trace 1: a confirmed misread ends in a cited alarm}
+\label{sec:app-traces-run1}
+
+The OCR read the batch as \texttt{LM24088}; the printed batch is \texttt{LM2408B}. The \texttt{strip} event marked the last character as uncertain with the alternative \texttt{B}. Table~\ref{tab:app-trace1} lists the ten steps from \texttt{run1\_trace.jsonl}.
+
+\begin{table}[H]
+\centering
+\caption{Step log of Trace~1 (hybrid planner, run~1 of the walkthrough)}
+\label{tab:app-trace1}
+\small
+\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}r l l >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Source} & \textbf{Recorded observation} \\
+\midrule
+1 & \texttt{extract\_fields} & rules & Fields from OCR: batch \texttt{LM24088}, product, dates, maker \\
+2 & \texttt{search\_exact} & rules & 0 candidates in 1 loaded record \\
+3 & \texttt{search\_variants} & llm & Branch point (b). 1 candidate, \texttt{LM2408B}, one substitution (position 7, read \texttt{8}, listed \texttt{B}) \\
+4 & \texttt{grade} & rules & Product, dates and maker match; batch is a variant, so status \texttt{needs\_confirm\_char} \\
+5 & \texttt{ask\_user} & llm & Branch point (c). Question \texttt{confirm\_char}; check pauses with status \texttt{waiting} \\
+6 & \texttt{answer} & user & Person chooses \texttt{LM2408B}; batch evidence becomes \texttt{user\_confirmed}; one correction stored \\
+7 & \texttt{search\_exact} & rules & 1 candidate \\
+8 & \texttt{search\_variants} & rules & 0 further candidates; the search still runs after an exact hit \\
+9 & \texttt{grade} & rules & Batch confirmed; product, dates and maker match; status \texttt{accept} \\
+10 & \texttt{draft\_verdict} & rules & \FLAGGED{} drafted; verifier \texttt{approved} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+At step~3 the exact search was empty, so the hybrid planner asked the model to choose between the two allowed actions. The recorded input and output were:
+\begin{lstlisting}[language={},numbers=none,caption={Planner decision at branch point (b), Trace~1 (\texttt{docs/trace/README.md})},label={lst:app-branch-b}]
+input:  {"evidence": {"batch_read": "LM24088",
+                      "batch_source": "ocr",
+                      "exact_hits": 0,
+                      "records_searched": 1,
+                      "learned_reader_confusions": []},
+         "allowed": ["search_variants", "draft_verdict"],
+         "rule_suggestion": "search_variants"}
+output: {"thought": "The batch read is unique and not found in the
+                     records, suggesting it may be a variant or a
+                     new batch.",
+         "action": "search_variants"}
+\end{lstlisting}
+The model agreed with the rule suggestion. Had it chosen \texttt{draft\_verdict}, the verifier would have sent the draft back once under rule R4, because a \NLISTED{} result requires the variant search. At step~5 the model chose \texttt{ask\_user}, but its thought swapped the two batches (``The batch `LM2408B' does not match the listed `LM24088' \ldots''). The thought appears only in the trace and the action came from the allowed list, so the error had no effect on the result. The question sent to the person (the \texttt{interrupt} event) was:
+\begin{lstlisting}[language={},numbers=none]
+{"kind": "confirm_char",
+ "question": "One or more characters may be unclear. Which batch is
+              printed on your pack: LM24088 or LM2408B?",
+ "options": ["LM2408B", "LM24088", "Can't tell"],
+ "positions": [7], "listed": "LM2408B", "pack": "LM24088"}
+\end{lstlisting}
+After the answer the server wrote a \texttt{learning} event (``Stored 1 explicitly confirmed character correction(s) for future ranking. Confirmation gates are unchanged.''), the searches and grading ran again on the confirmed batch, and the verifier approved the draft. The \texttt{final} event, shortened, was:
+\begin{lstlisting}[language={},numbers=none]
+{"label": "FLAGGED",
+ "headline": "This batch is on an alert list",
+ "explanation": "This batch appears on CDSCO's September 2026 list of
+                 drugs found Not of Standard Quality (failed test:
+                 Synthetic example: dissolution; reported by
+                 Demonstration laboratory).",
+ "advice": "Show this pack to your pharmacist. Do not stop any
+            prescribed medicine without medical advice.",
+ "citations": [{"id": 10001,
+                "title": "Walkthrough fixture record (prop 03, invented)",
+                "url": "https://example.invalid/stripcheck-walkthrough",
+                "list_month": "2026-09", ...}],
+ "evidence": {"batch": "confirmed", "product": "match", "brand": "n/a",
+              "dates": "match", "maker": "match"},
+ "batch_evidence": "user_confirmed"}
+\end{lstlisting}
+Every sentence in this verdict comes from \texttt{core/templates.py}. Phoenix recorded 25 spans for this check, with a root span of 8.49~s; the two model calls took 4.60~s and 3.89~s, and every tool span took under a millisecond.
+
+\section{Trace 2: the stored correction returns as a prior}
+\label{sec:app-traces-run2}
+
+The same photo was checked again a few seconds later. The step sequence and sources were identical to Trace~1, and the result was again \FLAGGED{} with the same citation. Three records differ, and together they show the feedback loop.
+
+First, the model's input at branch point (b) now listed the stored correction, \texttt{"learned\_reader\_confusions": ["8->B x1"]}, and its thought read ``To account for potential reader confusion, it is important to check for variations of the batch number.'' Second, the \texttt{search\_variants} step recorded the prior in its summary and in a separate field:
+\begin{lstlisting}[language={},numbers=none,caption={Learned prior in the variant-search step of Trace~2 (\texttt{docs/trace/run2\_trace.jsonl})},label={lst:app-trace-run2}]
+{"step": 3, "action": "search_variants", "source": "llm",
+ "summary": "Checked bounded character alternatives; 1 candidate(s).
+             No printed character was changed. Prior confirmed
+             corrections: 8 to B: 1. Confirmation is still required.",
+ "prior": "8->B seen 1 time"}
+\end{lstlisting}
+The candidate's channel score rose from 0 in Trace~1 to 0.693, which is $\ln 2$: one stored \texttt{8}$\to$\texttt{B} correction with smoothing $\alpha = 1$. Third, the question was still asked, because the prior only orders candidates and never replaces a confirmation, and it now carried the template note on the prior:
+\begin{lstlisting}[language={},numbers=none]
+"question": "One or more characters may be unclear. Which batch is
+             printed on your pack: LM24088 or LM2408B? Earlier checks
+             on this computer confirmed that the photo reader read B
+             as 8 once. Please still check the printed character
+             yourself.",
+"prior": [{"read": "8", "true": "B", "count": 1}]
+\end{lstlisting}
+The person's second confirmation was stored as well, so the count for the pair became~2. Demonstration checks neither read nor write this memory, so the public demonstration stays deterministic.
+
+\section{Trace 3: no answers, so the agent abstains}
+\label{sec:app-traces-abstain}
+
+The evaluation records keep a summary of each check (label, step count, step sources, questions and answers, reason) and not the full step log. Table~\ref{tab:app-trace3} compares two seed-7 packs under the two HITL policies of Chapter~\ref{ch:eval}. The batch strings are omitted because these packs are rendered from CDSCO rows.
+
+\begin{table}[H]
+\centering
+\caption{Two evaluation packs with and without answers (run 2, seed 7)}
+\label{tab:app-trace3}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.2\linewidth} l l >{\raggedright\arraybackslash}p{0.1\linewidth} l >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Pack, planner} & \textbf{HITL} & \textbf{Question} & \textbf{Answer} & \textbf{Label} & \textbf{Steps (sources); reason} \\
+\midrule
+\texttt{s7\_001\_clean}, rules & oracle & \texttt{confirm\_batch} & typed batch & \FLAGGED{} & 10 (9 rules, 1 user) \\
+\texttt{s7\_001\_clean}, rules & none & \texttt{confirm\_batch} & skipped & \CANTV{} & 10 (9 rules, 1 user); \texttt{batch\_gate} \\
+\texttt{s7\_017\_misread}, hybrid & oracle & \texttt{confirm\_char} & listed batch & \FLAGGED{} & 10 (7 rules, 2 llm, 1 user) \\
+\texttt{s7\_017\_misread}, hybrid & none & \texttt{confirm\_char} & skipped & \CANTV{} & 10 (6 rules, 3 llm, 1 user); characters could not be confirmed \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Pack \texttt{s7\_001\_clean} is a listed batch read correctly by OCR. Grading accepted the candidate, but the batch was only machine-read, so the investigator asked \texttt{confirm\_batch}; this question is not a branch point and the rules ask it in both planners. With the oracle's answer the check ends in \FLAGGED{}. With the question skipped, the batch gate still holds, and the investigator drafts \CANTV{} with the reason \texttt{batch\_gate}, which the template renders as follows (the batch and the list month are filled in from the candidate):
+\begin{lstlisting}[language={},numbers=none]
+More evidence is needed
+Possible match: if your batch reads {batch}, it is on CDSCO's {month}
+list. We could not confirm the batch, so ask your pharmacist to check it.
+Ask your pharmacist to check the batch number and printed details. Do
+not stop any prescribed medicine without medical advice.
+\end{lstlisting}
+
+Pack \texttt{s7\_017\_misread} prints a look-alike misread of a listed batch. With the hybrid planner the model was consulted at branch points (b) and (c), and the check paused at \texttt{confirm\_char}. When the question was skipped, the check resumed, the unchanged batch again gave an empty exact search, and the model was consulted at (b) a second time, which is why the record shows three model steps. The declined question is not asked again, so the investigator drafted \CANTV{} with the reason ``the printed characters or dates could not be confirmed''. Across the 60 packs with no answers, each agent planner abstained on \res{ResRulesSkipAbstainK} packs and raised no false alarm on the 20 \NLISTED{} packs. The model calls account for most of this pack's reasoning time, 11.8~s without answers and 13.5~s with the oracle, against about 0.1~s for the rule planner on the same pack.

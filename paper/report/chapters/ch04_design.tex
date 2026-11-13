@@ -1,21 +1,346 @@
 %---------------------------------------------------------------------
 % Chapter 4: Agent Design and Architecture (template sections; see GUIDANCE.md)
-% PLACEHOLDER: replace this comment with content.
+% Sources: FACTS.md sections 3-9 and 24; core/investigator.py, core/verifier.py, core/llm.py,
+% core/config.py, core/supervisor.py, core/ingest.py, core/db.py, server/app.py (control logic
+% identical at 25fb3f8 and HEAD); docs/trace/run1_trace.jsonl (walkthrough, invented record).
 %---------------------------------------------------------------------
 \chapter{Agent Design and Architecture}
 \label{ch:design}
 
+This chapter presents the design that meets the requirements of Chapter~\ref{ch:req}. It shows
+the architecture, describes each component and its failure behaviour, names the agentic patterns
+with the alternatives that were rejected, and then follows the control flow, the agent state and
+one input through the system. Code and prompts are left to Chapter~\ref{ch:impl}.
+
 \section{System Architecture}
 \label{sec:design-system-architecture}
+
+Figure~\ref{fig:arch} shows the architecture as built. It has two lanes that run on different
+clocks. In the per-pack lane a person waits for an answer about one pack: a client sends photos
+or typed details to a local API, perception tools read the pack, the investigator plans and runs
+tool calls over the alert index, and a verifier checks the drafted verdict before it is shown. The
+background lane runs after each data sync and never involves the person: it fetches the CDSCO lists,
+ingests them into the alert index and re-checks every saved pack. Both lanes run on the user's
+machine. The only component that may leave the machine is the portal sync, and the only optional
+component is the local language model (dashed in the figure), so a check completes with the model,
+the tracing server and the network all switched off (NFR1).
+
+\begin{figure}[!htbp]
+\centering\setstretch{1}
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw=bmsblue,fill=guidebg,rounded corners=2pt,minimum width=2.6cm,text width=2.4cm,minimum height=0.95cm,align=center},
+  agent/.style={box,line width=0.9pt},
+  tool/.style={draw=ForestGreen,fill=dobg,minimum width=2.6cm,text width=2.4cm,minimum height=0.95cm,align=center},
+  opt/.style={tool,dashed},
+  store/.style={draw=gray,fill=gray!10,cylinder,shape border rotate=90,aspect=0.18,minimum width=2.6cm,text width=2.3cm,minimum height=1.15cm,align=center},
+  human/.style={draw=BrickRed,fill=dontbg,rounded corners=6pt,minimum width=2.6cm,text width=2.4cm,minimum height=0.95cm,align=center},
+  ext/.style={draw=black!60,fill=white,minimum width=2.6cm,text width=2.4cm,minimum height=0.95cm,align=center,double},
+  arr/.style={-{Stealth[length=2mm]},thick},
+  lab/.style={font=\footnotesize,align=center,inner sep=3pt}]
+% columns 1.3 / 7.45 / 13.6 ; rows below
+\node[human] (person) at (7.45,0) {Person holding the pack};
+\node[box]   (clients) at (7.45,-1.85) {Clients: web, iOS, command line};
+\node[box]   (api) at (7.45,-3.9) {Local API (FastAPI, SSE)};
+\node[tool]  (perc) at (1.3,-3.9) {Perception tools: QR, OCR, re-read};
+\node[store] (state) at (13.6,-3.9) {Check state, traces, memory};
+\node[agent] (inv) at (7.45,-6.8) {\textbf{Investigator} planner and tool loop};
+\node[opt]   (llm) at (1.3,-6.8) {Local LLM (optional) qwen2.5:3b};
+\node[store] (index) at (13.6,-6.8) {Alert index (SQLite)};
+\node[agent] (ver) at (1.3,-8.9) {\textbf{Verifier} rules R1--R10};
+\node[store] (raw) at (1.3,-11.45) {Raw snapshots and metadata};
+\node[box]   (recheck) at (7.45,-11.45) {Cabinet\\re-check\\(no questions)};
+\node[box]   (ingest) at (13.6,-11.45) {Ingest: clean, validate, quarantine};
+\node[ext]   (portal) at (1.3,-13.45) {CDSCO SUGAM portal};
+\node[box]   (sync) at (7.45,-13.45) {Portal sync\\(1.5\,s gap, TLS)};
+% lanes
+\begin{scope}[on background layer]
+\draw[dashed,draw=bmsblue!60,fill=bmsblue!3,rounded corners=4pt] (-0.15,0.75) rectangle (15.05,-9.95);
+\draw[dashed,draw=gray!70,fill=gray!4,rounded corners=4pt] (-0.15,-10.25) rectangle (15.05,-14.45);
+\end{scope}
+\node[anchor=north west,lab,align=left,text=bmsblue] at (-0.05,0.65) {\textbf{Per-pack lane}\\the person waits};
+\node[anchor=south east,lab,align=right,text=black!70] at (14.95,-14.35) {\textbf{Background lane}\\(supervisor)};
+% per-pack arrows
+\draw[arr] ([xshift=-5mm]person.south) -- node[lab,left,xshift=-1.5mm]{photos, typed\\details, answers} ([xshift=-5mm]clients.north);
+\draw[arr] ([xshift=5mm]clients.north) -- node[lab,right,xshift=1.5mm]{questions,\\verdict card} ([xshift=5mm]person.south);
+\draw[arr] ([xshift=-5mm]clients.south) -- node[lab,left,xshift=-1.5mm]{HTTP request:\\images, answer} ([xshift=-5mm]api.north);
+\draw[arr] ([xshift=5mm]api.north) -- node[lab,right,xshift=1.5mm]{SSE: steps,\\question, verdict} ([xshift=5mm]clients.south);
+\draw[arr] ([yshift=2mm]api.west) -- node[lab,above,pos=0.72]{image} ([yshift=2mm]perc.east);
+\draw[arr] ([yshift=-2mm]perc.east) -- node[lab,below]{fields, provenance} ([yshift=-2mm]api.west);
+\draw[arr,{Stealth[length=2mm]}-{Stealth[length=2mm]}] ([yshift=-2mm]api.east) -- node[lab,above]{check state, trace} node[lab,below]{prior, corrections} ([yshift=-2mm]state.west);
+\draw[arr] ([xshift=-5mm]api.south) -- node[lab,left]{fields, answer,\\saved state} ([xshift=-5mm]inv.north);
+\draw[arr] ([xshift=5mm]inv.north) -- node[lab,right]{snapshot: question\\or result} ([xshift=5mm]api.south);
+\draw[arr,dashed] ([yshift=2mm]inv.west) -- node[lab,above]{evidence,\\allowed actions} ([yshift=2mm]llm.east);
+\draw[arr,dashed] ([yshift=-2mm]llm.east) -- node[lab,below]{action, thought} ([yshift=-2mm]inv.west);
+\draw[arr] (index.west) -- node[lab,below]{alert rows for\\the batch keys} (inv.east);
+\draw[arr] ([xshift=-9mm]inv.south) |- node[lab,above,pos=0.75]{draft verdict} ([yshift=2mm]ver.east);
+\draw[arr] ([yshift=-2mm]ver.east) -| node[lab,below,pos=0.25]{approved, or \CANTV} ([xshift=-5mm]inv.south);
+% background arrows
+\draw[arr] (portal.east) -- node[lab,below]{monthly JSON\\(latin-1)} (sync.west);
+\draw[arr] (sync.north west) -- node[lab,below left=-1pt,pos=0.55]{raw files, SHA-256} (raw.south east);
+\draw[arr] (sync.north east) -- node[lab,below right=-1pt,pos=0.55]{new snapshots} (ingest.south west);
+\draw[arr] (ingest.north) -- node[lab,left,pos=0.4]{validated rows,\\atomic commit} (index.south);
+\draw[arr] (ingest.west) -- node[lab,above]{after ingest} (recheck.east);
+\draw[arr] ([xshift=9mm]recheck.north) -- node[lab,right,pos=0.75]{saved packs,\\same investigator} ([xshift=9mm]inv.south);
+\end{tikzpicture}
+\caption{Architecture of StripCheck as built. Blue boxes are control components (bold: the agent and
+its verifier), green boxes are tools, the dashed box is optional, cylinders are local stores and the
+double box is the external data source.}
+\label{fig:arch}
+\end{figure}
+
+Three decisions shape the figure. The agent is one bounded loop with an independent verifier,
+because the question it answers (is this exact batch on a list?) has a fixed set of evidence steps
+that a fixed loop can bound, test and trace. The language model sits beside the loop and never on
+the path to the person: it chooses between two allowed actions at a branch point, and the rules take
+over when it is slow, absent or invalid. The LangGraph graphs of the specification were replaced by
+a custom loop whose whole state is one JSON document saved after every run, which keeps the pause
+and resume behaviour with less code (decision D18).
 
 \section{Component Description}
 \label{sec:design-component-description}
 
+This section describes every box of Figure~\ref{fig:arch}: its responsibility, inputs and outputs,
+method and behaviour on failure.
+
+\subsection{Clients and local API}
+
+The web, iOS and command-line clients talk to one local FastAPI server. \texttt{POST /api/checks}
+starts a check with one or two images or typed fields, and \texttt{POST /api/\allowbreak checks/<id>/\allowbreak resume}
+continues it with an answer. Progress is streamed as server-sent events (\texttt{step},
+\texttt{interrupt} for a question, \texttt{final} for the verdict and others) through a queue of 256
+messages, and the work continues if the browser disconnects. The API passes the investigator only
+the alert rows whose batch key matches the read or typed batch, together with the size and month
+coverage of the whole index. A second answer to a running or changed check is refused with HTTP
+409, and an unexpected error marks the check as failed. The server binds to \texttt{127.0.0.1};
+phone access needs a pairing token.
+
+\subsection{Perception tools}
+
+Perception turns an image into pack fields, each with its source. A barcode reader (zxing-cpp,
+then OpenCV) parses a QR or GS1 code; RapidOCR with PP-OCRv6-small models reads the printed lines on
+the CPU~\cite{rapidai2021rapidocr,du2020ppocr}; one enhanced re-read is tried when no batch is found;
+label-anchored patterns extract batch, product, brand, dates and maker. Each reader runs in a
+separate process within a 60\,s deadline per photo. A failed read leaves the field empty, and the
+investigator then asks the person to type the batch. If the QR and printed batches disagree, the
+printed one is used without confirmed status; if two photos disagree, the person is asked.
+
+\subsection{Planner}
+
+The default planner is a fixed rule order (Section~\ref{sec:design-control-flow-and-agent-state}).
+In hybrid mode the local model \texttt{qwen2.5:3b} under Ollama~\cite{ollama2026structured} is
+consulted at two branch points: (b) after an empty exact search, choosing \texttt{search\_variants}
+or \texttt{draft\_verdict}, and (c) when grading leaves a candidate that needs a person, choosing
+\texttt{ask\_user} or \texttt{draft\_verdict}. It receives a JSON evidence object, the allowed
+actions and the rule suggestion, and must return an allowed action and a one-sentence thought. On a
+timeout (15\,s by default), a connection error, invalid JSON or an action outside the list, the rule
+suggestion is used with the source \texttt{rules(fallback)}, and after a connection error the model
+is skipped for 30\,s. A thought with a banned phrase is withheld. The model writes no text that the
+person reads.
+
+\subsection{Executor and tools}
+
+The investigator runs each chosen action as a tool call and appends the observation to the history
+of the check: \texttt{extract\_fields}, \texttt{search\_exact}, \texttt{search\_variants},
+\texttt{grade}, \texttt{ask\_user} and \texttt{draft\_verdict} (signatures in
+Chapter~\ref{ch:impl}). The tools are deterministic functions over local data. Inputs a tool cannot
+use (no data loaded, a batch shorter than 2 or longer than 40 characters, an unreadable date) end the
+run with a \CANTV{} draft and a stated reason instead of an exception.
+
+\subsection{Retriever and relevance grader}
+
+Retrieval is keyed on the normalised batch string, since batch codes carry no meaning that a
+semantic search could use. \texttt{search\_exact} looks the key up; \texttt{search\_variants}
+generates look-alike keys from a table of confusable characters (8 and B, 0 and O, 1 and I and
+others) with at most two substitutions and 2{,}000 lookups, ordered by a noisy-channel score from
+earlier confirmations~\cite{kernighan1990spelling,brill2000improved}. The variant search also runs
+after an exact hit, so that a listed sibling batch is not missed. The grader treats each candidate as
+a record-linkage decision~\cite{fellegi1969theory,christen2012survey}: a disagreeing product, brand
+or maker rejects it (a batch collision); a substitution needs a character confirmation; a date one
+digit off needs a date confirmation; missing product or maker evidence needs more printed details;
+agreeing evidence accepts it. At most 20 candidates are graded.
+
+\subsection{Reflector and human approval gate}
+
+The verifier re-checks every draft against the stored state with ten hard rules (R1 to R10,
+Table~\ref{tab:verifier}), independently of the drafting code. An alarm needs a corroborated
+candidate, a confirmed batch and a citation; \NLISTED{} needs both searches, no pending candidate and
+a statement of the lists loaded; every used field needs a source; no text may contain a banned
+phrase. A failing draft becomes the \CANTV{} template with the rule ids. Only one draft is sent back
+for revision: a model draft made before the variant search, which rule R4 returns once.
+
+The human gate is \texttt{ask\_user}, with five question kinds: type the batch, confirm the batch,
+confirm a character, confirm a printed date, or add printed details or a carton photo. An alarm
+requires the batch to come from a QR code, from the person or from two agreeing photos, never from
+OCR alone. The person types the characters at the look-alike positions instead of pressing a yes
+button, because people tend to accept confirmations without
+checking~\cite{parasuraman2010complacency,bucinca2021trust}. Every question offers ``Can't tell'',
+and a declined question leads to \CANTV.
+
+\subsection{Stores and memory}
+
+The \emph{alert index} is a SQLite table of cleaned rows, each with its source URL, the SHA-256
+digest of its snapshot and its row number. The \emph{check state} store keeps one JSON document per
+check, written after every run so that a pending question survives a restart, and the same database
+holds the cabinet of saved packs, notifications and confirmed character corrections; each check also
+writes a JSON Lines trace. The \emph{raw snapshots} are the portal responses with their metadata.
+Memory has two parts: the cabinet of saved packs, and a confusion prior of character pairs that
+people confirmed on photographed packs. The prior reorders variants and chooses which characters to
+ask about; it never removes a question.
+
+\subsection{Background supervisor}
+
+The portal sync fetches the newest three months by default (the history from January 2019 on
+request), at least 1.5\,s apart, with TLS verification, three attempts and a 20\,s timeout, and
+stores each raw response. Ingest reads the latin-1 JSON, validates the rows, quarantines rows with a
+missing product, a placeholder batch or a date in the batch cell, and commits each snapshot in one
+transaction; a snapshot whose digest is already stored is skipped, so imports are idempotent. The
+cabinet re-check then runs the same investigator on every saved pack with questions disabled and
+notifies the person of a new listing or a printed expiry within 30 days. When the portal is
+unreachable the existing index stays in use.
+
+
 \section{Selected Agentic Patterns and Justification}
 \label{sec:design-selected-agentic-patterns-and-justification}
+
+Table~\ref{tab:design-patterns} lists the patterns used, where each sits, why it was chosen and
+which alternative was rejected. The common reason is the cost of an error: a false alarm on a
+sibling batch harms a product that is not listed, and a confident \NLISTED{} can be read as an
+assurance about the medicine. Every decision that reaches the person is therefore kept in testable
+rules, and the model is used only where a later rule catches a wrong choice, in line with the advice
+to prefer simple workflows when the steps are known~\cite{schluntz2024building}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Agentic patterns used in StripCheck and the alternatives rejected}
+\label{tab:design-patterns}
+\small\renewcommand{\_}{\textunderscore\allowbreak}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.9cm}@{}}
+\toprule
+\textbf{Pattern} & \textbf{Where} & \textbf{Reason} & \textbf{Alternative rejected} \\ \midrule
+Bounded tool loop (plan, act, observe)~\cite{yao2023react} & Investigator & Each step is a logged tool call; the loop has a step cap and runs without a model & Free-form ReAct loop driven by the model \\
+Model as advisor at branch points~\cite{kambhampati2024llmmodulo} & Planner (b), (c) & A 3B local model chooses only among allowed actions; rules check and replace its choice & Model plans every step \\
+Corrective retrieval with a grader & Exact and variant search, grade & A misread batch is expected; an empty exact search triggers a bounded look-alike search, and grading removes collisions & Single exact lookup (the baseline of Chapter~\ref{ch:eval}) \\
+Record linkage~\cite{fellegi1969theory} & Grader & A shared batch string is not identity; product, dates and maker must agree & Embedding similarity over alert text \\
+External verifier (reflection)~\cite{huang2024cannot} & Verifier & Hard rules re-check the draft against stored state & Model self-critique~\cite{madaan2023selfrefine,shinn2023reflexion} \\
+Human-in-the-loop interrupt & \texttt{ask\_user} & Only the person holding the pack can read the printed character & Yes/no confirm button; fully automatic alarm \\
+Abstention~\cite{chow1970reject,geifman2017selective} & \CANTV{} & Weak evidence ends in an explicit ``more evidence is needed'' & Forced choice between alarm and \NLISTED \\
+Supervisor with re-check & Background lane & Sequential sync, ingest, re-check with one investigator & Multi-agent conversation~\cite{wu2023autogen} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A model-driven ReAct loop was rejected because a 3B model on a laptop adds seconds per decision
+and its choices cannot be bounded in advance; Chapter~\ref{ch:exp} later found that the hybrid
+planner changed no verdict on the \ResN{} evaluation packs while its 95th-percentile latency was
+about five times that of the rule planner. Model self-critique was rejected for the reason given
+in Section~\ref{sec:lit-related-technical-work}: without external feedback it does not reliably
+correct the model's reasoning.
 
 \section{Control Flow and Agent State}
 \label{sec:design-control-flow-and-agent-state}
 
+Figure~\ref{fig:design-flow} shows the decision flow of one run of the investigator. A run starts
+from the supplied fields, or resumes from the saved state with an answer. Every path ends in
+\texttt{draft\_verdict} and the verifier, or in a question that pauses the check; there is no other
+exit. The diamonds are the decision points, and the two branch points where the hybrid planner may
+consult the model are marked (b) and (c).
+
+\begin{figure}[!htbp]
+\centering\setstretch{1}
+\begin{tikzpicture}[
+  font=\footnotesize,
+  stp/.style={draw=bmsblue,fill=guidebg,rounded corners=2pt,minimum width=3.6cm,text width=3.4cm,minimum height=0.75cm,align=center},
+  dec/.style={draw=bmsblue,fill=white,diamond,aspect=3.2,inner sep=0.5pt,align=center},
+  hum/.style={draw=BrickRed,fill=dontbg,rounded corners=4pt,text width=2.7cm,minimum height=0.9cm,align=center},
+  side/.style={draw=ForestGreen,fill=dobg,rounded corners=2pt,text width=3.0cm,minimum height=0.8cm,align=center},
+  bad/.style={draw=black!60,fill=gray!12,rounded corners=2pt,text width=2.9cm,minimum height=0.8cm,align=center},
+  arr/.style={-{Stealth[length=2mm]},thick},
+  lab/.style={font=\footnotesize,align=center,inner sep=1.5pt}]
+\node[stp] (start) at (6.4,0) {Start, or resume with an answer};
+\node[dec]  (d1) at (6.4,-1.5) {Inputs usable?};
+\node[stp] (ex) at (6.4,-3.0) {\texttt{search\_exact}};
+\node[dec]  (d2) at (6.4,-4.5) {Exact hit?};
+\node[stp] (va) at (6.4,-6.0) {\texttt{search\_variants}};
+\node[stp] (gr) at (6.4,-7.5) {\texttt{grade} candidates};
+\node[dec]  (d3) at (6.4,-9.0) {Candidate status?};
+\node[dec]  (d4) at (6.4,-10.6) {Gate evidence?};
+\node[stp] (dr) at (6.4,-12.1) {\texttt{draft\_verdict} (template)};
+\node[dec]  (d5) at (6.4,-13.6) {Verifier passes?};
+\node[stp,fill=dobg,draw=ForestGreen] (out) at (6.4,-15.1) {Verdict with citation};
+\node[hum]  (ask) at (1.5,-6.75) {\texttt{ask\_user}: pause, state saved};
+\node[side] (pb) at (11.6,-4.5) {Branch (b): rules or LLM choose; a draft is sent back once (R4)};
+\node[bad]  (cv) at (11.6,-13.6) {\CANTV{}\\template, rule ids};
+\node[draw=black!50,fill=white,text width=2.9cm,align=left,inner sep=3pt] (bounds) at (1.5,-13.9)
+  {\textbf{Bounds}\\16 steps (R6)\\2 questions\\no question after step 12\\2 substitutions\\2{,}000 variant keys\\20 candidates\\1 send-back\\LLM: 2 tries, 15\,s};
+% spine
+\draw[arr] (start) -- (d1);
+\draw[arr] (d1) -- node[lab,right]{yes} (ex);
+\draw[arr] (ex) -- (d2);
+\draw[arr] (d2) -- node[lab,right]{yes} (va);
+\draw[arr] (va) -- (gr);
+\draw[arr] (gr) -- (d3);
+\draw[arr] (d3) -- node[lab,right]{accepted} (d4);
+\draw[arr] (d4) -- node[lab,right]{yes: \FLAGGED{} or \SFAKE} (dr);
+\draw[arr] (dr) -- (d5);
+\draw[arr] (d5) -- node[lab,right]{pass} (out);
+% branch (b) and send-back
+\draw[arr] (d2) -- node[lab,above]{no} (pb);
+\draw[arr] (pb.south) |- node[lab,above,pos=0.75,yshift=1.5mm]{\texttt{search\_variants}} (va.east);
+% questions
+\draw[arr] (d1.west) -| node[lab,above,pos=0.3]{no batch, or\\photos disagree} (ask.north);
+\draw[arr] (d3.west) -| node[lab,above,pos=0.3,yshift=1.5mm]{pending: (c)} ([xshift=5mm]ask.south);
+\draw[arr] (d4.west) -| node[lab,above,pos=0.3,yshift=1.5mm]{no: \texttt{confirm\_batch}} ([xshift=-5mm]ask.south);
+\draw[arr,dashed] (ask.west) -- ++(-0.45,0) |- node[lab,above,pos=0.75,yshift=1.5mm]{answer: resume} (start.west);
+% abstention rail
+\draw[thick] (d1.east) -- node[lab,above]{no data, invalid length\\or date, step limit: \CANTV} (14.3,-1.5);
+\draw[arr] (14.3,-1.5) |- (dr.east);
+\draw[thick] (d3.east) -- node[lab,above]{none left: \NLISTED;\\conflict or too many: \CANTV} (14.3,-9.0);
+\draw[arr] (d5) -- node[lab,above]{fail} (cv);
+\draw[arr] (cv.south) |- (out.east);
+\end{tikzpicture}
+\caption{Decision flow of one investigator run. Diamonds are decisions, (b) and (c) are the branch
+points where the hybrid planner may consult the local model, red is the pause for a question, and
+grey is the downgrade by the verifier. Every path reaches the verifier or a question.}
+\label{fig:design-flow}
+\end{figure}
+
+A pending candidate leads to the matching question: \texttt{confirm\_char} for a substituted
+character, \texttt{confirm\_field} for a date one digit off and \texttt{box\_photo} for missing
+product or maker evidence. When no question may be asked, or the planner at (c) drafts, the reason
+is drafted as \CANTV. After an answer the check resumes from the saved state, applies the answer to
+the fields and runs the searches and the grader again. The state is one JSON document per check
+(Table~\ref{tab:design-state} in Appendix~\ref{app:supp}), stored by the API after every run and loaded by the resume endpoint,
+so a check can wait for an answer across a server restart.
+
+Every loop in the design has an upper bound; Table~\ref{tab:design-bounds} in
+Appendix~\ref{app:supp} lists the termination condition of each. The values are constants in \texttt{core/config.py} and the reader,
+model and streaming modules, and settings read from the environment are clamped; the verifier
+enforces the step and question limits again as rule R6, so a defect in the investigator cannot
+produce an unbounded check that is still shown as a result.
+
 \section{Data Flow}
 \label{sec:design-data-flow}
+
+This section follows one input end to end. The example is the recorded walkthrough of 8 November
+2026 (\texttt{docs/trace/run1\_trace.jsonl}), run with the hybrid planner against a throwaway
+database that holds one invented alert record (batch \texttt{LM2408B} for ``Lumera Tablets'' by
+``Example Laboratories'', listed as NSQ in September 2026), so that no CDSCO row is copied. The pack
+carries batch \texttt{LM2408B}, but the reader returned \texttt{LM24088}: the final B was read as 8.
+
+Perception and the API pass the investigator the fields batch \texttt{LM24088}, product ``Lumera
+Tablets'', manufacture 2024-08, expiry 2027-07 and the maker, each with provenance \texttt{ocr} and
+batch evidence \texttt{ocr}. The exact search (step~2) returns 0 candidates. At branch point (b) the
+model receives the read batch, the 0 exact hits and the allowed actions and returns
+\texttt{search\_variants}, which finds one candidate, \texttt{LM2408B}, with the substitution 8 to B
+at position~7 (step~3). Grading finds product, dates and maker in agreement and sets the status
+\texttt{needs\_confirm\_char} (step~4). At branch point (c) the model returns \texttt{ask\_user}, the
+check stores its state and pauses with a \texttt{confirm\_char} question (step~5). The person chooses
+\texttt{LM2408B}; the batch is replaced, its evidence becomes \texttt{user\_confirmed}, and the pair
+(8, B) is stored in the confusion prior (step~6). The searches and the grader run again on the
+confirmed batch and accept the candidate (steps~7 to~9), and the \FLAGGED{} template with list,
+month and source passes the verifier (step~10). Table~\ref{tab:app-trace1} in
+Appendix~\ref{app:traces} lists the recorded steps.
+
+A plain lookup would have answered \NLISTED{} at step 2. The model chose the same actions as the
+rules at both branch points, and the check used 10 of its 16 steps and one of its two questions.

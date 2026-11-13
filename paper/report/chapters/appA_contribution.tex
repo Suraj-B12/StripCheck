@@ -1,3 +1,27 @@
-% Appendix: Team Contribution (see GUIDANCE.md). PLACEHOLDER
+% Appendix A: Team Contribution.
+% Source: paper/sections/10_contributions.tex (rows confirmed by the team lead on 2026-11-08); FACTS.md section 15.
+% No percentage shares are given because none were confirmed by the team.
 \chapter{Team Contribution}
 \label{app:contrib}
+
+Table~\ref{tab:app-contrib} records who owned each part of StripCheck and who led each project review. The table reproduces the mapping confirmed by the team lead for the project paper. Ownership means that the member designed the part, wrote or directed its code and tests, and answered for it at the reviews. The four members reviewed one another's modules, and every member can explain the whole system, from the portal sync to the verdict template. The code was written with AI coding assistants under the team's direction, and every module was reviewed and tested by the team.
+
+\begin{table}[H]
+\centering
+\caption{Contribution of team members}
+\label{tab:app-contrib}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{@{}l >{\raggedright\arraybackslash}p{0.2\linewidth} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{0.17\linewidth}@{}}
+\toprule
+\textbf{USN} & \textbf{Name} & \textbf{Components owned} & \textbf{Led review} \\
+\midrule
+\USNa & \NameA & Investigator and verifier, planner, tracing, interfaces & R3 trace walkthrough \\
+\USNb & \NameB & Portal sync, ingest, alert index, matching, cabinet and memory & Data plan \\
+\USNc & \NameC\ (lead) & Pack-reading tools, demonstration packs, integration, data analysis, report & R1, demonstrations \\
+\USNd & \NameD & Evaluation harness, test sets, A/B experiment, results & R4 results \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{sloppypar}The modules behind each row are as follows. The investigator and verifier are \texttt{core/investigator.py} and \texttt{core/verifier.py}, the planner's model calls are in \texttt{core/llm.py}, tracing is \texttt{core/tracing.py}, and the interfaces are \texttt{server/}, \texttt{web/}, \texttt{ios/} and \texttt{cli.py}. Portal sync and ingest are \texttt{core/portal.py} and \texttt{core/ingest.py}, the alert index and matching are \texttt{core/matching.py}, \texttt{core/noisy.py} and \texttt{core/textutils.py}, and the cabinet re-check and notifications are \texttt{core/supervisor.py}. The pack-reading tools are \texttt{core/pack\_tools.py} and \texttt{core/crops.py}, and the demonstration packs are rendered by \texttt{core/props.py}. The evaluation harness is \texttt{core/golden.py}, which renders the evaluation sets from alert rows, and \texttt{core/evaluate.py}, which runs the arms and writes the generated tables used in Chapters~\ref{ch:eval} and~\ref{ch:exp}.\end{sloppypar}
