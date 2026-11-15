@@ -10,10 +10,19 @@ import {
   Volume2,
   Bookmark,
   Download,
+  ArrowRight,
+  TriangleAlert,
 } from "lucide-react";
 import { PUBLIC_DEMO } from "../lib/environment";
 import { labelName, readableDate } from "../lib/api";
 import type { Snapshot, Step, Verdict } from "../lib/api";
+import { AgentBadge } from "./AgentBadge";
+import {
+  AGENT_LABEL,
+  agentOf,
+  decisionText,
+  violationText,
+} from "../lib/agents";
 export function Modal({
   title,
   onClose,
@@ -152,23 +161,72 @@ function stepLabel(step: Step): string {
   const raw = (step as Step & { node?: unknown }).action ?? (step as Step & { node?: unknown }).node ?? "step";
   return String(raw).replaceAll("_", " ");
 }
+const agentName = (value: unknown) => AGENT_LABEL[agentOf(value)];
 export function StepTimeline({ steps }: { steps: Step[] }) {
   return (
     <ol className="timeline">
-      {steps.map((step, i) => (
-        <li key={`${i}-${step.action}`}>
-          <span className="step-index">{String(i + 1).padStart(2, "0")}</span>
-          <div>
-            <strong>{stepLabel(step)}</strong>
-            <p>{step.summary}</p>
-          </div>
-          <span className="step-source">
-            {step.source?.includes("fallback")
-              ? "Rules fallback"
-              : step.source || "rules"}
-          </span>
-        </li>
-      ))}
+      {steps.map((step, i) => {
+        const key = `${i}-${step.action}`;
+        if (step.action === "handoff") {
+          return (
+            <li key={key} className="step-handoff">
+              <span>
+                {agentName(step.from)}
+                <ArrowRight size={13} aria-label="to" />
+                {agentName(step.to)}
+                {step.reason ? `: ${step.reason}` : ""}
+              </span>
+            </li>
+          );
+        }
+        if (step.action === "reflect") {
+          const codes = Array.isArray(step.violations)
+            ? step.violations.map(String)
+            : [];
+          const decision = decisionText(step.decision);
+          return (
+            <li key={key} className="step-reflect">
+              <TriangleAlert size={15} aria-hidden="true" />
+              <div>
+                <strong>Self-check</strong>
+                {typeof step.agent === "string" && (
+                  <AgentBadge agent={agentOf(step.agent)} />
+                )}
+                {codes.length > 0 && (
+                  <ul>
+                    {codes.map((code) => (
+                      <li key={code}>
+                        {violationText(code)}{" "}
+                        <span className="reflect-code">{code}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {decision && <p>Decision: {decision}.</p>}
+              </div>
+            </li>
+          );
+        }
+        return (
+          <li key={key}>
+            <span className="step-index">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <div>
+              <strong>{stepLabel(step)}</strong>
+              {typeof step.agent === "string" && (
+                <AgentBadge agent={agentOf(step.agent)} />
+              )}
+              <p>{step.summary}</p>
+            </div>
+            <span className="step-source">
+              {step.source?.includes("fallback")
+                ? "Rules fallback"
+                : step.source || "rules"}
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }

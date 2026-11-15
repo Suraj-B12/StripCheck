@@ -91,39 +91,52 @@ function captureBody() {
 }
 
 describe("planner switch and live thinking", () => {
-  it("sends hybrid when the local model is ready, rules when switched off, and remembers it", async () => {
+  it("defaults to agent when the local model is ready, sends the chosen planner and remembers it", async () => {
     const bodies = captureBody();
     render(<CheckScreen health={health(true)} toast={() => {}} />);
-    const toggle = screen.getByRole("switch", {
-      name: /Local AI reasoning/,
-    }) as HTMLInputElement;
-    expect(toggle.disabled).toBe(false);
-    expect(toggle.checked).toBe(true);
+    const agent = screen.getByRole("radio", { name: "Agent" });
+    expect(agent.getAttribute("aria-checked")).toBe("true");
+    expect((screen.getByRole("radio", { name: "Hybrid" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.change(screen.getByLabelText(/Batch number/), {
       target: { value: "AB12345" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Check this batch" }));
     await screen.findByRole("heading", { name: "Synthetic completed result" });
-    expect(JSON.parse(String(bodies[0])).planner).toBe("hybrid");
+    expect(JSON.parse(String(bodies[0])).planner).toBe("agent");
     // Finished reasoning stays in "Behind this check".
     expect(
       screen.getByRole("button", { name: /Thought for 1.8 s/ }),
     ).toBeTruthy();
     expect(screen.getByText("search variants")).toBeTruthy();
-    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("radio", { name: "Rules" }));
     expect(localStorage.getItem("stripcheck.planner")).toBe("rules");
     fireEvent.click(screen.getByRole("button", { name: "Check this batch" }));
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(JSON.parse(String(bodies[1])).planner).toBe("rules");
   });
-  it("disables the switch and sends rules when the model is not running", async () => {
+  it("restores a remembered hybrid choice", async () => {
+    localStorage.setItem("stripcheck.planner", "hybrid");
+    const bodies = captureBody();
+    render(<CheckScreen health={health(true)} toast={() => {}} />);
+    expect(
+      screen.getByRole("radio", { name: "Hybrid" }).getAttribute("aria-checked"),
+    ).toBe("true");
+    fireEvent.change(screen.getByLabelText(/Batch number/), {
+      target: { value: "AB12345" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check this batch" }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(JSON.parse(String(bodies[0])).planner).toBe("hybrid");
+  });
+  it("disables hybrid and agent and sends rules when the model is not running", async () => {
+    localStorage.setItem("stripcheck.planner", "agent");
     const bodies = captureBody();
     render(<CheckScreen health={health(false)} toast={() => {}} />);
-    const toggle = screen.getByRole("switch", {
-      name: /Local AI reasoning/,
-    }) as HTMLInputElement;
-    expect(toggle.disabled).toBe(true);
-    expect(toggle.checked).toBe(false);
+    expect((screen.getByRole("radio", { name: "Agent" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("radio", { name: "Hybrid" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      screen.getByRole("radio", { name: "Rules" }).getAttribute("aria-checked"),
+    ).toBe("true");
     expect(screen.getByText(/the local model is not running/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/Batch number/), {
       target: { value: "AB12345" },
@@ -147,7 +160,7 @@ describe("planner switch and live thinking", () => {
       await screen.findByRole("button", { name: "Check this photo" }),
     );
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect((bodies[0] as FormData).get("planner")).toBe("hybrid");
+    expect((bodies[0] as FormData).get("planner")).toBe("agent");
   });
   it("answers a confirm_batch question with OTP characters", async () => {
     const waiting = {

@@ -19,6 +19,13 @@ export type Step = {
   thought?: string;
   prior?: unknown;
   model?: string;
+  agent?: string;
+  from?: string;
+  to?: string;
+  kind?: string;
+  reason?: string;
+  violations?: string[];
+  decision?: string;
   [key: string]: unknown;
 };
 /** Live `thinking` SSE event (contract section 2). `text` is always the full text so far. */
@@ -32,6 +39,7 @@ export type ThinkingEvent = {
   action?: string;
   ms?: number;
   redacted?: boolean;
+  agent?: string;
 };
 /** Question payload (`interrupt` / `snapshot.pending`), contract section 3. */
 export type Pending = {
@@ -51,7 +59,7 @@ export type Pending = {
   guided_answer?: unknown;
   [key: string]: unknown;
 };
-export type Planner = "rules" | "hybrid";
+export type Planner = "rules" | "hybrid" | "agent";
 export type Verdict = {
   label: string;
   headline: string;

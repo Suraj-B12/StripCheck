@@ -3287,6 +3287,45 @@ button.think-head:hover {
 .planner-switch.unavailable .switch-label {
   color: var(--muted);
 }
+.planner-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--foil);
+}
+.segment {
+  min-height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 12px var(--display);
+  cursor: pointer;
+}
+.segment.is-on {
+  background: var(--pen);
+  color: var(--on-pen);
+}
+.segment:focus-visible {
+  outline: 3px solid var(--pen);
+  outline-offset: 2px;
+}
+.segment:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.planner-switch .switch-note {
+  flex-basis: 100%;
+  padding-left: 0;
+}
 .switch-note {
   font-size: 11px;
   color: var(--muted);
@@ -3875,5 +3914,98 @@ button.think-head:hover {
   .otp-box:focus,
   .choice-card:hover:not(:disabled) {
     transform: none;
+  }
+}
+
+/* ---------- Agents: badges, hand-offs, self-check ---------- */
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--agent-ink) 25%, transparent);
+  background: var(--agent-soft);
+  color: var(--agent-ink);
+  font: 600 10.5px var(--display);
+  white-space: nowrap;
+  text-transform: none;
+  vertical-align: middle;
+}
+.agent-perception {
+  --agent-ink: var(--pen);
+  --agent-soft: var(--pen-soft);
+}
+.agent-investigator {
+  --agent-ink: var(--nl);
+  --agent-soft: var(--nl-soft);
+}
+.agent-verifier {
+  --agent-ink: var(--ink);
+  --agent-soft: var(--foil);
+}
+.agent-supervisor {
+  --agent-ink: var(--ink-2);
+  --agent-soft: var(--card);
+}
+.think-head .agent-badge {
+  margin-left: 0;
+}
+.timeline li.step-handoff {
+  padding: 6px 0 6px 22px;
+  border-top: 0;
+  align-items: center;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  border-left: 2px solid var(--line);
+  animation: handoff-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.step-handoff svg {
+  vertical-align: -2px;
+  margin: 0 5px;
+}
+.timeline li.step-reflect {
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 6px 0;
+  border: 1px solid color-mix(in srgb, var(--cv) 30%, transparent);
+  border-radius: 10px;
+  background: var(--cv-soft);
+  color: var(--cv);
+  animation: handoff-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.step-reflect ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.timeline .step-reflect ul li {
+  display: block;
+  padding: 2px 0;
+  border: 0;
+  color: var(--ink-2);
+}
+.reflect-code {
+  font: 10px var(--mono);
+  color: var(--muted);
+}
+.timeline .step-reflect p {
+  color: var(--ink-2);
+}
+@keyframes handoff-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timeline li.step-handoff,
+  .timeline li.step-reflect {
+    animation: none;
   }
 }

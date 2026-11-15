@@ -8,6 +8,7 @@ import {
   sourceLabel,
 } from "../lib/thinking";
 import type { ThinkBlock } from "../lib/thinking";
+import { AgentBadge } from "./AgentBadge";
 
 /** Reveal streamed text a few characters per frame so deltas read as typing, not jumps. */
 function useReveal(target: string, active: boolean) {
@@ -58,6 +59,7 @@ function ThoughtBlock({ block }: { block: ThinkBlock }) {
           onClick={() => setOpen(!open)}
         >
           <span className="think-dot" aria-hidden="true" />
+          {block.agent && <AgentBadge agent={block.agent} />}
           <span className="think-duration">{durationLabel(block.ms)}</span>
           <span className="think-source">{sourceLabel(block)}</span>
           {block.action && (
@@ -68,6 +70,7 @@ function ThoughtBlock({ block }: { block: ThinkBlock }) {
       ) : (
         <div className="think-head is-live">
           <ThinkingOrb />
+          {block.agent && <AgentBadge agent={block.agent} />}
           <span className="think-shimmer">Thinking</span>
           <span className="think-source">{sourceLabel(block)}</span>
         </div>

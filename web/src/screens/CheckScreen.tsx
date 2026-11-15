@@ -22,6 +22,7 @@ import { createRequestGate, storage } from "../lib/runtime";
 import { api, emptyFields, json, stream } from "../lib/api";
 import type { Fields, Health, Planner, Snapshot } from "../lib/api";
 import { ThinkingPanel } from "../components/Thinking";
+import { PLANNER_KEY } from "../lib/agents";
 import { applyThinking, blocksFromHistory } from "../lib/thinking";
 import type { ThinkBlock } from "../lib/thinking";
 import { AnsweredThread, AskConversation } from "../components/Ask";
@@ -63,6 +64,12 @@ function guidedAnswerText(answer: Record<string, unknown>) {
   }
   return "The next step uses the response recorded for this scenario.";
 }
+const PLANNER_CHOICES: { value: Planner; label: string }[] = [
+  { value: "rules", label: "Rules" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "agent", label: "Agent" },
+];
+
 export default function CheckScreen({
   health,
   toast,
@@ -89,17 +96,20 @@ export default function CheckScreen({
     question: string;
     answer: string;
   } | null>(null);
-  const [aiPref, setAiPref] = useState(
-    () => storage.get("stripcheck.planner") !== "rules",
-  );
+  const [pref, setPref] = useState<Planner | null>(() => {
+    const saved = storage.get(PLANNER_KEY);
+    return saved === "rules" || saved === "hybrid" || saved === "agent"
+      ? saved
+      : null;
+  });
   const llmOk = Boolean(health?.ollama?.llm_ok);
   const plannerKnown = !PUBLIC_DEMO && Boolean(health?.ollama);
-  const planner: Planner = llmOk && aiPref ? "hybrid" : "rules";
+  const planner: Planner = llmOk ? (pref ?? "agent") : "rules";
   const plannerField = (): { planner?: Planner } =>
     plannerKnown ? { planner } : {};
-  const toggleAi = (on: boolean) => {
-    setAiPref(on);
-    storage.set("stripcheck.planner", on ? "hybrid" : "rules");
+  const choosePlanner = (value: Planner) => {
+    setPref(value);
+    storage.set(PLANNER_KEY, value);
   };
   const uploadRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -680,32 +690,43 @@ export default function CheckScreen({
               </div>
             )}
             <div className={`planner-switch ${llmOk ? "" : "unavailable"}`}>
-              <label>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  className="switch-input"
-                  checked={llmOk && aiPref}
-                  disabled={!llmOk || busy}
-                  onChange={(e) => toggleAi(e.target.checked)}
-                  aria-describedby="planner-note"
-                />
-                <span className="switch-track" aria-hidden="true">
-                  <span className="switch-thumb" />
-                </span>
-                <span className="switch-label">
-                  <Sparkles size={14} aria-hidden="true" />
-                  Local AI reasoning
-                </span>
-              </label>
+              <span id="planner-label" className="switch-label">
+                <Sparkles size={14} aria-hidden="true" />
+                Local AI reasoning
+              </span>
+              <div
+                className="segmented"
+                role="radiogroup"
+                aria-labelledby="planner-label"
+                aria-describedby="planner-note"
+              >
+                {PLANNER_CHOICES.map(({ value, label }) => {
+                  const off = busy || (value !== "rules" && !llmOk);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={planner === value}
+                      className={`segment ${planner === value ? "is-on" : ""}`}
+                      disabled={off}
+                      onClick={() => choosePlanner(value)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
               <p id="planner-note" className="switch-note">
-                {llmOk
-                  ? aiPref
-                    ? `${health?.ollama?.model || "The local model"} picks the next step; results still come from the rules.`
-                    : "Off. The rules pick every step."
-                  : health?.ollama
-                    ? "Unavailable: the local model is not running. The rules pick every step."
-                    : "Unavailable: no local model detected. The rules pick every step."}
+                {!llmOk
+                  ? health?.ollama
+                    ? "Hybrid and Agent are unavailable: the local model is not running. The rules pick every step."
+                    : "Hybrid and Agent are unavailable: no local model detected. The rules pick every step."
+                  : planner === "agent"
+                    ? `Agent: ${health?.ollama?.model || "the local model"} chooses every tool; results still come from the rules and the verifier.`
+                    : planner === "hybrid"
+                      ? `Hybrid: ${health?.ollama?.model || "the local model"} picks the next step at branch points; results still come from the rules.`
+                      : "Rules: the rules pick every step."}
               </p>
             </div>
             <button

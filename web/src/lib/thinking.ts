@@ -1,4 +1,6 @@
 import type { Step, ThinkingEvent } from "./api";
+import { knownAgent } from "./agents";
+import type { AgentName } from "./agents";
 
 /** One branch-point decision, built from live `thinking` events or from a history step. */
 export type ThinkBlock = {
@@ -11,6 +13,7 @@ export type ThinkBlock = {
   action?: string;
   ms?: number;
   redacted?: boolean;
+  agent?: AgentName;
   startedAt: number;
 };
 
@@ -56,6 +59,7 @@ export function applyThinking(
     text: typeof ev.text === "string" ? ev.text : old.text,
     model: typeof ev.model === "string" && ev.model ? ev.model : old.model,
     redacted: Boolean(ev.redacted) || old.redacted,
+    agent: knownAgent(ev.agent) ?? old.agent,
   };
   if (ev.phase === "start") {
     next.done = false;
@@ -96,6 +100,7 @@ export function blocksFromHistory(steps: Step[] | undefined): ThinkBlock[] {
       model: typeof step.model === "string" ? step.model : undefined,
       action: typeof step.action === "string" ? step.action : undefined,
       ms: undefined,
+      agent: knownAgent(step.agent),
       startedAt: 0,
     }));
 }
