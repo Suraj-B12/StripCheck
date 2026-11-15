@@ -34,3 +34,10 @@ Source plan: `C:\Users\suraj\Downloads\StripCheck_Project_Plan.md` (Parts 6 to 8
 - Then: restart site with Ollama (qwen2.5:3b) + tunnel; image prompt is in data/samples/realistic_pack_prompt.md.
 - 2026-11-13: live thinking + question UI committed (4e15613), verified over the tunnel and in the browser (thinking streams, question card, answer -> result, no console errors). Ollama started from %LOCALAPPDATA%\Programs\Ollama\ollama serve; model warmed. Report workflow resumed (wjfble803).
 - 2026-11-13: AAT report final (96 pp, main body 49 pp, clean build): docs/submission/StripCheck_AAT_Report.pdf; demo guide docs/DEMO_GUIDE.md + Start StripCheck Demo.cmd.
+
+## 2026-11-15 Agentic upgrade (user-approved: all four + re-eval + update report/slides/guide)
+- [ ] P1 core (agent K): full tool-calling loop (Ollama native tools, rules guard), self-correction after verifier rejection, multi-agent hand-offs (perception/investigator/verifier/supervisor) -> docs/final/K_status.md
+- [ ] P1b monitor (agent M): autonomous scheduled sync + cabinet recheck + notifications -> docs/final/M_status.md
+- [ ] P2 web: agent badges / hand-offs / self-correction in thinking panel
+- [ ] P3 re-run eval seed 7 (+ new arm for full loop), regenerate paper/generated
+- [ ] P4 update report, slides, guide, decisions D27+, README
