@@ -177,6 +177,7 @@ svg .ahp{fill:var(--pen)}
   <div class="ttl">Contents</div>
   <ol>
     <li><a href="#problem"><span>01</span>The problem</a></li>
+    <li><a href="#agent"><span>A</span><b>The agent</b></a></li>
     <li><a href="#architecture"><span>02</span>Architecture</a></li>
     <li><a href="#data"><span>03</span>Getting the data</a></li>
     <li><a href="#cleaning"><span>04</span>Parsing and cleaning</a></li>
@@ -263,6 +264,105 @@ svg .ahp{fill:var(--pen)}
   <div class="v cv"><div class="lbl">CANT_VERIFY</div><div class="hl">More evidence is needed</div><p>The agent abstains and says why (unconfirmed batch, date conflict, no data, unreadable).</p></div>
 </div>
 <p class="cap">Headlines are the exact strings in <code>core/templates.py</code>. Rule styles follow <code>docs/design/ui_direction.md</code>: solid, hatched, hollow, dashed. Every result ends with pharmacist advice and never says "stop taking".</p>
+</section>
+
+<!-- ============================== AGENT ============================== -->
+<section id="agent">
+<h2><span class="n">A</span>The agent: what it does, its tools, how it decides</h2>
+<p>This section is only about the agent. A plain script runs fixed steps and stops. StripCheck's agent <b>looks at what it has found, decides the next action, uses a tool, reads the result and decides again</b>, until it can give a result it can defend. It works with the person holding the pack, and a separate verifier checks its work before anything is shown.</p>
+
+<h3>1 · Four agents, one job each</h3>
+<div class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+  <div class="card"><h4>Perception agent</h4><p>Turns a photo into pack details: QR/barcode reader, then OCR (RapidOCR), then the <b>vision model</b> (qwen2.5vl:3b) if the batch is still unreadable. Every detail keeps its source: <span class="k">qr</span>, <span class="k">ocr</span>, <span class="k">vlm</span> or <span class="k">user</span>.</p></div>
+  <div class="card"><h4>Investigator agent</h4><p>The planner. It chooses which tool to use next, searches the 6,923 alerts, compares details, asks the person questions and drafts a result. In Agent mode a local LLM (qwen2.5:3b) makes these choices.</p></div>
+  <div class="card"><h4>Verifier agent</h4><p>An independent checker with 10 fixed rules (R1 to R10). It approves the draft, sends it back once for a fix, or turns it into "can't verify". It never trusts the planner.</p></div>
+  <div class="card"><h4>Supervisor agent</h4><p>Works in the background on its own: every 6 hours it checks for new CDSCO lists, syncs them, rechecks your saved packs and notifies you if a status changes.</p></div>
+</div>
+<p>The agents pass <b>hand-off messages</b> (from, to, reason), for example <span class="k">perception → investigator</span> and <span class="k">investigator → verifier</span>. You can see them on screen as arrow rows and in the Phoenix trace as separate spans.</p>
+
+<h3>2 · The ReAct loop: Thought → Action → Observation</h3>
+<figure class="fig wide">
+<svg viewBox="0 0 760 280" role="img" aria-labelledby="fat">
+<title id="fat">The agent loop: rules list the allowed tools, the model thinks and picks one, the tool runs, the result is observed, and the loop repeats until the verifier approves a result.</title>
+<rect x="20" y="30" width="170" height="70" rx="10" class="bx"/>
+<text x="105" y="58" text-anchor="middle" class="hd">Rules</text><text x="105" y="78" text-anchor="middle" class="s">list the tools allowed now</text>
+<rect x="225" y="30" width="150" height="70" rx="10" class="bxp"/>
+<text x="300" y="58" text-anchor="middle" class="hd pn">Thought</text><text x="300" y="78" text-anchor="middle" class="s">"why this next?"</text>
+<rect x="410" y="30" width="150" height="70" rx="10" class="bxp"/>
+<text x="485" y="58" text-anchor="middle" class="hd pn">Action</text><text x="485" y="78" text-anchor="middle" class="s">call one tool</text>
+<rect x="595" y="30" width="150" height="70" rx="10" class="bxp"/>
+<text x="670" y="58" text-anchor="middle" class="hd pn">Observation</text><text x="670" y="78" text-anchor="middle" class="s">read the result</text>
+<line x1="190" y1="65" x2="222" y2="65" class="ln"/><line x1="375" y1="65" x2="407" y2="65" class="ln"/><line x1="560" y1="65" x2="592" y2="65" class="ln"/>
+<path d="M670 100 V140 H105 V103" class="ln" fill="none"/>
+<text x="290" y="134" text-anchor="middle" class="xs">repeat (at most 16 steps, 2 questions)</text>
+<rect x="225" y="172" width="335" height="64" rx="10" class="bxf"/>
+<text x="392" y="198" text-anchor="middle" class="hd flt">Verifier (rules R1 to R10)</text>
+<text x="392" y="218" text-anchor="middle" class="s">approve · send back once (self-check) · can't verify</text>
+<line x1="485" y1="140" x2="485" y2="169" class="ln"/><text x="494" y="160" class="xs">when it drafts a result</text>
+<text x="20" y="268" class="xs">Model timeout, bad tool call or Ollama off: the rules pick that step ("rules(fallback)"). The check always finishes.</text>
+</svg>
+<figcaption>The rules decide <i>which</i> tools are allowed; the model decides <i>which one</i> to use. So the model cannot skip a search or the confirmation step.</figcaption>
+</figure>
+
+<h3>3 · Every tool the agent can use</h3>
+<div class="tw"><table>
+<thead><tr><th>Tool</th><th>Agent</th><th>What it does</th><th>When it is allowed</th></tr></thead>
+<tbody>
+<tr><td class="mono">extract_fields</td><td>perception</td><td>Takes the details read from the photo or typed by you, with their source</td><td>first step of every check</td></tr>
+<tr><td class="mono">read_with_vision</td><td>perception</td><td>Sends the batch line to the local vision model and gets a reading with a confidence</td><td>only when QR and OCR could not read the batch, or disagree (max 2 calls)</td></tr>
+<tr><td class="mono">search_exact</td><td>investigator</td><td>Looks up the batch exactly in the alert index</td><td>once a batch is known</td></tr>
+<tr><td class="mono">search_variants</td><td>investigator</td><td>Searches look-alike versions (B↔8, 0↔O, Z↔2…) without changing what is printed</td><td>after the exact search, always</td></tr>
+<tr><td class="mono">grade</td><td>investigator</td><td>Compares product, brand, dates and maker of every candidate with the pack</td><td>after both searches</td></tr>
+<tr><td class="mono">ask_user(kind)</td><td>investigator</td><td>Asks you one question: confirm a reading, pick between two batches, confirm a date, type the batch, or add details</td><td>when only a person can settle the doubt (max 2 questions)</td></tr>
+<tr><td class="mono">request_photo(kind)</td><td>investigator</td><td>Asks for exactly the missing evidence: close-up of the batch, second angle, or the carton; you may decline</td><td>when a photo is the cheapest way to resolve the doubt (max 1)</td></tr>
+<tr><td class="mono">draft_verdict</td><td>investigator</td><td>Writes the result using fixed, reviewed wording only, with a citation</td><td>when the evidence is complete or no question is left</td></tr>
+<tr><td class="mono">verify</td><td>verifier</td><td>Checks the draft against rules R1 to R10</td><td>every draft, always</td></tr>
+<tr><td class="mono">downgrade</td><td>investigator</td><td>Accepts the verifier's "can't verify" after the one fix attempt</td><td>after a rejected draft</td></tr>
+</tbody></table></div>
+
+<h3>4 · What the agent decides, and what it is never allowed to do</h3>
+<div class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+  <div class="card"><h4>The agent decides</h4><p>Which tool to use next · whether to search look-alikes · whether to ask you or give a result · which question to ask · whether to ask for another photo · how to fix a draft the verifier sent back.</p></div>
+  <div class="card"><h4>The agent can never</h4><p>Raise an alarm from a machine reading alone (a person, a QR code or two agreeing photos must confirm the batch) · write its own result text · skip the verifier · go past 16 steps or 2 questions · call any service except the local models.</p></div>
+</div>
+
+<h3>5 · How it talks to you</h3>
+<div class="tw"><table>
+<thead><tr><th>Situation</th><th>What you see</th></tr></thead>
+<tbody>
+<tr><td>OCR failed, vision read the batch</td><td>The crop of your photo and "Is this the batch printed on your pack?" with two radio buttons: <i>Yes, that's the batch</i> / <i>No, it's different</i>. You type the batch only after <i>No</i>.</td></tr>
+<tr><td>Pack and listed batch differ by a look-alike character</td><td>Two boxes side by side (for example <span class="k">LM2408B</span> or <span class="k">LM24088</span>) with the differing character highlighted, plus "Can't tell".</td></tr>
+<tr><td>A machine read the batch and it matches a listed one</td><td>One box per look-alike character to type from the pack, so a wrong reading cannot be confirmed by accident.</td></tr>
+<tr><td>Evidence is missing</td><td>A camera button asking for exactly one photo (close-up, second angle or carton), with "I can't take another photo".</td></tr>
+<tr><td>Every question</td><td>A typing indicator, "Why I'm asking", and "Question 1 of 2".</td></tr>
+</tbody></table></div>
+
+<h3>6 · Self-check, memory and the monitor</h3>
+<div class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card"><h4>Self-check (reflection)</h4><p>If the verifier rejects a draft, the agent sees the exact rule that failed (for example R2 "batch not confirmed") and gets one chance to fix it, usually by asking one more question. Then it stops. Shown as an amber "Self-check" row.</p></div>
+  <div class="card"><h4>Memory</h4><p>Every character correction you confirm (for example "8 was really B") is stored. Next time the agent tries that look-alike first and tells you "earlier checks confirmed this", but it still asks you.</p></div>
+  <div class="card"><h4>Autonomous monitor</h4><p>Runs by itself every 6 hours: is a sync due, is the internet up, sync the newest months, recheck saved packs, notify on changes. If it fails it waits longer (up to 24 h) and never affects checks.</p></div>
+</div>
+
+<h3>7 · Three planner modes (the selector on the check screen)</h3>
+<div class="tw"><table>
+<thead><tr><th>Mode</th><th>Who picks the next tool</th><th>Median time per pack</th></tr></thead>
+<tbody>
+<tr><td><b>Rules</b> (default)</td><td>A fixed rule order</td><td>about 1.4 s</td></tr>
+<tr><td><b>Hybrid</b></td><td>The LLM at the 2 key decisions, rules elsewhere</td><td>about 1.5 s</td></tr>
+<tr><td><b>Agent</b></td><td>The LLM at every step, through native tool calls</td><td>about 8 s</td></tr>
+</tbody></table></div>
+<p>On the 60-pack evaluation all three gave the same verdicts (all 40 listed batches caught and 0 false alarms when a person answers). The safety comes from the rules and the verifier, so the model can take over the planning without making results riskier. Agent mode is the most autonomous; Rules mode is the fastest.</p>
+
+<h3>8 · What to show your faculty (2 minutes)</h3>
+<ol>
+<li>Pick <b>Agent</b> in the selector and run demo pack <b>03</b>. Point at the live <b>Thinking</b> panel and the <b>Thought / Action / Observation</b> rows.</li>
+<li>Point at the agent badges and the hand-off rows: perception → investigator → verifier.</li>
+<li>Answer the two-box question; show the verifier-approved result with its citation.</li>
+<li>Upload <code>data/samples/pack_types/unreadable_test.png</code>: OCR fails, the agent calls <span class="k">read_with_vision</span>, then asks Yes/No. Say: in our live test the vision model misread AYA2101 as AYA2107 at 95% confidence, and this question plus the look-alike search still caught it.</li>
+<li>Pick Rules (or stop Ollama) and run the same pack: it still gets a result, showing the fallback.</li>
+</ol>
+<div class="honest"><b>Be precise in the viva.</b> The vision fallback never triggered in the 60-pack evaluation, because OCR read every test carton; its evidence is the live test. The 3B planner often skips writing its reason, so some rows say "The model gave no reason" and show the rule's reason instead.</div>
 </section>
 
 <!-- ============================== 2 ============================== -->
