@@ -43,3 +43,5 @@ Source plan: `C:\Users\suraj\Downloads\StripCheck_Project_Plan.md` (Parts 6 to 8
 - [ ] P4 update report, slides, guide, decisions D27+, README
 - [x] P1, P1b, P2 committed (b0bc3fe + web). Eval re-run in progress (4 arms).
 - [ ] P5 (user 2026-11-15): vision fallback tool (qwen2.5vl:3b) when OCR fails -> ask person to confirm vision reading -> manual entry only if denied; active evidence gathering (agent asks for exactly the missing evidence: second angle / zoomed batch / carton, reruns perception). Start after current eval finishes; then FINAL eval re-run, then P4 docs.
+  - UI (user): yes/no questions as radio-style chat replies (e.g. 'Yes, that's the batch' / 'No, it's different'); two-option questions as two choice boxes; free typing only after 'No'.
+  - ReAct (user): new tools join the same Thought -> Action -> Observation loop; label each turn as Thought/Action/Observation in the trace and thinking panel.
