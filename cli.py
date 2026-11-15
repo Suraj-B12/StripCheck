@@ -55,6 +55,8 @@ def main(argv=None):
     ingest.add_argument("--resume", help="Idempotently continue local snapshot ingestion")
     commands.add_parser("stats", help="Print statistics from the local database")
     commands.add_parser("recheck", help="Recheck the saved cabinet")
+    mon = commands.add_parser("monitor", help="Run the autonomous monitor cycle (sync if due, recheck, notify)")
+    mon.add_argument("--once", action="store_true", required=True, help="Run one cycle in the foreground")
     props = commands.add_parser("props", help="Render clearly marked synthetic demo packs")
     props.add_argument("--demo", action="store_true")
     props.add_argument("--eval", action="store_true", help="Render the golden set from real alert rows")
@@ -65,7 +67,7 @@ def main(argv=None):
     check.add_argument("--text")
     for field in ("product", "brand", "mfg", "exp", "maker"):
         check.add_argument("--" + field, default="")
-    check.add_argument("--planner", choices=("rules", "hybrid", "llm"), default="rules")
+    check.add_argument("--planner", choices=("rules", "hybrid", "llm", "agent"), default="rules")
     check.add_argument("--vlm", action="store_true")
     check.add_argument("--lang", default="en")
     evaluate = commands.add_parser("eval", help="Golden-set evaluation (--arms/--hitl/--seed), or --quick for synthetic diagnostics")
@@ -86,7 +88,7 @@ def main(argv=None):
         from server.app import create_app
         if not (config.ROOT / "web" / "dist" / "index.html").is_file():
             print("Build the website first: npm --prefix web run build")
-        application = create_app(lan=args.lan, port=args.port)
+        application = create_app(lan=args.lan, port=args.port, monitor=True)
         print(f"StripCheck: http://127.0.0.1:{args.port}")
         if args.lan:
             from server.app import _local_ip
@@ -104,6 +106,12 @@ def main(argv=None):
         output(ingest_file(Path(args.path)) if args.path else ingest_snapshots())
     elif args.command == "stats":
         output(db.stats())
+    elif args.command == "monitor":
+        from core.monitor import run_cycle
+        cycle = run_cycle("cli")
+        output({k: cycle.get(k) for k in ("status", "decision", "reason", "new_alerts", "packs_rechecked",
+                                          "notifications", "errors", "seconds", "started_at", "finished_at", "steps")})
+        return int(cycle.get("status") != "ok")
     elif args.command == "recheck":
         from core.supervisor import recheck_cabinet
         output(recheck_cabinet())

@@ -85,13 +85,33 @@ RULE_THOUGHTS = {
     "confirm_batch": "A corroborated entry matches, but the batch was read by a machine; a person must confirm it before a listed result.",
     "type_batch": "The batch number is missing or the readers disagree; ask the person to type it.",
     "draft_verdict": "The evidence is complete or no further question is allowed; draft the result for the verifier.",
+    "search_exact": "Start with an exact search of the printed batch against the loaded alert records.",
+    "grade": "Both searches ran; compare product, brand, dates and maker for every candidate.",
+    "reflect_ask": "The verifier found a gap a person can close; ask one more question before any result.",
+    "reflect_search": "The verifier found the search incomplete; run the missing search once.",
+    "reflect": "The verifier sent the draft back; choose one revision or abstain.",
+    "reflect_downgrade":"The verifier found a gap that no allowed step can close; abstain instead of guessing.",
+}
+# Which agent owns each step. Agents are plain functions passing message dicts, not classes.
+AGENTS = ("perception", "investigator", "verifier", "supervisor")
+AGENT_OF = {"extract_fields": "perception", "read_pack": "perception", "verify": "verifier"}
+MAX_MESSAGES = 24
+# Tools the "agent" planner may call (offered per step only when the rules allow them).
+TOOL_SPECS = {
+    "search_exact": "Search the loaded alert records for the printed batch exactly.",
+    "search_variants": "Search bounded look-alike alternatives of the printed batch (never changes the printed batch).",
+    "grade": "Compare product, brand, dates and maker of every candidate with the pack.",
+    "ask_user": "Ask the person holding the pack one question of the given kind.",
+    "draft_verdict": "Draft the result from the evidence so far; the verifier checks it.",
+    "downgrade": "Accept the verifier's result: abstain (cannot verify).",
 }
 
 
-def _log(state, action, summary, started=None, source="rules", thought=None, io=None, llm_meta=None, **extra):
+def _log(state, action, summary, started=None, source="rules", thought=None, io=None, llm_meta=None, agent=None, **extra):
     if len(state["history"]) >= MAX_STEPS:
         return
-    entry = {"step": len(state["history"]) + 1, "action": action, "source": source, "summary": summary, "ms": round((perf_counter() - started) * 1000, 2) if started else 0}
+    entry = {"step": len(state["history"]) + 1, "action": action, "source": source, "summary": summary, "ms": round((perf_counter() - started) * 1000, 2) if started else 0,
+             "agent": agent if agent in AGENTS else AGENT_OF.get(action, "investigator")}
     if thought:
         entry["thought"] = thought
     entry.update({key: value for key, value in extra.items() if value is not None})
@@ -119,8 +139,8 @@ def _decide(state, mode, evidence, allowed, suggestion, thought_key):
     number = int(state.get("thinking_count", 0)) + 1
     state["thinking_count"] = number
     model = state.get("llm_model") or config.LLM_MODEL
-    asks_llm = mode in {"hybrid", "llm"} and len(allowed) >= 2 and suggestion in allowed and bool(model)
-    block = {"id": f"think-{number}", "context": thinking_context(thought_key)}
+    asks_llm = mode in {"hybrid", "llm", "agent"} and len(allowed) >= 2 and suggestion in allowed and bool(model)
+    block = {"id": f"think-{number}", "context": thinking_context(thought_key), "agent": "investigator"}
     start = dict(block, phase="start", source="llm" if asks_llm else "rules", text="")
     if asks_llm:
         start["model"] = model
@@ -140,6 +160,55 @@ def _decide(state, mode, evidence, allowed, suggestion, thought_key):
     return decision
 
 
+def _agent_decide(state, evidence, tools, rule_choice, thought_key, observations):
+    """One tool-calling turn of the investigator agent ("agent" planner).
+
+    `tools` are only the tools the rules allow now; an invalid call, timeout or
+    error falls back to `rule_choice` (source "rules(fallback)"). Emits one thinking block.
+    """
+    number = int(state.get("thinking_count", 0)) + 1
+    state["thinking_count"] = number
+    model = state.get("llm_model") or config.LLM_MODEL
+    rule_thought = RULE_THOUGHTS.get(thought_key, RULE_THOUGHTS["draft_verdict"])
+    block = {"id": f"think-{number}", "context": thinking_context(thought_key), "agent": "investigator"}
+    start = dict(block, phase="start", source="llm" if model else "rules", text="")
+    if model:
+        start["model"] = model
+    _emit(state, "thinking", start)
+    started = perf_counter()
+    on_text = None
+    if model and state.get("_observer") is not None:
+        on_text = lambda text: _emit(state, "thinking", dict(block, phase="delta", source="llm", text=text, model=model, redacted=False))
+    if model:
+        decision = llm.agent_step(evidence, observations, tools, rule_choice, rule_thought, on_text=on_text,
+                                  model=model, url=config.OLLAMA_URL, timeout=config.LLM_TIMEOUT)
+    else:
+        decision = {"action": rule_choice["tool"], "args": dict(rule_choice.get("args") or {}), "source": "rules", "thought": rule_thought, "llm": None, "redacted": False}
+    end = dict(block, phase="end", source=decision["source"], text=decision["thought"], action=decision["action"],
+               ms=round((perf_counter() - started) * 1000), redacted=bool(decision.get("redacted")))
+    if decision["source"] == "llm":
+        end["model"] = model
+    _emit(state, "thinking", end)
+    state.setdefault("decisions", []).append({"step": len(state["history"]) + 1, "action": decision["action"], "source": decision["source"], "via": decision.get("via", "rules")})
+    return decision
+
+
+def _handoff(state, sender, receiver, kind, reason, payload=None):
+    """Pass a message between agents; logged as a "handoff" step in the agent planner.
+
+    Rules and hybrid planners keep their step counts: the message is kept in
+    state["messages"] and in the trace only.
+    """
+    message = {"from": sender, "to": receiver, "kind": kind, "reason": reason, "payload": payload or {}}
+    messages = state.setdefault("messages", [])
+    if len(messages) < MAX_MESSAGES:
+        messages.append(message)
+    if state.get("planner") == "agent" and len(state["history"]) < MAX_STEPS - 1:
+        _log(state, "handoff", f"{sender} -> {receiver}: {reason}", agent=sender, io={"output": message},
+             **{"from": sender, "to": receiver, "reason": reason, "kind": kind})
+    return message
+
+
 def _prior_items(pairs, prior):
     return sorted({(read, true, prior.get((read, true), 0)) for read, true in pairs if prior.get((read, true), 0)})
 
@@ -157,19 +226,47 @@ def _with_prior(pending, items):
 
 
 def _span_steps(state, history, marks):
-    """Turn this call's history entries into nested planner/tool/LLM spans."""
-    steps, previous_end = [], 0
+    """Turn this call's history entries into agent-turn spans holding planner/tool/LLM spans.
+
+    Consecutive steps of one agent form one AGENT span ("agent: investigator");
+    hand-offs are their own spans ("handoff: perception -> investigator").
+    """
+    turns, previous_end = [], 0
+
+    def add(agent, span):
+        if turns and turns[-1]["attributes"]["stripcheck.agent"] == agent:
+            turns[-1]["children"].append(span)
+            turns[-1]["end_ns"] = max(turns[-1]["end_ns"], span["end_ns"])
+        else:
+            turns.append({"name": f"agent: {agent}", "kind": "AGENT", "start_ns": span["start_ns"], "end_ns": span["end_ns"],
+                          "attributes": {"stripcheck.agent": agent}, "children": [span]})
+
+    held = []  # the verifier turn follows the investigator -> verifier hand-off when there is one
     for mark in marks:
         entry = history[mark["i"]]
+        if held and not (entry["action"] == "handoff" and entry.get("to") == "verifier"):
+            add("verifier", held.pop())
         end = max(mark["end_ns"], previous_end)
+        agent = entry.get("agent", "investigator")
+        if entry["action"] == "handoff":
+            add(agent, {"name": f"handoff: {entry.get('from')} -> {entry.get('to')}", "kind": "CHAIN", "start_ns": max(end - 1000, previous_end), "end_ns": end,
+                        "input": {"from": entry.get("from"), "to": entry.get("to")}, "output": mark["io"].get("output"),
+                        "attributes": {"stripcheck.step": entry["step"], "stripcheck.handoff.from": entry.get("from", ""), "stripcheck.handoff.to": entry.get("to", ""),
+                                       "stripcheck.handoff.reason": entry.get("reason", "")}, "children": []})
+            previous_end = end
+            if held:
+                add("verifier", dict(held.pop(), start_ns=end, end_ns=end + 1000))
+                previous_end = end + 1000
+            continue
         tool_start = max(end - int(float(entry.get("ms") or 0) * 1e6), previous_end)
         kind = "TOOL" if entry["action"] in TOOL_ACTIONS else "CHAIN"
         tool = {"name": entry["action"], "kind": kind, "start_ns": tool_start, "end_ns": end,
                 "input": mark["io"].get("input"), "output": mark["io"].get("output", entry.get("summary")),
                 "attributes": {"stripcheck.step": entry["step"], "stripcheck.summary": entry.get("summary", "")}, "children": []}
+        verifier = None
         if entry["action"] == "draft_verdict" and entry.get("verifier"):
-            tool["children"].append({"name": "verifier", "kind": "GUARDRAIL", "start_ns": tool_start, "end_ns": end,
-                                     "input": mark["io"].get("output"), "output": entry["verifier"]})
+            verifier = {"name": "verifier", "kind": "GUARDRAIL", "start_ns": end, "end_ns": end + 1000,
+                        "input": mark["io"].get("output"), "output": entry["verifier"], "attributes": {"stripcheck.agent": "verifier"}}
         children, start = [], tool_start
         meta = mark.get("llm")
         if meta:
@@ -178,13 +275,19 @@ def _span_steps(state, history, marks):
                              "input": meta.get("prompt"), "output": meta.get("response") or meta.get("error"),
                              "attributes": {"llm.model_name": meta.get("model", ""), "llm.invocation_parameters": '{"temperature": 0}'}})
         children.append(tool)
-        steps.append({"name": f"planner: {entry['action']}", "kind": "CHAIN", "start_ns": start, "end_ns": end,
-                      "input": {"step": entry["step"], "source": entry.get("source")},
-                      "output": {"action": entry["action"], "thought": entry.get("thought", "")},
-                      "attributes": {"stripcheck.source": entry.get("source", ""), "stripcheck.thought": entry.get("thought", ""), "stripcheck.prior": entry.get("prior", "")},
-                      "children": children})
+        add(agent, {"name": f"planner: {entry['action']}", "kind": "CHAIN", "start_ns": start, "end_ns": end,
+                    "input": {"step": entry["step"], "source": entry.get("source")},
+                    "output": {"action": entry["action"], "thought": entry.get("thought", "")},
+                    "attributes": {"stripcheck.source": entry.get("source", ""), "stripcheck.thought": entry.get("thought", ""), "stripcheck.prior": entry.get("prior", ""),
+                                   "stripcheck.agent": agent},
+                    "children": children})
         previous_end = end
-    return steps
+        if verifier:
+            held.append(verifier)
+            previous_end = verifier["end_ns"]
+    if held:
+        add("verifier", held.pop())
+    return turns
 
 
 def _export(fields, state, pending, final):
@@ -314,6 +417,223 @@ def _apply_answer(fields, state, answer):
     return None
 
 
+def _do_exact(state, index, batch, searched_count, demo, decision=None):
+    """Tool: exact batch search."""
+    decision = decision or {}
+    started = perf_counter()
+    exact = search_exact(index, batch, max_hits=MAX_CANDIDATES + 1)
+    state["exact_searched"] = True
+    _log(state, "search_exact", f"Checked the exact batch against {searched_count:,} {'synthetic' if demo else 'loaded'} records; {len(exact)} candidate(s).", started,
+         source=decision.get("source", "rules"), thought=decision.get("thought"), llm_meta=decision.get("llm"),
+         io={"input": {"batch_key": batch, "records": searched_count}, "output": [{"id": r.get("id"), "batch_key": r.get("batch_key"), "entry_type": r.get("entry_type")} for r in exact[:5]]})
+    return exact
+
+
+def _do_variants(state, index, batch, prior, known, decision):
+    """Tool: bounded look-alike search; never changes the printed batch."""
+    started = perf_counter()
+    variants = search_variants(index, batch, prior=prior, max_subs=2, max_lookups=2000, max_hits=MAX_CANDIDATES + 1)
+    state["variants_searched"] = True
+    prior_suffix = ""
+    used_priors = sorted({(read, true, prior.get((read, true), 0)) for candidate in variants for _, read, true in candidate.get("subs", []) if prior.get((read, true), 0)})
+    if used_priors:
+        prior_suffix = " Prior confirmed corrections: " + "; ".join(f"{read} to {true}: {count}" for read, true, count in used_priors[:6]) + ". Confirmation is still required."
+    _log(state, "search_variants", f"Checked bounded character alternatives; {len(variants)} candidate(s). No printed character was changed." + prior_suffix, started,
+         source=decision["source"], thought=decision["thought"], llm_meta=decision["llm"], prior=_prior_text(used_priors) or None,
+         io={"input": {"batch_key": batch, "max_subs": 2, "prior": [f"{read}->{true} x{count}" for read, true, count in known[:6]]},
+             "output": [{"id": r.get("id"), "batch_key": r.get("batch_key"), "subs": r.get("subs"), "entry_type": r.get("entry_type")} for r in variants[:5]]})
+    return variants
+
+
+def _do_grade(state, fields, exact, variants, decision=None):
+    """Tool: record-linkage grading of every unique candidate."""
+    decision = decision or {}
+    unique = {}
+    for row in exact + variants:
+        if row["id"] not in unique:
+            unique[row["id"]] = row
+    state["truncated"] = len(unique) > MAX_CANDIDATES or len(exact) > MAX_CANDIDATES or len(variants) > MAX_CANDIDATES
+    grading_fields = dict(fields, product_text=" ".join(dict.fromkeys(filter(None, (fields["product"], fields["brand"], fields.get("product_text", ""))))), mfg=_date(fields["mfg"]), exp=_date(fields["exp"]))
+    candidates = []
+    for row in list(unique.values())[:MAX_CANDIDATES]:
+        if row["batch_key"] in state["confirmed_keys"]:
+            row["how"] = "confirmed"
+        candidate = grade(row, grading_fields)
+        if row["batch_key"] in state["rejected_keys"]:
+            candidate.update(status="reject", rejection="The user confirmed a different printed batch.")
+        elif row["id"] in state["conflict_ids"]:
+            candidate["status"] = "date_conflict"
+        candidates.append(candidate)
+    state["candidates"] = candidates
+    _log(state, "grade", "Compared product, brand, dates and manufacturer for every candidate.",
+         source=decision.get("source", "rules"), thought=decision.get("thought"), llm_meta=decision.get("llm"),
+         io={"input": {k: grading_fields.get(k) for k in ("batch", "product", "brand", "mfg", "exp", "maker")},
+             "output": [{"id": c.get("id"), "batch_key": c.get("batch_key"), "status": c.get("status"), "evidence": c.get("evidence")} for c in candidates[:5]]})
+    return candidates
+
+
+def _assess(state, candidates, can_ask, text_mode):
+    """Rules: what the graded candidates allow next. Returns {top, reason, label, ask?, optional?}.
+
+    `ask` is the question kind the rules allow; `optional` means a planner may draft instead
+    (the batch confirmation gate is never optional).
+    """
+    conflicts = [c for c in candidates if c["status"] == "date_conflict"]
+    pending_rows = [c for c in candidates if c["status"] in {"needs_confirm_char", "needs_confirm_field", "needs_more_evidence", "adjudicate"}]
+    accepted = sorted([c for c in candidates if c["status"] == "accept"], key=lambda c: (c["entry_type"] != "SPURIOUS", c["confidence"] != "high"))
+    if conflicts:
+        return {"top": conflicts[0], "reason": "date_conflict", "label": "CANT_VERIFY"}
+    if state["truncated"]:
+        return {"top": None, "reason": "too many records share this batch; add clearer product details", "label": "CANT_VERIFY"}
+    if pending_rows and (not accepted or any(c["status"] == "needs_confirm_field" for c in pending_rows)):
+        top = next((candidate for candidate in pending_rows if candidate["status"] == "needs_confirm_field"), pending_rows[0])
+        kind = {"needs_confirm_char": "confirm_char", "needs_confirm_field": "confirm_field", "needs_more_evidence": "box_photo", "adjudicate": "box_photo"}[top["status"]]
+        reason = "the candidate needs more printed product, date or manufacturer evidence" if kind == "box_photo" else "the printed characters or dates could not be confirmed"
+        allowed = can_ask and kind not in state["declined"] and (not text_mode or kind in {"confirm_field", "box_photo"})
+        return {"top": top, "reason": reason, "label": "CANT_VERIFY", "ask": kind if allowed else None, "optional": True}
+    if accepted:
+        top = accepted[0]
+        if state["batch_evidence"] not in GATE_EVIDENCE:
+            allowed = can_ask and "confirm_batch" not in state["declined"]
+            return {"top": top, "reason": "batch_gate", "label": "CANT_VERIFY", "ask": "confirm_batch" if allowed else None, "optional": False}
+        return {"top": top, "reason": "", "label": "SUSPECTED_FAKE" if top["entry_type"] == "SPURIOUS" else "FLAGGED"}
+    if pending_rows:
+        return {"top": pending_rows[0], "reason": "the available details did not resolve every candidate", "label": "CANT_VERIFY"}
+    return {"top": None, "reason": "", "label": "NOT_LISTED"}
+
+
+def _ask(state, fields, context, kind, top, batch, prior, decision=None):
+    """Tool: build the question and log the ask_user step."""
+    if kind == "confirm_batch":
+        positions = confirmation_positions(batch, prior)
+        pending = question("confirm_batch", fields, top, positions)
+        items = _prior_items({(batch[p - 1], true) for p in positions if p <= len(batch) for read, true in prior if read == batch[p - 1]}, prior)
+        pending = _with_prior(pending, items)
+        decision = decision or {"source": "rules", "thought": RULE_THOUGHTS["confirm_batch"], "llm": None}
+        _log(state, "ask_user", "Confirm the printed batch before a listed result is shown.", source=decision["source"], thought=decision["thought"], llm_meta=decision.get("llm"),
+             prior=_prior_text(items) or None, io={"input": {"candidate": (top or {}).get("batch_key")}, "output": pending})
+        return pending
+    top = top or {}
+    pending = question(kind, fields, top, [sub[0] + 1 for sub in top.get("subs", [])])
+    pending["subs"] = top.get("subs", [])
+    items = _prior_items({(read, true) for _, read, true in top.get("subs", [])}, prior)
+    pending = _with_prior(pending, items)
+    decision = decision or {"source": "rules", "thought": RULE_THOUGHTS.get(kind, RULE_THOUGHTS["box_photo"]), "llm": None}
+    _log(state, "ask_user", "A printed detail needs your confirmation.", source=decision["source"], thought=decision["thought"], llm_meta=decision.get("llm"),
+         prior=_prior_text(items) or None, io={"input": {"candidate": top.get("batch_key"), "status": top.get("status")}, "output": pending})
+    return pending
+
+
+def _tool(name, kinds=None):
+    tool = {"name": name, "description": TOOL_SPECS[name]}
+    if kinds:
+        tool["params"] = {"kind": {"type": "string", "enum": list(kinds), "description": "Question kind."}}
+    return tool
+
+
+def _agent_loop(state, fields, context, index, batch, searched_count, demo, prior, can_ask, text_mode):
+    """Investigator agent, planner "agent": the model picks every tool (ReAct), bounded.
+
+    The tools offered each turn come from the rules, so a required search or the
+    confirmation gate can never be skipped. Returns {pending} or {top, reason, label, decision}.
+    """
+    exact = variants = candidates = None
+    known = _prior_items({(read, true) for read, true in prior if read in batch}, prior)
+    observations, assessed = [], {"top": None, "reason": "the check reached its bounded review limit", "label": "CANT_VERIFY"}
+    for _ in range(MAX_STEPS):
+        if len(state["history"]) >= MAX_STEPS - 2:
+            return dict(assessed, label="CANT_VERIFY", reason="the check reached its bounded review limit", decision=None)
+        if exact is None:
+            tools, rule, key = [_tool("search_exact")], {"tool": "search_exact"}, "search_exact"
+        elif variants is None:
+            tools, rule, key = [_tool("search_variants")], {"tool": "search_variants"}, "search_variants" if not exact else "search_variants_after_hit"
+        elif candidates is None:
+            tools, rule, key = [_tool("grade")], {"tool": "grade"}, "grade"
+        else:
+            assessed = _assess(state, candidates, can_ask, text_mode)
+            kind = assessed.get("ask")
+            if kind and not assessed.get("optional"):
+                tools, rule, key = [_tool("ask_user", [kind])], {"tool": "ask_user", "args": {"kind": kind}}, "confirm_batch"
+            elif kind:
+                tools, rule, key = [_tool("ask_user", [kind]), _tool("draft_verdict")], {"tool": "ask_user", "args": {"kind": kind}}, kind
+            else:
+                tools, rule, key = [_tool("draft_verdict")], {"tool": "draft_verdict"}, "draft_verdict"
+        top = assessed.get("top") if candidates is not None else None
+        evidence = {"batch_read": batch, "batch_source": fields["source"], "batch_evidence": state["batch_evidence"], "records_searched": searched_count,
+                    "exact_hits": None if exact is None else len(exact), "variant_hits": None if variants is None else len(variants),
+                    "candidate_status": (top or {}).get("status"), "candidate_batch": (top or {}).get("batch_key"),
+                    "substitutions": [f"pack {read} vs listed {true}" for _, read, true in (top or {}).get("subs", [])],
+                    "questions_left": MAX_ASKS - state["asks"], "declined": list(state["declined"]),
+                    "learned_reader_confusions": [f"{read}->{true} x{count}" for read, true, count in known[:6]],
+                    "offered_tools": [tool["name"] for tool in tools]}
+        decision = _agent_decide(state, evidence, tools, rule, key, observations)
+        action = decision["action"]
+        if action == "search_exact":
+            exact = _do_exact(state, index, batch, searched_count, demo, decision)
+            observation = {"exact_hits": len(exact), "batch_keys": [r.get("batch_key") for r in exact[:3]]}
+        elif action == "search_variants":
+            variants = _do_variants(state, index, batch, prior, known, decision)
+            observation = {"variant_hits": len(variants), "batch_keys": [r.get("batch_key") for r in variants[:3]]}
+        elif action == "grade":
+            candidates = _do_grade(state, fields, exact, variants, decision)
+            observation = {"candidates": [{"batch_key": c.get("batch_key"), "status": c.get("status"), "evidence": c.get("evidence")} for c in candidates[:3]]}
+        elif action == "ask_user":
+            return {"pending": _ask(state, fields, context, decision["args"].get("kind") or rule["args"]["kind"], assessed["top"], batch, prior, decision)}
+        else:
+            return dict(assessed, decision=decision)
+        observations.append({"tool": action, "args": decision.get("args") or {}, "observation": observation})
+    return dict(assessed, label="CANT_VERIFY", reason="the check reached its bounded review limit", decision=None)
+
+
+def _verifier_agent(fields, context, state, label, top, reason, batch, data_available):
+    """Verifier agent: render the draft from templates and check every result rule."""
+    verification_state = dict(context, **{key: state.get(key) for key in ("candidates", "asks", "provenance", "batch_evidence", "exact_searched", "variants_searched", "truncated")},
+                              fields=fields, top=top, grounded_batch=bool(batch and state["provenance"].get("batch") in SOURCES), data_available=data_available, steps=len(state["history"]))
+    draft = render_verdict(label, fields, top, context, reason, state["batch_evidence"])
+    return verify_verdict(draft, verification_state)
+
+
+def _revision_options(state, violations, label, top, can_ask):
+    """Rules: which single revision could close the verifier's violations."""
+    options = []
+    if state.get("revisions", 0) < 1 and can_ask and top:
+        kind = None
+        if any(v.startswith("R2") for v in violations) and label in {"FLAGGED", "SUSPECTED_FAKE"}:
+            kind = "confirm_batch" if state["batch_evidence"] not in GATE_EVIDENCE else "box_photo"
+        elif any(v.startswith("R8") for v in violations):
+            kind = "box_photo"
+        if kind and kind not in state["declined"]:
+            options.append(("ask_user", kind))
+    options.append(("downgrade", None))
+    return options
+
+
+def _reflect(state, mode, fields, context, final, label, top, batch, prior):
+    """Self-correction: one bounded revision after a verifier send-back; returns a question or None."""
+    violations = list(final.get("verification") or [])
+    _handoff(state, "verifier", "investigator", "send_back", f"The draft failed {len(violations)} result rule(s); revise once or abstain.", {"violations": violations})
+    can_ask = state["asks"] < MAX_ASKS and len(state["history"]) < MAX_STEPS - 4 and not context.get("cabinet")
+    options = _revision_options(state, violations, label, top, can_ask)
+    names = [name for name, _ in options]
+    kind = options[0][1]
+    rule = {"action": names[0], "source": "rules", "thought": RULE_THOUGHTS["reflect_ask" if names[0] == "ask_user" else "reflect_downgrade"], "llm": None}
+    evidence = {"draft_label": label, "violations": violations, "questions_left": MAX_ASKS - state["asks"], "revisions_left": 1 - state.get("revisions", 0), "options": names}
+    if len(options) < 2:
+        decision = rule
+    elif mode == "agent":
+        decision = _agent_decide(state, evidence, [_tool("ask_user", [kind]), _tool("downgrade")], {"tool": "ask_user", "args": {"kind": kind}}, "reflect", [])
+    else:
+        decision = _decide(state, mode, evidence, names, names[0], "reflect")
+    action = decision["action"] if decision["action"] in names else names[-1]
+    _log(state, "reflect", f"The verifier found {len(violations)} problem(s) in the draft; decision: {'ask one more question' if action == 'ask_user' else 'abstain'}.",
+         source=decision["source"], thought=decision["thought"], llm_meta=decision.get("llm"), violations=violations, decision=action,
+         io={"input": {"violations": violations, "options": names}, "output": {"decision": action}})
+    if action == "ask_user":
+        state["revisions"] = state.get("revisions", 0) + 1
+        return _ask(state, fields, context, kind, top, batch, prior, decision)
+    return None
+
+
 def investigate(fields, alerts, context=None, answer=None, observer=None):
     """Run or resume a check. All external input is data.
 
@@ -326,7 +646,7 @@ def investigate(fields, alerts, context=None, answer=None, observer=None):
     prior = prior_counts(context.get("confusion_counts", [])[:1000]) if not context.get("demo") else {}
     fields = _fields(fields or {})
     mode = str(context.get("planner") or config.PLANNER).strip().lower()
-    mode = mode if mode in {"rules", "hybrid", "llm"} else "rules"
+    mode = mode if mode in {"rules", "hybrid", "llm", "agent"} else "rules"
     state = context.get("_engine")
     if state:
         state["_call"], state["_marks"], state["_observer"] = {"start_ns": call_start, "answer": answer}, [], observer
@@ -342,8 +662,13 @@ def investigate(fields, alerts, context=None, answer=None, observer=None):
             fields["confirmed"] = False
         state["session"] = str(context.get("thread_id") or uuid.uuid4().hex)
         state["_call"], state["_marks"], state["_observer"] = {"start_ns": call_start, "answer": None}, [], observer
+        state["planner"] = mode
+        if context.get("cabinet"):
+            _handoff(state, "supervisor", "investigator", "recheck", "A saved pack is rechecked against the updated alert lists.", {"batch_evidence": state["batch_evidence"]})
         _log(state, "extract_fields", "Using the printed details supplied for this check.",
              io={"input": {"source": fields["source"], "confirmed": fields["confirmed"]}, "output": {k: fields[k] for k in FIELD_NAMES if fields[k]}})
+        _handoff(state, "perception", "investigator", "fields", "The printed fields are ready with their provenance.",
+                 {"fields": [k for k in FIELD_NAMES if fields[k]], "source": fields["source"]})
     state["planner"] = mode
     if context.get("llm_model"):
         state["llm_model"] = str(context["llm_model"])[:100]
@@ -390,116 +715,68 @@ def investigate(fields, alerts, context=None, answer=None, observer=None):
     elif len(state["history"]) >= MAX_STEPS - 3:
         reason = "the check reached its bounded review limit"
     else:
-        started = perf_counter()
         index = build_index(rows)
-        exact = search_exact(index, batch, max_hits=MAX_CANDIDATES + 1)
-        state["exact_searched"] = True
         searched_count = context.get("real_alert_count", len(rows)) if subset_coverage else len(rows)
-        _log(state, "search_exact", f"Checked the exact batch against {searched_count:,} {'synthetic' if context.get('demo') else 'loaded'} records; {len(exact)} candidate(s).", started,
-             io={"input": {"batch_key": batch, "records": searched_count}, "output": [{"id": r.get("id"), "batch_key": r.get("batch_key"), "entry_type": r.get("entry_type")} for r in exact[:5]]})
-        known = _prior_items({(read, true) for read, true in prior if read in batch}, prior)
-        if exact:
-            decision = {"action": "search_variants", "source": "rules", "thought": RULE_THOUGHTS["search_variants_after_hit"], "llm": None}
+        demo = bool(context.get("demo"))
+        known = []
+        if mode == "agent":
+            outcome_state = _agent_loop(state, fields, context, index, batch, searched_count, demo, prior, can_ask, text_mode)
+            if outcome_state.get("pending"):
+                return _snapshot(fields, context, state, outcome_state["pending"])
+            top, reason, label, draft_decision = outcome_state["top"], outcome_state["reason"], outcome_state["label"], outcome_state.get("decision")
         else:
-            # Branch point (b): a search returned nothing.
-            evidence = {"batch_read": batch, "batch_source": fields["source"], "exact_hits": 0, "records_searched": searched_count,
-                        "learned_reader_confusions": [f"{read}->{true} x{count}" for read, true, count in known[:6]]}
-            decision = _decide(state, mode, evidence, ["search_variants", "draft_verdict"], "search_variants", "search_variants")
-        variant_source, variant_thought, variant_llm = decision["source"], decision["thought"], decision["llm"]
-        if decision["action"] == "draft_verdict":
-            # Branch point (d): the verifier sends the draft back once; NOT LISTED needs the variant search (R4).
-            _log(state, "plan", "The planner proposed a result before the look-alike search.", source=decision["source"], thought=decision["thought"], llm_meta=decision["llm"], io={"output": {"action": "draft_verdict"}})
-            _log(state, "verify", "The verifier sent the draft back: a not-listed result needs the bounded look-alike search first.", source="rules",
-                 thought="Rule R4: exact and variant searches must both run before a NOT LISTED result.", io={"output": {"violations": ["R4: a complete, grounded search is required"]}})
-            variant_source, variant_thought, variant_llm = "rules(verifier)", "Re-planned after the verifier send-back: search bounded look-alike alternatives.", None
-        started = perf_counter()
-        variants = search_variants(index, batch, prior=prior, max_subs=2, max_lookups=2000, max_hits=MAX_CANDIDATES + 1)
-        state["variants_searched"] = True
-        prior_suffix = ""
-        used_priors = sorted({(read, true, prior.get((read, true), 0)) for candidate in variants for _, read, true in candidate.get("subs", []) if prior.get((read, true), 0)})
-        if used_priors:
-            prior_suffix = " Prior confirmed corrections: " + "; ".join(f"{read} to {true}: {count}" for read, true, count in used_priors[:6]) + ". Confirmation is still required."
-        _log(state, "search_variants", f"Checked bounded character alternatives; {len(variants)} candidate(s). No printed character was changed." + prior_suffix, started,
-             source=variant_source, thought=variant_thought, llm_meta=variant_llm, prior=_prior_text(used_priors) or None,
-             io={"input": {"batch_key": batch, "max_subs": 2, "prior": [f"{read}->{true} x{count}" for read, true, count in known[:6]]},
-                 "output": [{"id": r.get("id"), "batch_key": r.get("batch_key"), "subs": r.get("subs"), "entry_type": r.get("entry_type")} for r in variants[:5]]})
-        unique = {}
-        for row in exact + variants:
-            if row["id"] not in unique:
-                unique[row["id"]] = row
-        state["truncated"] = len(unique) > MAX_CANDIDATES or len(exact) > MAX_CANDIDATES or len(variants) > MAX_CANDIDATES
-        grading_fields = dict(fields, product_text=" ".join(dict.fromkeys(filter(None, (fields["product"], fields["brand"], fields.get("product_text", ""))))), mfg=_date(fields["mfg"]), exp=_date(fields["exp"]))
-        candidates = []
-        for row in list(unique.values())[:MAX_CANDIDATES]:
-            if row["batch_key"] in state["confirmed_keys"]:
-                row["how"] = "confirmed"
-            candidate = grade(row, grading_fields)
-            if row["batch_key"] in state["rejected_keys"]:
-                candidate.update(status="reject", rejection="The user confirmed a different printed batch.")
-            elif row["id"] in state["conflict_ids"]:
-                candidate["status"] = "date_conflict"
-            candidates.append(candidate)
-        state["candidates"] = candidates
-        _log(state, "grade", "Compared product, brand, dates and manufacturer for every candidate.",
-             io={"input": {k: grading_fields.get(k) for k in ("batch", "product", "brand", "mfg", "exp", "maker")},
-                 "output": [{"id": c.get("id"), "batch_key": c.get("batch_key"), "status": c.get("status"), "evidence": c.get("evidence")} for c in candidates[:5]]})
-        conflicts = [c for c in candidates if c["status"] == "date_conflict"]
-        pending_rows = [c for c in candidates if c["status"] in {"needs_confirm_char", "needs_confirm_field", "needs_more_evidence", "adjudicate"}]
-        accepted = sorted([c for c in candidates if c["status"] == "accept"], key=lambda c: (c["entry_type"] != "SPURIOUS", c["confidence"] != "high"))
-        if conflicts:
-            top, reason = conflicts[0], "date_conflict"
-        elif state["truncated"]:
-            reason = "too many records share this batch; add clearer product details"
-        elif pending_rows and (not accepted or any(c["status"] == "needs_confirm_field" for c in pending_rows)):
-            top = next((candidate for candidate in pending_rows if candidate["status"] == "needs_confirm_field"), pending_rows[0])
-            kind = {"needs_confirm_char": "confirm_char", "needs_confirm_field": "confirm_field", "needs_more_evidence": "box_photo", "adjudicate": "box_photo"}[top["status"]]
-            decision = {"action": "draft_verdict", "source": "rules", "thought": RULE_THOUGHTS["draft_verdict"], "llm": None}
-            if can_ask and kind not in state["declined"] and (not text_mode or kind in {"confirm_field", "box_photo"}):
-                # Branch point (c): grading left a candidate that needs a person or more evidence.
-                evidence = {"batch_read": batch, "batch_source": fields["source"], "candidate_status": top["status"], "candidate_batch": top.get("batch_key"),
-                            "substitutions": [f"pack {read} vs listed {true}" for _, read, true in top.get("subs", [])],
-                            "evidence": top.get("evidence"), "questions_left": MAX_ASKS - state["asks"],
-                            "learned_reader_confusions": [f"{read}->{true} x{count}" for read, true, count in _prior_items({(r, t) for _, r, t in top.get("subs", [])}, prior)]}
-                decision = _decide(state, mode, evidence, ["ask_user", "draft_verdict"], "ask_user", kind)
-            if decision["action"] == "ask_user":
-                pending = question(kind, fields, top, [sub[0] + 1 for sub in top.get("subs", [])])
-                pending["subs"] = top.get("subs", [])
-                items = _prior_items({(read, true) for _, read, true in top.get("subs", [])}, prior)
-                pending = _with_prior(pending, items)
-                _log(state, "ask_user", "A printed detail needs your confirmation.", source=decision["source"], thought=decision["thought"], llm_meta=decision["llm"],
-                     prior=_prior_text(items) or None, io={"input": {"candidate": top.get("batch_key"), "status": top["status"]}, "output": pending})
-                return _snapshot(fields, context, state, pending)
-            reason = "the candidate needs more printed product, date or manufacturer evidence" if kind == "box_photo" else "the printed characters or dates could not be confirmed"
-            draft_decision = decision
-        elif accepted:
-            top = accepted[0]
-            if state["batch_evidence"] not in GATE_EVIDENCE:
-                if can_ask and "confirm_batch" not in state["declined"]:
-                    positions = confirmation_positions(batch, prior)
-                    pending = question("confirm_batch", fields, top, positions)
-                    items = _prior_items({(batch[p - 1], true) for p in positions if p <= len(batch) for read, true in prior if read == batch[p - 1]}, prior)
-                    pending = _with_prior(pending, items)
-                    _log(state, "ask_user", "Confirm the printed batch before a listed result is shown.", thought=RULE_THOUGHTS["confirm_batch"],
-                         prior=_prior_text(items) or None, io={"input": {"candidate": top.get("batch_key")}, "output": pending})
-                    return _snapshot(fields, context, state, pending)
-                reason = "batch_gate"
+            exact = _do_exact(state, index, batch, searched_count, demo)
+            known = _prior_items({(read, true) for read, true in prior if read in batch}, prior)
+            if exact:
+                decision = {"action": "search_variants", "source": "rules", "thought": RULE_THOUGHTS["search_variants_after_hit"], "llm": None}
             else:
-                label = "SUSPECTED_FAKE" if top["entry_type"] == "SPURIOUS" else "FLAGGED"
-        elif pending_rows:
-            top, reason = pending_rows[0], "the available details did not resolve every candidate"
-        else:
-            label = "NOT_LISTED"
+                # Branch point (b): a search returned nothing.
+                evidence = {"batch_read": batch, "batch_source": fields["source"], "exact_hits": 0, "records_searched": searched_count,
+                            "learned_reader_confusions": [f"{read}->{true} x{count}" for read, true, count in known[:6]]}
+                decision = _decide(state, mode, evidence, ["search_variants", "draft_verdict"], "search_variants", "search_variants")
+            variant_source, variant_thought, variant_llm = decision["source"], decision["thought"], decision["llm"]
+            if decision["action"] == "draft_verdict":
+                # Branch point (d): the verifier sends the draft back once; NOT LISTED needs the variant search (R4).
+                _log(state, "plan", "The planner proposed a result before the look-alike search.", source=decision["source"], thought=decision["thought"], llm_meta=decision["llm"], io={"output": {"action": "draft_verdict"}})
+                _log(state, "verify", "The verifier sent the draft back: a not-listed result needs the bounded look-alike search first.", source="rules",
+                     thought="Rule R4: exact and variant searches must both run before a NOT LISTED result.", io={"output": {"violations": ["R4: a complete, grounded search is required"]}})
+                variant_source, variant_thought, variant_llm = "rules(verifier)", "Re-planned after the verifier send-back: search bounded look-alike alternatives.", None
+            variants = _do_variants(state, index, batch, prior, known, {"source": variant_source, "thought": variant_thought, "llm": variant_llm})
+            candidates = _do_grade(state, fields, exact, variants)
+            assessed = _assess(state, candidates, can_ask, text_mode)
+            top, reason, label = assessed["top"], assessed["reason"], assessed["label"]
+            kind = assessed.get("ask")
+            if assessed.get("optional"):
+                decision = {"action": "draft_verdict", "source": "rules", "thought": RULE_THOUGHTS["draft_verdict"], "llm": None}
+                if kind:
+                    # Branch point (c): grading left a candidate that needs a person or more evidence.
+                    evidence = {"batch_read": batch, "batch_source": fields["source"], "candidate_status": top["status"], "candidate_batch": top.get("batch_key"),
+                                "substitutions": [f"pack {read} vs listed {true}" for _, read, true in top.get("subs", [])],
+                                "evidence": top.get("evidence"), "questions_left": MAX_ASKS - state["asks"],
+                                "learned_reader_confusions": [f"{read}->{true} x{count}" for read, true, count in _prior_items({(r, t) for _, r, t in top.get("subs", [])}, prior)]}
+                    decision = _decide(state, mode, evidence, ["ask_user", "draft_verdict"], "ask_user", kind)
+                if decision["action"] == "ask_user":
+                    return _snapshot(fields, context, state, _ask(state, fields, context, kind, top, batch, prior, decision))
+                draft_decision = decision
+            elif kind:
+                return _snapshot(fields, context, state, _ask(state, fields, context, kind, top, batch, prior))
     outcome = ("A corroborated entry matches the confirmed batch; draft the listed result with its citation." if label in {"FLAGGED", "SUSPECTED_FAKE"}
                else "No candidate survived exact and look-alike search and grading; draft a result limited to the lists loaded." if label == "NOT_LISTED"
                else f"The evidence stays incomplete ({reason or 'unresolved'}); abstain instead of guessing.")
     decision = draft_decision or {"source": "rules", "thought": outcome, "llm": None}
     _log(state, "draft_verdict", "Prepared the evidence-based result and checked the result rules.", source=decision["source"], thought=decision["thought"], llm_meta=decision["llm"])
-    logged = bool(state["history"]) and state["history"][-1]["action"] == "draft_verdict"
-    verification_state = dict(context, **{key: state.get(key) for key in ("candidates", "asks", "provenance", "batch_evidence", "exact_searched", "variants_searched", "truncated")}, fields=fields, top=top, grounded_batch=bool(batch and state["provenance"].get("batch") in SOURCES), data_available=data_available, steps=len(state["history"]))
-    draft = render_verdict(label, fields, top, context, reason, state["batch_evidence"])
-    final = verify_verdict(draft, verification_state)
-    if logged and state.get("_marks") and state["_marks"][-1]["i"] == len(state["history"]) - 1:
+    draft_index = len(state["history"]) - 1 if state["history"] and state["history"][-1]["action"] == "draft_verdict" else None
+    draft_mark = state["_marks"][-1] if draft_index is not None and state.get("_marks") and state["_marks"][-1]["i"] == draft_index else None
+    _handoff(state, "investigator", "verifier", "draft", "The draft result is ready for the result rules.", {"label": label, "reason": reason})
+    final = _verifier_agent(fields, context, state, label, top, reason, batch, data_available)
+    if draft_index is not None:
         verdict = final.get("verification") or "approved"
-        state["history"][-1]["verifier"] = verdict
-        state["_marks"][-1]["io"] = {"input": {"label": label, "reason": reason, "top": (top or {}).get("id")}, "output": {"label": final.get("label"), "headline": final.get("headline"), "citations": final.get("citations"), "verifier": verdict}}
+        state["history"][draft_index]["verifier"] = verdict
+        if draft_mark is not None:
+            draft_mark["io"] = {"input": {"label": label, "reason": reason, "top": (top or {}).get("id")}, "output": {"label": final.get("label"), "headline": final.get("headline"), "citations": final.get("citations"), "verifier": verdict}}
+    if final.get("verification"):
+        # Self-correction: the verifier sends the draft back once with its violations.
+        pending = _reflect(state, mode, fields, context, final, label, top, batch, prior)
+        if pending:
+            return _snapshot(fields, context, state, pending)
     return _snapshot(fields, context, state, final=final)

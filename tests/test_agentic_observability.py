@@ -205,6 +205,11 @@ def test_otel_trace_is_nested_and_resume_joins_the_same_trace(monkeypatch):
     assert verifier.attributes["openinference.span.kind"] == "GUARDRAIL" and "approved" in verifier.attributes["output.value"]
     assert root.attributes["session.id"] == resume.attributes["session.id"]
     # Planner spans under the first root follow the step order in time.
-    planners = sorted((span for span in spans if span.parent is not None and span.parent.span_id == root.context.span_id and span.name.startswith("planner:")), key=lambda span: span.start_time)
+    # Planner spans sit inside one AGENT span per agent turn (perception, then investigator).
+    turns = [span for span in spans if span.parent is not None and span.parent.span_id == root.context.span_id and span.name.startswith("agent:")]
+    assert [span.name for span in sorted(turns, key=lambda span: span.start_time)] == ["agent: perception", "agent: investigator"]
+    assert all(span.attributes["openinference.span.kind"] == "AGENT" for span in turns)
+    turn_ids = {span.context.span_id for span in turns}
+    planners = sorted((span for span in spans if span.parent is not None and span.parent.span_id in turn_ids and span.name.startswith("planner:")), key=lambda span: span.start_time)
     assert [span.name for span in planners] == ["planner: extract_fields", "planner: search_exact", "planner: search_variants", "planner: grade", "planner: ask_user"]
     assert all(a.end_time <= b.start_time for a, b in zip(planners, planners[1:]))

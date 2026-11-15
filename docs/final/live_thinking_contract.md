@@ -29,6 +29,17 @@ Steps are now emitted **live** while the investigator runs (not only after it re
 - Every delta is checked against `core.templates.BANNED`; on a hit the server sends `end` with `redacted: true` and the withheld-rationale text, and sends no more deltas for that block.
 - Model text is shown as reasoning only. It never enters verdict text (unchanged rule).
 
+## 2a. Agent planner, self-correction and hand-offs (2026-11-15, additive only)
+Old clients keep working: every field below is optional and every existing field keeps its meaning.
+- Planner choice may also be `"agent"` (POST body/form and `cli.py check --planner agent`). The investigator agent then picks every tool by Ollama native tool calling; the tools offered per step come from the rules. Rules and hybrid behave as before.
+- `step.agent`: `"perception" | "investigator" | "verifier" | "supervisor"`, the agent that owns the step. Missing on old records: treat as `"investigator"`.
+- `thinking.agent`: the agent making the decision (always `"investigator"` today). Agent-mode blocks follow the same start/delta/end rules, full text, BANNED/REASSURE/HOLD_TAIL guard; a fallback still ends with `source: "rules(fallback)"`.
+- New step actions:
+  - `handoff`: `{from, to, kind, reason}` (kind `fields | draft | send_back | recheck`). Logged as steps only in the agent planner; rules/hybrid keep their step counts and keep hand-offs in the engine state and the trace.
+  - `reflect`: after the verifier rejects a draft: `{violations: [...], decision: "ask_user" | "downgrade"}`. At most one revision per check; after it the result is CANT_VERIFY as before.
+- New thinking `context` keys come only from `core/templates.py` (e.g. reflect: "The verifier found problems with the draft. Deciding how to revise it once.").
+- Clients that do not know an action may show it as a plain step with its `summary`.
+
 ## 3. Question payload (`interrupt` / `snapshot.pending`) additions
 - `reason`: one plain sentence from `core/templates.py` saying why the agent is asking (per kind). Safety wording rules apply.
 - `asks_used` and `asks_max`: integers (question number and the bound, 2).

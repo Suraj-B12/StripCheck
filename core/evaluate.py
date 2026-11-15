@@ -61,7 +61,8 @@ from pathlib import Path
 
 from core import config
 
-ARMS = ("baseline", "agent_rules", "agent_hybrid")
+ARMS = ("baseline", "agent_rules", "agent_hybrid", "agent_llm")
+ARM_PLANNERS = {"agent_rules": "rules", "agent_hybrid": "hybrid", "agent_llm": "agent"}
 HITL = ("oracle", "none")
 POSITIVE = {"FLAGGED", "SUSPECTED_FAKE"}
 MAX_ANSWERS = 3
@@ -283,7 +284,7 @@ def run_arm(arm, hitl, manifest, perception, alerts, index=None, list_context=No
         if arm == "baseline":
             result = run_baseline(fields, index, list_context)
         else:
-            result = run_agent(fields, alerts, list_context, item["printed"], hitl, "hybrid" if arm == "agent_hybrid" else "rules")
+            result = run_agent(fields, alerts, list_context, item["printed"], hitl, ARM_PLANNERS.get(arm, "rules"))
         reasoning = time.perf_counter() - started
         final = result.pop("final")
         rows.append(dict(result, id=item["id"], scenario=item["scenario"], truth=item["truth"],
@@ -325,7 +326,7 @@ def predictions(results):
         out.append({"prediction": name, "held": held, "detail": detail})
 
     if base and rules:
-        arms = [(n, a) for n, a in (("baseline", base), ("agent_rules", rules), ("agent_hybrid", hybrid)) if a]
+        arms = [(n, a) for n, a in (("baseline", base), ("agent_rules", rules), ("agent_hybrid", hybrid), ("agent_llm", oracle.get("agent_llm"))) if a]
         counts = {n: (a["summary"]["by_scenario"].get("clean", {}).get("correct", 0), a["summary"]["by_scenario"].get("clean", {}).get("n", 0)) for n, a in arms}
         add("Clean packs: all arms tie", len({k for k, _ in counts.values()}) == 1,
             "; ".join(f"{n} {k}/{m}" for n, (k, m) in counts.items()))
@@ -357,7 +358,7 @@ def _manifest_sha(manifest):
     return hashlib.sha256(json.dumps([[i["id"], i["image_sha256"], i["truth"]] for i in manifest["items"]]).encode()).hexdigest()[:16]
 
 
-def run_research(arms=ARMS, hitl=HITL, seed=7, n=60, alerts=None, eval_folder=None, runs_dir=None,
+def run_research(arms=ARMS[:3], hitl=HITL, seed=7, n=60, alerts=None, eval_folder=None, runs_dir=None,
                  write_paper=None, paper_dir=None, results_dir=None, log=print):
     """Run the golden-set evaluation and write runs/eval_<ts>.json/.md. Returns the combined report.
 
@@ -396,7 +397,7 @@ def run_research(arms=ARMS, hitl=HITL, seed=7, n=60, alerts=None, eval_folder=No
                            "median_s": round(statistics.median(p["seconds"] for p in perception.values()), 3)}
     for policy in hitl:
         for arm in arms:
-            if arm == "agent_hybrid":
+            if arm in {"agent_hybrid", "agent_llm"}:
                 store["ollama"] = ollama_status()
             log(f"Running {arm} with HITL={policy}")
             started = time.perf_counter()
@@ -440,7 +441,7 @@ def research_latest():
 
 
 # ---- Reports ----
-ARM_NAMES = {"baseline": "Baseline (lookup)", "agent_rules": "Agent (rules)", "agent_hybrid": "Agent (hybrid)"}
+ARM_NAMES = {"baseline": "Baseline (lookup)", "agent_rules": "Agent (rules)", "agent_hybrid": "Agent (hybrid)", "agent_llm": "Agent (tool-calling LLM)"}
 SCENARIOS = ("clean", "glare", "misread", "qr", "spurious", "collision", "genuine", "sibling")
 
 
@@ -510,7 +511,7 @@ def markdown(report):
               "collision false-alarm rate is at least 50% lower (relative) than the baseline's and its hit recall is no more than 5 points lower.", ""]
     rows = []
     for policy in ("oracle", "none"):
-        for arm in ("agent_rules", "agent_hybrid"):
+        for arm in ("agent_rules", "agent_hybrid", "agent_llm"):
             cell = res.get(policy, {}).get(arm, {})
             if "vs_baseline" in cell:
                 m, d = cell["vs_baseline"]["mcnemar"], cell["vs_baseline"]["decision_rule"]
@@ -542,7 +543,7 @@ def write_latex(report, folder):
     """paper/generated/results.tex (macros) and results_tables.tex (tables) from the combined report."""
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
-    arm_tag = {"baseline": "Base", "agent_rules": "Rules", "agent_hybrid": "Hybrid"}
+    arm_tag = {"baseline": "Base", "agent_rules": "Rules", "agent_hybrid": "Hybrid", "agent_llm": "LLM"}
     hitl_tag = {"oracle": "Oracle", "none": "Skip"}
     metric_tag = {"hit_recall": "HitRecall", "hit_recall_clean_qr": "HitRecallCleanQR", "type_accuracy": "TypeAcc",
                   "far_all": "FAR", "far_collision": "FARCollision", "far_sibling": "FARSibling", "abstention": "Abstain",

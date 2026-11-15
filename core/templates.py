@@ -112,6 +112,12 @@ THINKING_CONTEXT = {
     "confirm_char": "The closest entry differs only by look-alike characters. Deciding whether to ask you.",
     "confirm_field": "A printed date differs from the closest entry. Deciding whether to ask you.",
     "box_photo": "The batch matches, but other printed details are not corroborated. Deciding whether to ask you.",
+    "search_exact": "Starting the investigation. Choosing the first search.",
+    "search_variants_after_hit": "Exact search is done. Choosing the next search.",
+    "grade": "Both searches are done. Choosing how to compare the candidates.",
+    "confirm_batch": "A listed entry matches. Deciding how to confirm the printed batch.",
+    "draft_verdict": "The evidence is gathered. Deciding whether to draft the result.",
+    "reflect": "The verifier found problems with the draft. Deciding how to revise it once.",
 }
 QUESTION_REASONS = {
     "type_batch": "I need the batch number exactly as printed, because alert entries are matched by batch.",

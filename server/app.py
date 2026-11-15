@@ -12,6 +12,7 @@ import subprocess
 import shutil
 import threading
 import uuid
+from contextlib import asynccontextmanager
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -161,7 +162,7 @@ async def _read_images(request: Request) -> tuple[list[Path], dict]:
         await form.close()
 
 
-PLANNERS = ("rules", "hybrid")
+PLANNERS = ("rules", "hybrid", "agent")
 
 
 def _planner(value) -> str:
@@ -169,7 +170,7 @@ def _planner(value) -> str:
     if value is None or value == "":
         return ""
     if not isinstance(value, str) or value.strip().lower() not in PLANNERS:
-        raise HTTPException(422, "Choose the planner rules or hybrid.")
+        raise HTTPException(422, "Choose the planner rules, hybrid or agent.")
     return value.strip().lower()
 
 
@@ -286,9 +287,21 @@ def _candidate_batches(fields, answer=None):
     return list(dict.fromkeys(key for value in values if 2 <= len(key := batch_key(value)) <= 40))
 
 
-def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
+def create_app(db_path=None, *, lan=False, port=8000, monitor=False) -> FastAPI:
     bound_db_path = db.init_db(db_path)
-    application = FastAPI(title="StripCheck", version="1.0.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        # The autonomous monitor runs only for `cli.py serve` (monitor=True), never in tests.
+        if monitor:
+            from core import monitor as monitor_agent
+            monitor_agent.start(bound_db_path)
+        yield
+        if monitor:
+            from core import monitor as monitor_agent
+            monitor_agent.stop()
+
+    application = FastAPI(title="StripCheck", version="1.0.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None, lifespan=lifespan)
     application.state.db_path = bound_db_path
     application.state.image_slots = asyncio.Semaphore(2)
     application.state.lan = lan
@@ -463,7 +476,7 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
                     reader_batches = []
                     batch_crop = ""
                     for image_path in images:
-                        emit("step", {"action": "read_pack", "node": "perception", "summary": "Reading the printed pack details locally.", "source": "ocr"})
+                        emit("step", {"action": "read_pack", "node": "perception", "agent": "perception", "summary": "Reading the printed pack details locally.", "source": "ocr"})
                         reading = read_pack(image_path)
                         from core.textutils import batch_key
                         observed = batch_key(reading.get("fields", {}).get("batch", ""))
@@ -682,6 +695,18 @@ def create_app(db_path=None, *, lan=False, port=8000) -> FastAPI:
         if not db.delete_cabinet_item(item_id):
             raise HTTPException(404, "This saved pack was not found.")
         return {"deleted": True, "id": item_id}
+
+    @application.get("/api/monitor")
+    def monitor_status():
+        from core import monitor as monitor_agent
+        return monitor_agent.status()
+
+    @application.post("/api/monitor/run")
+    def monitor_run():
+        from core import monitor as monitor_agent
+        if not monitor_agent.start_cycle_async("manual", application.state.db_path):
+            raise HTTPException(409, "A monitor cycle is already running.")
+        return JSONResponse({"started": True}, status_code=202)
 
     @application.get("/api/notifications")
     def notifications():
