@@ -16,7 +16,7 @@ On this configured Mac, double-click **`Start StripCheck.command`** to open the 
 
 ### First setup on a fresh clone
 
-Prerequisites: **Python 3.12 or later** and **Node.js 22.12 or later**. This local build has also been exercised on Python 3.14. No account, API key or downloaded language model is required.
+Prerequisites: **Python 3.12 or later** and **Node.js 22.12 or later**. This local build has also been exercised on Python 3.14. No account, API key or language model is required for the default rules mode. The local models below are optional extras.
 
 macOS / Linux:
 
@@ -42,6 +42,21 @@ npm.cmd --prefix web run build
 ```
 
 Open **http://127.0.0.1:8000**. For later Windows launches, run `./start-stripcheck.ps1`; add `-Lan` for token-protected phone pairing. Use `python cli.py serve --port 8001` if another app uses port 8000. The macOS launchers also accept the `STRIPCHECK_PORT` environment variable.
+
+### Agent mode, vision model and monitor (optional, local)
+
+These need [Ollama](https://ollama.com) running on the same computer. Without it everything still works in the default rules mode.
+
+```powershell
+ollama pull qwen2.5:3b      # the planner model (agent and hybrid modes)
+ollama pull qwen2.5vl:3b    # the vision model (reads a batch the OCR cannot read)
+python cli.py check data/samples/pack_types/misread_FLAGGED.png --planner agent
+python cli.py serve
+```
+
+- **Agent mode.** In the web app, choose **Agent** in the planner control (it is greyed out until Ollama and the model are found). From the command line use `--planner agent`, or set `STRIPCHECK_PLANNER=agent` for every check. The local model picks the next tool at every step; the rules decide which tools it may pick, so a required search or the confirmation question can never be skipped. If the model is off, slow or answers badly, the rule choice is used and the step says `rules(fallback)`. The default stays `rules`.
+- **Vision model.** `qwen2.5vl:3b` is the default (`STRIPCHECK_VLM_MODEL`; `STRIPCHECK_VLM_TIMEOUT`, default 30 s). It is used only when OCR and QR cannot read the batch, and only for photo checks. What it reads is shown to the person as a yes/no question and is never trusted alone. On a laptop without a GPU it takes 2 to 6 seconds per crop, so run one check before a demo to load it.
+- **Monitor.** `python cli.py serve` also starts a background monitor (every 6 hours by default, `STRIPCHECK_MONITOR_HOURS`). It decides whether a sync is due, checks the connection, syncs, re-checks saved packs and notifies when a status changes. Failures back off up to 24 hours and never affect a check. Turn it off with `STRIPCHECK_MONITOR=0`. Run one cycle with `python cli.py monitor --once`, read its state at `GET /api/monitor`, and start a cycle with `POST /api/monitor/run`.
 
 ### Native iOS app
 
@@ -100,6 +115,7 @@ Verdicts: **FLAGGED** (on an NSQ list) · **SUSPECTED_FAKE** (listed as purporte
 | Local website, API and deterministic batch-check workflow | implemented; see current verification evidence in `docs/BUILD_STATUS.md` |
 | Windows OCR, hybrid planner, Phoenix tracing, tunnel demo | done (Nov 2026) |
 | R4 evaluation (seed 7, n=60), report and slides | done; see `docs/results/eval_seed7.md`, `paper/`, `docs/guide/index.html` |
+| Agentic upgrade: tool-calling agent, self-check, hand-offs, vision fallback, monitor | built (Nov 2026); 289 Python and 117 web tests pass; four-arm seed-7 evaluation done (D27 to D29) |
 
 ## Working on this repository
 
@@ -155,3 +171,7 @@ Deviations of the code from `StripCheck_Build_Spec_v2.md` are listed here, each 
 - **D23:** Windows reads photos with RapidOCR and zxing-cpp; the tunnel demo uses the token gate on localhost (`STRIPCHECK_REQUIRE_TOKEN=1`); the hybrid planner calls the local model at two branch points with a rules fallback; Phoenix export is optional.
 - **D24:** The R4 evaluation uses 60 rendered cartons from real alert rows. Misreads are printed on the carton, so OCR noise is simulated, not measured, and no real strip photos are included.
 - **D25:** Fixes from the evaluation: full product text kept for grading, R2 aligned with partial-match grading, every look-alike position asked at confirmation. All arms were rerun after the fixes.
+- **D26:** The rule planner stays the default. The hybrid planner matched it on all 60 packs but had a much longer tail latency, so it is an option.
+- **D27:** A third planner mode, `agent`, lets the local model pick the next tool at every step (a thought, an action and an observation, repeated). The rules list the tools allowed at each step, so the model cannot skip a search or the confirmation question; a bad or late model answer uses the rule choice (`rules(fallback)`). After the verifier rejects a draft, one self-check lets the planner revise once. Perception, investigator, verifier and supervisor are explicit agents that pass hand-off messages. Bounds are unchanged.
+- **D28:** `core/monitor.py` is an autonomous monitor started by `cli.py serve` (every 6 hours; `STRIPCHECK_MONITOR=0` turns it off). It decides if a sync is due, syncs with the existing spacing and TLS rules, re-checks saved packs and notifies on changes. `GET /api/monitor`, `POST /api/monitor/run`, `cli.py monitor --once`.
+- **D29:** When OCR and QR cannot read the batch, the agent may use a local vision model (`qwen2.5vl:3b`). Its reading is shown with the photo crop as a yes/no question; only after "No" is the person asked to type. A vision reading is never gate evidence until the person confirms it. The agent can also ask for one more photo (`request_photo`). On the CPU-only laptop the model takes 2 to 6 seconds per crop, and in a live test it misread one digit with high stated confidence, which the confirmation step and the look-alike search caught.
