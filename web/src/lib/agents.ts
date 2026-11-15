@@ -25,16 +25,16 @@ export function agentOf(value: unknown): AgentName {
 }
 
 export const VIOLATION_TEXT: Record<string, string> = {
-  R1: "the draft named a result the evidence does not support",
+  R1: "the result label is not one of the four allowed",
   R2: "batch not confirmed by a person, QR or two photos",
-  R3: "the maker on the pack was not checked against the listing",
-  R4: "a look-alike character in the batch was not resolved",
-  R5: "a needed pack detail was missing",
-  R6: "a cited listing could not be traced to a stored record",
-  R7: "the draft wording was outside the approved wording",
-  R8: "the draft claimed more than the evidence shows",
-  R9: "the list data was out of date",
-  R10: "the checks did not agree with each other",
+  R3: "the alert type does not support this result",
+  R4: "the search was not complete enough to say not listed",
+  R5: "no traceable source, or wording outside the rules",
+  R6: "the step or question limit was exceeded",
+  R7: "a printed date conflict is unresolved",
+  R8: "a detail used has no recorded source",
+  R9: "list coverage and date were not stated",
+  R10: "no reviewed translation for this language",
 };
 
 export function violationText(code: string): string {
