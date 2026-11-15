@@ -68,28 +68,30 @@
 \centering
 \small
 {\color{muted}\res{ResN} rendered packs, eval seed \res{ResSeed}, index of \res{ResAlertCount} alerts}\\[3mm]
-\begin{tabular}{@{}lcccc@{}}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lccccc@{}}
 \toprule
- & Lookup & Agent (rules) & Agent (hybrid) & Agent (rules) \\
-Metric & oracle & oracle & oracle & questions skipped \\
+ & Lookup & Agent (rules) & Agent (hybrid) & Agent (tool-calling) & Agent (rules) \\
+Metric & oracle & oracle & oracle & oracle & questions skipped \\
 \midrule
-Hit recall & \res{ResBaseOracleHitRecallK} & \res{ResRulesOracleHitRecallK} & \res{ResHybridOracleHitRecallK} & \res{ResRulesSkipHitRecallK} \\
-False alarms, collisions & \textcolor{brick}{\res{ResBaseOracleFARCollisionK}} & \textcolor{teal}{\res{ResRulesOracleFARCollisionK}} & \textcolor{teal}{\res{ResHybridOracleFARCollisionK}} & \res{ResRulesSkipFARCollisionK} \\
-False alarms, siblings & \textcolor{brick}{\res{ResBaseOracleFARSiblingK}} & \textcolor{teal}{\res{ResRulesOracleFARSiblingK}} & \textcolor{teal}{\res{ResHybridOracleFARSiblingK}} & \res{ResRulesSkipFARSiblingK} \\
-False alarms, all unlisted & \res{ResBaseOracleFARK} & \res{ResRulesOracleFARK} & \res{ResHybridOracleFARK} & \res{ResRulesSkipFARK} \\
-Abstentions & \res{ResBaseOracleAbstainK} & \res{ResRulesOracleAbstainK} & \res{ResHybridOracleAbstainK} & \res{ResRulesSkipAbstainK} \\
-Overall accuracy & \res{ResBaseOracleAccuracyK} & \res{ResRulesOracleAccuracyK} & \res{ResHybridOracleAccuracyK} & \res{ResRulesSkipAccuracyK} \\
-Questions per pack & \res{ResBaseOracleQuestions} & \res{ResRulesOracleQuestions} & \res{ResHybridOracleQuestions} & \res{ResRulesSkipQuestions} \\
-Latency median / p95 (s) & \res{ResBaseOracleLatMedian} / \res{ResBaseOracleLatPNinetyFive} & \res{ResRulesOracleLatMedian} / \res{ResRulesOracleLatPNinetyFive} & \res{ResHybridOracleLatMedian} / \res{ResHybridOracleLatPNinetyFive} & \res{ResRulesSkipLatMedian} / \res{ResRulesSkipLatPNinetyFive} \\
-Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \res{ResHybridOracleSafety} & \res{ResRulesSkipSafety} \\
+Hit recall & \res{ResBaseOracleHitRecallK} & \res{ResRulesOracleHitRecallK} & \res{ResHybridOracleHitRecallK} & \res{ResLLMOracleHitRecallK} & \res{ResRulesSkipHitRecallK} \\
+False alarms, collisions & \textcolor{brick}{\res{ResBaseOracleFARCollisionK}} & \textcolor{teal}{\res{ResRulesOracleFARCollisionK}} & \textcolor{teal}{\res{ResHybridOracleFARCollisionK}} & \textcolor{teal}{\res{ResLLMOracleFARCollisionK}} & \res{ResRulesSkipFARCollisionK} \\
+False alarms, siblings & \textcolor{brick}{\res{ResBaseOracleFARSiblingK}} & \textcolor{teal}{\res{ResRulesOracleFARSiblingK}} & \textcolor{teal}{\res{ResHybridOracleFARSiblingK}} & \textcolor{teal}{\res{ResLLMOracleFARSiblingK}} & \res{ResRulesSkipFARSiblingK} \\
+False alarms, all unlisted & \res{ResBaseOracleFARK} & \res{ResRulesOracleFARK} & \res{ResHybridOracleFARK} & \res{ResLLMOracleFARK} & \res{ResRulesSkipFARK} \\
+Abstentions & \res{ResBaseOracleAbstainK} & \res{ResRulesOracleAbstainK} & \res{ResHybridOracleAbstainK} & \res{ResLLMOracleAbstainK} & \res{ResRulesSkipAbstainK} \\
+Overall accuracy & \res{ResBaseOracleAccuracyK} & \res{ResRulesOracleAccuracyK} & \res{ResHybridOracleAccuracyK} & \res{ResLLMOracleAccuracyK} & \res{ResRulesSkipAccuracyK} \\
+Questions per pack & \res{ResBaseOracleQuestions} & \res{ResRulesOracleQuestions} & \res{ResHybridOracleQuestions} & \res{ResLLMOracleQuestions} & \res{ResRulesSkipQuestions} \\
+Latency median / p95 (s) & \res{ResBaseOracleLatMedian} / \res{ResBaseOracleLatPNinetyFive} & \res{ResRulesOracleLatMedian} / \res{ResRulesOracleLatPNinetyFive} & \res{ResHybridOracleLatMedian} / \res{ResHybridOracleLatPNinetyFive} & \textcolor{amber}{\res{ResLLMOracleLatMedian} / \res{ResLLMOracleLatPNinetyFive}} & \res{ResRulesSkipLatMedian} / \res{ResRulesSkipLatPNinetyFive} \\
+Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \res{ResHybridOracleSafety} & \res{ResLLMOracleSafety} & \res{ResRulesSkipSafety} \\
 \bottomrule
-\end{tabular}\\[2mm]
-{\scriptsize\color{amber}Run 2, after three general fixes made once run 1 had been seen: optimistic (see backup).}
+\end{tabular}}\\[2mm]
+{\scriptsize\color{amber}Final run, after three general fixes made once run 1 had been seen: optimistic (see backup). The vision fallback never triggers on this set.}
 }
 \newcommand{\OutcomeText}{
-\textbf{\color{teal}R-A (oracle user):} \res{ResRulesOracleDecision} the agent, McNemar $p={}$\res{ResRulesOracleMcNemarP}. Questions skipped: \res{ResRulesSkipDecision}; the agent abstains on \res{ResRulesSkipAbstainK}.\\[1mm]
-\textbf{R-C:} \ifRCholds holds: the hybrid planner gives the same labels at median \res{ResHybridOracleLatMedian}\,s vs \res{ResRulesOracleLatMedian}\,s, but p95 \res{ResHybridOracleLatPNinetyFive}\,s vs \res{ResRulesOracleLatPNinetyFive}\,s.\else does not hold; rules stay the default.\fi\\[1mm]
-\textbf{Prediction:} clean \res{ResPredictionOne}; collisions \res{ResPredictionTwo}; misreads \res{ResPredictionThree}; hybrid = rules \res{ResPredictionFour}.\\[1mm]
+\textbf{\color{teal}R-A (oracle user):} \res{ResRulesOracleDecision} the agent, McNemar $p={}$\res{ResRulesOracleMcNemarP}. Questions skipped: \res{ResRulesSkipDecision}; the agent abstains on \res{ResRulesSkipAbstainK}.\\[0.5mm]
+\textbf{R-C:} \ifRCholds holds: the hybrid planner gives the same labels at median \res{ResHybridOracleLatMedian}\,s vs \res{ResRulesOracleLatMedian}\,s, but p95 \res{ResHybridOracleLatPNinetyFive}\,s vs \res{ResRulesOracleLatPNinetyFive}\,s.\else does not hold; rules stay the default.\fi\\[0.5mm]
+\textbf{Tool-calling arm:} same verdicts (McNemar \res{ResLLMOracleMcNemarB} vs \res{ResLLMOracleMcNemarC}, $p={}$\res{ResLLMOracleMcNemarP}), median \res{ResLLMOracleLatMedian}\,s. Rules stay the default.\\[0.5mm]
+\textbf{Prediction:} clean \res{ResPredictionOne}; collisions \res{ResPredictionTwo}; misreads \res{ResPredictionThree}; hybrid = rules \res{ResPredictionFour}.\\[0.5mm]
 \textbf{\color{amber}Run 1 (\RunOneCommit):} hit recall \RunOneRulesOracleHitRecallK, clean \RunOneRulesOracleCleanK, misreads \RunOneRulesOracleMisreadK, also \RunOneRulesOracleDecision. Three code defects fixed after it, so run 2 is optimistic.
 }
 \else
@@ -188,7 +190,7 @@ Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \re
 % 5
 \begin{frame}{Architecture as built}
 \centering
-\resizebox{\textwidth}{!}{%
+\resizebox{0.95\textwidth}{!}{%
 \begin{tikzpicture}[x=1cm,y=1cm]
 \node[sc] (client) at (0,0) {\textbf{Clients}\\web, iOS, CLI};
 \node[sc] (api) at (3.1,0) {\textbf{Local API}\\FastAPI + SSE};
@@ -197,7 +199,9 @@ Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \re
 \node[gate] (ver) at (12.4,0) {\textbf{Verifier}\\ten hard rules};
 \node[sc] (out) at (15.5,0) {\textbf{Verdict card}\\template + citation};
 \node[human] (person) at (9.3,1.9) {\textbf{Person}\\types the doubtful characters};
-\node[opt] (llm) at (12.4,1.9) {\textbf{Local LLM}\\optional, with fallback};
+\node[opt] (llm) at (12.4,1.9) {\textbf{Local LLM}\\planner, optional, with fallback};
+\node[opt] (vlm) at (6.2,1.9) {\textbf{Vision read}\\qwen2.5vl, person confirms};
+\draw[arr,dashed] (perc.north)--node[lbl,right]{no batch}(vlm.south);
 \draw[arr] (client)--(api); \draw[arr] (api)--(perc); \draw[arr] (perc)--(inv);
 \draw[arr] (inv)--node[lbl,above]{draft}(ver); \draw[arr] (ver)--node[lbl,above]{pass}(out);
 \draw[arr] ([xshift=-3mm]inv.north)--([xshift=-3mm]person.south);
@@ -211,15 +215,18 @@ Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \re
 \node[agent] (sync) at (3.1,-4.5) {\textbf{Sync}\\$\geq$1.5\,s apart, snapshots};
 \node[agent] (ing) at (6.2,-4.5) {\textbf{Ingest}\\validate, quarantine};
 \node[agent] (re) at (12.4,-4.5) {\textbf{Cabinet re-check}\\saved packs};
+\node[agent] (mon) at (0,-6.4) {\textbf{Monitor}\\schedule, back-off};
+\draw[arr] (mon.north east)--node[lbl,right]{every 6\,h}(sync.south west);
 \node[sc] (note) at (15.5,-4.5) {\textbf{Notifications}};
 \draw[arr] (portal)--(sync); \draw[arr] (sync)--(ing); \draw[arr] (ing)--(index.south west);
 \draw[arr] (ing)--node[lbl,above]{then}(re); \draw[arr] (re)--(note);
 \begin{scope}[on background layer]
 \node[draw=ink!20, fill=white, rounded corners=4pt, inner sep=5pt, fit=(client)(out)(person)(llm)] (l1) {};
-\node[draw=ink!20, fill=white, rounded corners=4pt, inner sep=5pt, fit=(portal)(note)] (l2) {};
+\node[draw=ink!20, fill=white, rounded corners=4pt, inner sep=5pt, fit=(portal)(note)(mon)] (l2) {};
 \end{scope}
 \node[font=\scriptsize\itshape, anchor=north west, text=muted] at (l1.north west) {per pack, person waits};
-\node[font=\scriptsize\itshape, anchor=north west, text=muted] at (l2.south west) {background: supervisor runs sync, ingest, re-check};
+\node[font=\scriptsize\itshape, anchor=north east, text=muted] at (l1.south east) {arrows between the four agents are hand-off messages};
+\node[font=\scriptsize\itshape, anchor=north west, text=muted] at (l2.south west) {background: supervisor and monitor run sync, ingest, re-check};
 \end{tikzpicture}}
 \end{frame}
 
@@ -230,7 +237,7 @@ Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \re
 \centering
 \resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[x=1cm,y=1cm]
-\node[agent] (plan) at (0,0) {\textbf{Planner}\\rules; LLM at branch points};
+\node[agent] (plan) at (0,0) {\textbf{Planner}\\rules (default), hybrid, or agent};
 \node[sc] (ext) at (-3.3,1.5) {\textbf{extract\_fields}};
 \node[sc] (exa) at (0,1.8) {\textbf{search\_exact}};
 \node[sc] (var) at (3.3,1.5) {\textbf{search\_variants}\\channel-ranked};
@@ -240,9 +247,11 @@ Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \re
 \node[gate] (ver) at (0,-3.7) {\textbf{Verifier}\\R1--R10};
 \node[sc] (ok) at (-2.4,-5) {verdict};
 \node[sc] (cv) at (2.4,-5) {\V{CANT\_VERIFY}};
+\node[gate] (ref) at (3.5,-3.7) {\textbf{reflect}\\one revision};
 \foreach \n in {ext,exa,var,grd,ask}{\draw[{Stealth[length=1.6mm]}-{Stealth[length=1.6mm]}, ink!70, line width=0.6pt] (plan)--(\n);}
 \draw[arr] (plan)--(dra); \draw[arr] (dra)--(ver);
-\draw[arr] (ver)--node[lbl,left=2pt]{pass}(ok); \draw[arr] (ver)--node[lbl,right=2pt]{violation}(cv);
+\draw[arr] (ver)--node[lbl,left=2pt]{pass}(ok); \draw[arr] (ver)--node[lbl,above]{violation}(ref);
+\draw[arr] (ref.south)--node[lbl,right=1pt]{none left}(cv.north east); \draw[arr,dashed] (ref.north)--node[lbl,right=1pt]{one more question}(grd.south);
 \end{tikzpicture}}
 \end{column}
 \begin{column}{0.4\textwidth}
@@ -256,6 +265,8 @@ Substitutions per variant & 2\\
 Variant lookups & 2{,}000\\
 Candidates graded & 20\\
 LLM attempts (timed out) & 2\\
+Revisions after a rejection & 1\\
+Vision calls / extra photos & 2 / 1\\
 \bottomrule
 \end{tabular}\\[2mm]
 \textbf{\color{brick}Gate:} no alarm unless the batch came from a QR code, the person, or two agreeing reads.
@@ -263,23 +274,55 @@ LLM attempts (timed out) & 2\\
 \end{columns}
 \end{frame}
 
+% 6b
+\begin{frame}{How the agent works now}
+\small
+\begin{columns}[T]
+\begin{column}{0.42\textwidth}
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+\node[gate] (rul) at (0,3.2) {\textbf{Rules}\\compute the allowed tools};
+\node[agent] (th) at (0,1.6) {\textbf{Thought + action}\\model picks one allowed tool};
+\node[sc] (tool) at (0,0) {\textbf{Tool runs}\\search, grade, ask, draft, vision, photo};
+\node[sc] (obs) at (0,-1.6) {\textbf{Observation}\\summary fed back};
+\node[gate] (ver) at (0,-3.2) {\textbf{Verifier}\\R1--R10};
+\draw[arr] (rul)--(th); \draw[arr] (th)--(tool); \draw[arr] (tool)--(obs);
+\draw[arr] (obs.west)-|node[lbl,left,pos=0.25]{next turn}(-3.0,3.2)--(rul.west);
+\draw[arr] (obs)--(ver);
+\node[sc] (bad) at (3.6,-3.2) {bad call, timeout:\\rule choice};
+\draw[arr,dashed] (th.east)-|node[lbl,pos=0.2,above]{invalid}(bad.north);
+\end{tikzpicture}}
+\end{column}
+\begin{column}{0.56\textwidth}
+\footnotesize
+\setlength{\parskip}{0pt}
+\textbf{\color{teal}Allowed tools.} The rules offer only what the state permits, so no search and no confirmation gate can be skipped. An invalid call uses the rule choice.\\[1mm]
+\textbf{\color{teal}Self-check.} If the verifier rejects a draft, \emph{reflect} allows one revision: one more question, else \V{CANT\_VERIFY}.\\[1mm]
+\textbf{\color{teal}Hand-offs.} Perception, investigator, verifier and supervisor pass messages, shown as steps and badges.\\[1mm]
+\textbf{\color{teal}Vision fallback.} When OCR cannot read the batch, \texttt{read\_with\_vision} proposes a reading and the person confirms yes or no. It is never evidence alone.\\[1mm]
+\textbf{\color{amber}Live test.} Vision read \texttt{AYA2107} at stated confidence 0.95 (printed \texttt{AYA2101}); confirmation and the look-alike search still ended \V{FLAGGED} on the true batch. The evaluation set never triggers vision.
+\end{column}
+\end{columns}
+\end{frame}
+
 % 7
 \begin{frame}{Agentic concepts and where to see them}
 \scriptsize
-\renewcommand{\arraystretch}{1.15}
+\renewcommand{\arraystretch}{1.05}
 \begin{tabularx}{\textwidth}{@{}>{\bfseries}l X X@{}}
 \toprule
 Concept & In StripCheck & Evidence \\
 \midrule
-Tool use & QR, OCR, extract, search, grade, ask, draft & one trace step per call \\
+Tool use & QR, OCR, search, grade, ask, draft, vision read, photo request & one trace step per call \\
 Agentic RAG & exact $\rightarrow$ variants $\rightarrow$ grade 5 fields $\rightarrow$ re-query or abstain & candidates and grades in the check \\
-Planning & planner loop; hybrid LLM picks among allowed actions & \emph{source} of each step \\
+Planning & rules, hybrid, or ReAct tool calling; reflect once & \emph{source} and thought of each step \\
 Observability & JSONL trace per check, live timeline; optional OpenTelemetry export to Phoenix & \texttt{data/traces/<check>.jsonl} and a Phoenix trace \\
-Multi-agent & supervisor, ingest, investigator, verifier & re-check report, rule results \\
+Multi-agent & four agents with hand-offs; monitor & hand-off steps, re-check report \\
 Memory & cabinet re-check; confirmed confusions as a prior & ``Prior confirmed corrections: 8 to B: 1'' \\
 HITL + guardrails & five question kinds, templates, banned phrases & question and resumed answer \\
 Durable workflow & whole check state saved in SQLite & resume across restarts \\
-Experimentation & lookup vs agent (rules) vs agent (hybrid) & A/B tables \\
+Experimentation & lookup vs agent (rules, hybrid, tool-calling) & A/B tables \\
 \bottomrule
 \end{tabularx}
 \end{frame}
@@ -323,7 +366,7 @@ Experimentation & lookup vs agent (rules) vs agent (hybrid) & A/B tables \\
 \textbf{Arms}
 \begin{itemize}
 \item A: lookup script (QR/OCR, regex, exact hit = alarm)
-\item B: agent, rule planner; C: agent, hybrid planner
+\item B: agent, rule planner; C: hybrid planner; D: tool-calling planner
 \item each with an oracle user and with every question skipped
 \end{itemize}
 \end{column}
@@ -355,15 +398,17 @@ Wilson 95\% intervals; exact McNemar for paired arms.
 Adopt the agent if collision false alarms drop by $\geq$50\% (relative) and hit recall falls by $\leq$5 points.\\[2mm]
 \OutcomeText
 \end{column}
-\begin{column}{0.46\textwidth}
-\small
+\begin{column}{0.48\textwidth}
+\footnotesize
 \textbf{Limitations}
-\begin{itemize}
+\begin{itemize}\setlength{\itemsep}{1pt}
 \item \V{NOT\_LISTED} only covers sampled, loaded lists
-\item all packs are synthetic; no real strip photos yet; English labels only
+\item all packs are synthetic; no real strip photos; English labels only
 \item the oracle answers perfectly; real people may not
-\item small packs per scenario; laptop CPU latency
-\item reported run follows fixes made after run 1 on the same seed
+\item small sets per scenario; laptop CPU latency
+\item vision runs on the CPU, its confidence is unreliable, and this set never triggers it
+\item the model often omits its thought; agent mode is slower (\res{ResLLMOracleLatMedian}\,s vs \res{ResRulesOracleLatMedian}\,s)
+\item the run follows fixes made after run 1 on the same seed
 \end{itemize}
 \end{column}
 \end{columns}
@@ -427,7 +472,7 @@ A draft that breaks any rule becomes \V{CANT\_VERIFY}, with the rule identifiers
 \end{frame}
 
 \begin{frame}{Backup: deviations from the Review 2 design}
-\small
+\footnotesize
 \begin{tabularx}{\textwidth}{@{}l X@{}}
 \toprule
 Design & As built \\
@@ -436,8 +481,8 @@ LangGraph + checkpoints & bounded custom engine; whole check state as a JSON doc
 Arize Phoenix & JSONL trace per check and live timeline; OpenTelemetry export to Phoenix is opt-in \\
 Streamlit & FastAPI + React web app, plus a native iOS client \\
 PDF parsing first & portal JSON end to end; PDF helpers only \\
-VLM second reader & not shipped; QR or two agreeing photos count as independent \\
-Send back once & only when the LLM planner drafts too early; otherwise failing draft becomes \V{CANT\_VERIFY} \\
+VLM second reader & fallback only: the person confirms, never evidence alone; QR or two agreeing photos stay the independent evidence \\
+Send back once & \emph{reflect}: one revision (one more question) after a verifier rejection, then \V{CANT\_VERIFY} \\
 Engine of run 1 & three defects fixed after run 1 (D25): full product text graded, R2 accepts partial matches that grading accepts, every look-alike position asked \\
 \bottomrule
 \end{tabularx}

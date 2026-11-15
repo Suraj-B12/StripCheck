@@ -39,7 +39,7 @@ Each check becomes one trace: a root \texttt{check} span (\textsc{agent}), a
 \texttt{planner\_llm} span (\textsc{llm}) at each model consultation, a \texttt{verifier} span
 (\textsc{guardrail}), and a \texttt{check.resume} span for the half after an answer.
 
-Figure~\ref{fig:phoenix-trace} shows the span tree of the misread walkthrough of
+Figure~\ref{fig:phoenix-trace} in Appendix~\ref{app:traces} shows the span tree of the misread walkthrough of
 Section~\ref{sec:design-data-flow} (25 spans). In the exported spans (\texttt{docs/trace/phoenix\_spans\_run1.json}) the two
 \texttt{planner\_llm} spans took 4.60\,s and 3.89\,s of the 8.49\,s root span, and every tool span
 took under a millisecond, so the model calls account for almost all of the time. Phoenix shows
@@ -50,32 +50,12 @@ With Ollama unreachable, the same check finished in about 2\,s with \texttt{rule
 branch points and the same \FLAGGED{} result (\texttt{docs/trace/README.md}), which is the behaviour
 the fallback is designed for.
 
-\begin{figure}[htbp]
-\centering
-\begin{tikzpicture}
-\node[anchor=south west,inner sep=0] (img) at (0,0)
-  {\includegraphics[width=\linewidth]{fig_phoenix_tree_print.png}};
-\begin{scope}[x={(img.south east)},y={(img.north west)},
-  callout/.style={circle,fill=BrickRed,text=white,font=\bfseries\footnotesize,inner sep=1.2pt,minimum size=13pt}]
-  \node[callout] at (0.405,0.914) {1};  % trace latency and cost
-  \node[callout] at (0.160,0.824) {2};  % root check span (agent)
-  \node[callout] at (0.285,0.166) {3};  % planner_llm before search_variants
-  \node[callout] at (0.805,0.630) {4};  % planner_llm before ask_user
-  \node[callout] at (0.775,0.424) {5};  % check.resume
-\end{scope}
-\end{tikzpicture}
-\caption{Span tree of the Review~3 misread walkthrough in Phoenix (synthetic pack, hybrid planner),
-cropped and split into two columns; the right column continues the left one. (1)~trace latency
-8.8\,s and cost \$0 (local model); (2)~root \texttt{check} span of kind \textsc{agent} (8.49\,s,
-shown truncated as 8.4\,s); (3)~branch point after the empty exact search, where the model chose
-\texttt{search\_variants} (4.60\,s); (4)~branch point after grading, where the model chose
-\texttt{ask\_user} (3.89\,s); (5)~the resumed half of the check under the same root.}
-\label{fig:phoenix-trace}
-\end{figure}
+In agent mode the hand-offs and model turns also appear as steps and spans (D27).
 
 \paragraph{Monitoring.} The evaluation harness counts steps by planner source (model or fallback),
 and \texttt{cli.py doctor} reports the database counts, the installed readers and whether Ollama
-and Phoenix are reachable.
+and Phoenix are reachable. The monitor (decision D28) keeps its last 200 cycles with the decision, new alerts, packs re-checked, notifications and errors
+(\texttt{GET /api/monitor}); no monitor result enters the evaluation.
 
 \section{Evaluation Dataset}
 \label{sec:eval-evaluation-dataset}
@@ -135,63 +115,55 @@ reports any hit as an alarm (\SFAKE{} for a spurious entry, \FLAGGED{} otherwise
 perception output, the same index of \res{ResAlertCount} alerts and the same verdict templates as
 the agent, so the arms differ only in the reasoning between the read batch and the verdict. Arm~B is the agent with the rule planner and arm~C the agent with the
 hybrid planner, which consults \texttt{qwen2.5:3b} through Ollama at the two branch points
-(temperature~0). Each arm runs under two human-in-the-loop policies: an \emph{oracle} user who
+(temperature~0). Arm~D is the agent in tool-calling mode, where the same model picks every tool in a ReAct loop from the
+tools that the rules allow. Each arm runs under two human-in-the-loop policies: an \emph{oracle} user who
 answers every question truthfully from the manifest, and \emph{none}, where every question is
 skipped. The second policy acts as an ablation of the human loop.
 
 \section{Results}
 \label{sec:eval-results}
 
-Table~\ref{tab:eval-results} gives the headline metrics for the three arms under both policies.
+Table~\ref{tab:eval-results} gives the headline metrics for the four arms under both policies.
 
-\begin{table}[htbp]
+\begin{table}[!t]
 \centering
-\caption[Headline metrics on the evaluation set (seed~7, run~2)]{Headline metrics on the evaluation set (seed~7, $n=60$, run~2). Rates as value ($k/n$) with
-the Wilson 95\% interval below. Source: \texttt{paper/generated/results.tex}.}
+\caption[Headline metrics on the evaluation set (seed~7, final run)]{Headline metrics on the evaluation set (seed~7, $n=60$, final run with four arms), as value ($k/n$). Intervals, type accuracy, clean and QR recall and sibling rates are in Table~\ref{tab:eval-results-full} (Appendix~\ref{app:supp}). Source: \texttt{paper/generated/results.tex}.}
 \label{tab:eval-results}
-\footnotesize
-\setlength{\tabcolsep}{4pt}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
 \renewcommand{\arraystretch}{1.12}
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}X ccc@{}}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.9cm} cccc@{}}
 \toprule
-\textbf{Metric} & \textbf{Baseline (lookup)} & \textbf{Agent (rules)} & \textbf{Agent (hybrid)} \\
+\textbf{Metric} & \textbf{Baseline (lookup)} & \textbf{Agent (rules)} & \textbf{Agent (hybrid)} & \textbf{Agent (tools)} \\
 \midrule
-\multicolumn{4}{@{}l}{\textit{HITL = oracle (a person answers every question)}} \\
-Hit recall & \res{ResBaseOracleHitRecall} (\res{ResBaseOracleHitRecallK}) & \res{ResRulesOracleHitRecall} (\res{ResRulesOracleHitRecallK}) & \res{ResHybridOracleHitRecall} (\res{ResHybridOracleHitRecallK}) \\
- & \res{ResBaseOracleHitRecallCI} & \res{ResRulesOracleHitRecallCI} & \res{ResHybridOracleHitRecallCI} \\
-Hit recall, clean and QR & \res{ResBaseOracleHitRecallCleanQR} (\res{ResBaseOracleHitRecallCleanQRK}) & \res{ResRulesOracleHitRecallCleanQR} (\res{ResRulesOracleHitRecallCleanQRK}) & \res{ResHybridOracleHitRecallCleanQR} (\res{ResHybridOracleHitRecallCleanQRK}) \\
-Type accuracy & \res{ResBaseOracleTypeAcc} (\res{ResBaseOracleTypeAccK}) & \res{ResRulesOracleTypeAcc} (\res{ResRulesOracleTypeAccK}) & \res{ResHybridOracleTypeAcc} (\res{ResHybridOracleTypeAccK}) \\
-False-alarm rate, all not listed & \res{ResBaseOracleFAR} (\res{ResBaseOracleFARK}) & \res{ResRulesOracleFAR} (\res{ResRulesOracleFARK}) & \res{ResHybridOracleFAR} (\res{ResHybridOracleFARK}) \\
- & \res{ResBaseOracleFARCI} & \res{ResRulesOracleFARCI} & \res{ResHybridOracleFARCI} \\
-False-alarm rate, collisions & \res{ResBaseOracleFARCollision} (\res{ResBaseOracleFARCollisionK}) & \res{ResRulesOracleFARCollision} (\res{ResRulesOracleFARCollisionK}) & \res{ResHybridOracleFARCollision} (\res{ResHybridOracleFARCollisionK}) \\
-False-alarm rate, siblings & \res{ResBaseOracleFARSibling} (\res{ResBaseOracleFARSiblingK}) & \res{ResRulesOracleFARSibling} (\res{ResRulesOracleFARSiblingK}) & \res{ResHybridOracleFARSibling} (\res{ResHybridOracleFARSiblingK}) \\
-Abstention rate & \res{ResBaseOracleAbstain} (\res{ResBaseOracleAbstainK}) & \res{ResRulesOracleAbstain} (\res{ResRulesOracleAbstainK}) & \res{ResHybridOracleAbstain} (\res{ResHybridOracleAbstainK}) \\
-Overall accuracy & \res{ResBaseOracleAccuracy} (\res{ResBaseOracleAccuracyK}) & \res{ResRulesOracleAccuracy} (\res{ResRulesOracleAccuracyK}) & \res{ResHybridOracleAccuracy} (\res{ResHybridOracleAccuracyK}) \\
- & \res{ResBaseOracleAccuracyCI} & \res{ResRulesOracleAccuracyCI} & \res{ResHybridOracleAccuracyCI} \\
-Questions / steps per pack & \res{ResBaseOracleQuestions} / \res{ResBaseOracleSteps} & \res{ResRulesOracleQuestions} / \res{ResRulesOracleSteps} & \res{ResHybridOracleQuestions} / \res{ResHybridOracleSteps} \\
-Latency median / mean / p95 (s) & \res{ResBaseOracleLatMedian} / \res{ResBaseOracleLatMean} / \res{ResBaseOracleLatPNinetyFive} & \res{ResRulesOracleLatMedian} / \res{ResRulesOracleLatMean} / \res{ResRulesOracleLatPNinetyFive} & \res{ResHybridOracleLatMedian} / \res{ResHybridOracleLatMean} / \res{ResHybridOracleLatPNinetyFive} \\
-LLM steps / fallback steps & \res{ResBaseOracleLLMSteps} / \res{ResBaseOracleFallbackSteps} & \res{ResRulesOracleLLMSteps} / \res{ResRulesOracleFallbackSteps} & \res{ResHybridOracleLLMSteps} / \res{ResHybridOracleFallbackSteps} \\
-Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \res{ResHybridOracleSafety} \\
+\multicolumn{5}{@{}l}{\textit{HITL = oracle (a person answers every question)}} \\
+Hit recall & \res{ResBaseOracleHitRecall} (\res{ResBaseOracleHitRecallK}) & \res{ResRulesOracleHitRecall} (\res{ResRulesOracleHitRecallK}) & \res{ResHybridOracleHitRecall} (\res{ResHybridOracleHitRecallK}) & \res{ResLLMOracleHitRecall} (\res{ResLLMOracleHitRecallK}) \\
+False-alarm rate, all not listed & \res{ResBaseOracleFAR} (\res{ResBaseOracleFARK}) & \res{ResRulesOracleFAR} (\res{ResRulesOracleFARK}) & \res{ResHybridOracleFAR} (\res{ResHybridOracleFARK}) & \res{ResLLMOracleFAR} (\res{ResLLMOracleFARK}) \\
+False-alarm rate, collisions & \res{ResBaseOracleFARCollision} (\res{ResBaseOracleFARCollisionK}) & \res{ResRulesOracleFARCollision} (\res{ResRulesOracleFARCollisionK}) & \res{ResHybridOracleFARCollision} (\res{ResHybridOracleFARCollisionK}) & \res{ResLLMOracleFARCollision} (\res{ResLLMOracleFARCollisionK}) \\
+Abstention rate & \res{ResBaseOracleAbstain} (\res{ResBaseOracleAbstainK}) & \res{ResRulesOracleAbstain} (\res{ResRulesOracleAbstainK}) & \res{ResHybridOracleAbstain} (\res{ResHybridOracleAbstainK}) & \res{ResLLMOracleAbstain} (\res{ResLLMOracleAbstainK}) \\
+Overall accuracy & \res{ResBaseOracleAccuracy} (\res{ResBaseOracleAccuracyK}) & \res{ResRulesOracleAccuracy} (\res{ResRulesOracleAccuracyK}) & \res{ResHybridOracleAccuracy} (\res{ResHybridOracleAccuracyK}) & \res{ResLLMOracleAccuracy} (\res{ResLLMOracleAccuracyK}) \\
+Questions / steps per pack & \res{ResBaseOracleQuestions} / \res{ResBaseOracleSteps} & \res{ResRulesOracleQuestions} / \res{ResRulesOracleSteps} & \res{ResHybridOracleQuestions} / \res{ResHybridOracleSteps} & \res{ResLLMOracleQuestions} / \res{ResLLMOracleSteps} \\
+Latency median / mean / p95 (s) & \res{ResBaseOracleLatMedian} / \res{ResBaseOracleLatMean} / \res{ResBaseOracleLatPNinetyFive} & \res{ResRulesOracleLatMedian} / \res{ResRulesOracleLatMean} / \res{ResRulesOracleLatPNinetyFive} & \res{ResHybridOracleLatMedian} / \res{ResHybridOracleLatMean} / \res{ResHybridOracleLatPNinetyFive} & \res{ResLLMOracleLatMedian} / \res{ResLLMOracleLatMean} / \res{ResLLMOracleLatPNinetyFive} \\
+LLM steps / fallback steps & \res{ResBaseOracleLLMSteps} / \res{ResBaseOracleFallbackSteps} & \res{ResRulesOracleLLMSteps} / \res{ResRulesOracleFallbackSteps} & \res{ResHybridOracleLLMSteps} / \res{ResHybridOracleFallbackSteps} & \res{ResLLMOracleLLMSteps} / \res{ResLLMOracleFallbackSteps} \\
+Safety violations & \res{ResBaseOracleSafety} & \res{ResRulesOracleSafety} & \res{ResHybridOracleSafety} & \res{ResLLMOracleSafety} \\
 \midrule
-\multicolumn{4}{@{}l}{\textit{HITL = none (every question skipped)}} \\
-Hit recall & \res{ResBaseSkipHitRecall} (\res{ResBaseSkipHitRecallK}) & \res{ResRulesSkipHitRecall} (\res{ResRulesSkipHitRecallK}) & \res{ResHybridSkipHitRecall} (\res{ResHybridSkipHitRecallK}) \\
- & \res{ResBaseSkipHitRecallCI} & \res{ResRulesSkipHitRecallCI} & \res{ResHybridSkipHitRecallCI} \\
-Hit recall, clean and QR & \res{ResBaseSkipHitRecallCleanQR} (\res{ResBaseSkipHitRecallCleanQRK}) & \res{ResRulesSkipHitRecallCleanQR} (\res{ResRulesSkipHitRecallCleanQRK}) & \res{ResHybridSkipHitRecallCleanQR} (\res{ResHybridSkipHitRecallCleanQRK}) \\
-False-alarm rate, all not listed & \res{ResBaseSkipFAR} (\res{ResBaseSkipFARK}) & \res{ResRulesSkipFAR} (\res{ResRulesSkipFARK}) & \res{ResHybridSkipFAR} (\res{ResHybridSkipFARK}) \\
-Abstention rate & \res{ResBaseSkipAbstain} (\res{ResBaseSkipAbstainK}) & \res{ResRulesSkipAbstain} (\res{ResRulesSkipAbstainK}) & \res{ResHybridSkipAbstain} (\res{ResHybridSkipAbstainK}) \\
-Overall accuracy & \res{ResBaseSkipAccuracy} (\res{ResBaseSkipAccuracyK}) & \res{ResRulesSkipAccuracy} (\res{ResRulesSkipAccuracyK}) & \res{ResHybridSkipAccuracy} (\res{ResHybridSkipAccuracyK}) \\
-Safety violations & \res{ResBaseSkipSafety} & \res{ResRulesSkipSafety} & \res{ResHybridSkipSafety} \\
+\multicolumn{5}{@{}l}{\textit{HITL = none (every question skipped)}} \\
+Hit recall & \res{ResBaseSkipHitRecall} (\res{ResBaseSkipHitRecallK}) & \res{ResRulesSkipHitRecall} (\res{ResRulesSkipHitRecallK}) & \res{ResHybridSkipHitRecall} (\res{ResHybridSkipHitRecallK}) & \res{ResLLMSkipHitRecall} (\res{ResLLMSkipHitRecallK}) \\
+False-alarm rate, all not listed & \res{ResBaseSkipFAR} (\res{ResBaseSkipFARK}) & \res{ResRulesSkipFAR} (\res{ResRulesSkipFARK}) & \res{ResHybridSkipFAR} (\res{ResHybridSkipFARK}) & \res{ResLLMSkipFAR} (\res{ResLLMSkipFARK}) \\
+Abstention rate & \res{ResBaseSkipAbstain} (\res{ResBaseSkipAbstainK}) & \res{ResRulesSkipAbstain} (\res{ResRulesSkipAbstainK}) & \res{ResHybridSkipAbstain} (\res{ResHybridSkipAbstainK}) & \res{ResLLMSkipAbstain} (\res{ResLLMSkipAbstainK}) \\
+Overall accuracy & \res{ResBaseSkipAccuracy} (\res{ResBaseSkipAccuracyK}) & \res{ResRulesSkipAccuracy} (\res{ResRulesSkipAccuracyK}) & \res{ResHybridSkipAccuracy} (\res{ResHybridSkipAccuracyK}) & \res{ResLLMSkipAccuracy} (\res{ResLLMSkipAccuracyK}) \\
+Safety violations & \res{ResBaseSkipSafety} & \res{ResRulesSkipSafety} & \res{ResHybridSkipSafety} & \res{ResLLMSkipSafety} \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 
-With the oracle user both agent arms raised an alarm on all \res{ResRulesOracleHitRecallK} listed
+With the oracle user all three agent arms raised an alarm on all \res{ResRulesOracleHitRecallK} listed
 packs and on none of the \res{ResRulesOracleFARK} not-listed packs. The lookup missed the eight
 misread packs and raised an alarm on all eight collisions and all four siblings, so its false-alarm
 rate on not-listed packs was \res{ResBaseOracleFAR} (\res{ResBaseOracleFARK}). On the clean, QR and
 spurious packs the two approaches agree. Figure~\ref{fig:eval-scenarios} breaks the result down by
-scenario and shows that the baseline fails exactly where a batch number alone is misleading.
+scenario and shows that the baseline fails exactly where a batch number alone is misleading, while the three agent arms are correct on every scenario.
 
 \begin{figure}[htbp]
 \centering
@@ -214,49 +186,40 @@ batch is confirmed by the code, and the collision and not-listed control packs, 
 Figure~\ref{fig:eval-latency} (Appendix~\ref{app:supp}) gives the cost. Perception dominates every arm: the median end-to-end
 time was \res{ResBaseOracleLatMedian}\,s for the lookup and \res{ResRulesOracleLatMedian}\,s for the
 rule agent, whose reasoning took a median of \res{ResRulesOracleReasonMedian}\,s (95th percentile
-0.103\,s). The hybrid planner had \res{ResHybridOracleFallbackSteps} fallbacks to rules. Its median rose only to
+0.091\,s). The hybrid planner had \res{ResHybridOracleFallbackSteps} fallbacks to rules. Its median rose only to
 \res{ResHybridOracleLatMedian}\,s, because the model is consulted only at branch points
 (\res{ResHybridOracleLLMSteps} times over \res{ResN} packs), but each model call
 takes seconds on the laptop, so its 95th percentile was \res{ResHybridOracleLatPNinetyFive}\,s.
-No arm produced a safety violation.
+The tool-calling arm consults the model at every step: it made \res{ResLLMOracleLLMSteps} model steps over the
+\res{ResN} packs with \res{ResLLMOracleFallbackSteps} fallbacks, and \res{ResLLMOracleSteps} logged steps per pack against \res{ResRulesOracleSteps}
+for the rule agent. Its reasoning took a median of \res{ResLLMOracleReasonMedian}\,s and its time per pack a median of
+\res{ResLLMOracleLatMedian}\,s (95th percentile \res{ResLLMOracleLatPNinetyFive}\,s), about six times
+the rule agent's median, with every verdict unchanged. No arm produced a safety violation.
+
+\subsection*{Live checks of the agent mode and the vision fallback}
+\label{sec:eval-live-agent}
+
+The golden set cannot exercise the vision fallback. The reader returned the rendered batch on \res{ResOCRBatchExact} of
+\res{ResN} cartons, so the vision fallback was never needed in any arm. The evidence for the
+fallback is a live test with the agent planner (\texttt{qwen2.5:3b}) and \texttt{qwen2.5vl:3b} on the CPU, on one pack, whose batch value
+was blurred, reduced in contrast and noised so that OCR read only the label ``Batch No'' (\texttt{docs/\allowbreak final/\allowbreak V\_status.md}). The vision model read
+the crop as \texttt{AYA2107} with a stated confidence of 0.95, whereas the printed batch is \texttt{AYA2101}; the call took 5.6\,s cold and 2.0\,s warm,
+and the whole photo at 1{,}280 pixels timed out at 60\,s. On the yes path the person confirmed the reading, the character question offered
+\texttt{AYA2107} against \texttt{AYA-2101}, the person chose \texttt{AYA-2101}, and the check ended \FLAGGED{}; skipping that question ended \CANTV. On
+the no path the person typed \texttt{AYA2101} and the result was \FLAGGED. This shows the control flow and the confirmation guard on one pack and one
+run, and says nothing about the accuracy of the vision model. Three earlier live checks of the agent planner, made before the vision upgrade
+(\texttt{docs/\allowbreak final/\allowbreak K\_status.md}), ended \FLAGGED{} for a demonstration pack in 6.9\,s, \NLISTED{} for an unlisted batch in 2.3\,s and \CANTV{} in
+6.1\,s for a misread pack, where the model drafted instead of asking the optional question.
 
 \section{Error Analysis}
 \label{sec:eval-error-analysis}
 
-Table~\ref{tab:eval-errors} groups every incorrect verdict of run~2 on seed~7, taken from the
+Table~\ref{tab:eval-errors} in Appendix~\ref{app:supp} groups every incorrect verdict of run~2 on seed~7, taken from the
 per-pack listing in \texttt{docs/results/eval\_seed7.md}. Examples are schematic, because the packs
-carry batch strings from CDSCO rows. With the oracle user the two agent arms
+carry batch strings from CDSCO rows. With the oracle user the three agent arms
 made no error, so the table lists the baseline's 20 errors and the agent's 36 abstentions when
 questions are skipped. The seven alarms the agent missed in run~1, before the fixes, are analysed
 in Section~\ref{sec:exp-results}.
-
-\begin{table}[htbp]
-\centering
-\caption{Incorrect verdicts on seed~7 (run~2) grouped by cause, with one example per group}
-\label{tab:eval-errors}
-\small
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.21\linewidth} c
-  >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{0.25\linewidth}@{}}
-\toprule
-\textbf{Arm and cause} & \textbf{Count} & \textbf{Example} & \textbf{What addresses it} \\
-\midrule
-Baseline: misread batch not found & 8 & A listed \texttt{Z} printed as \texttt{2} (schematic:
-listed \texttt{AZ1234}, carton \texttt{A21234}); lookup returns \NLISTED & Confusion-aware variant search with a person
-confirming the character (agent) \\
-Baseline: collision raised as alarm & 8 & Listed batch number on a different product and maker;
-lookup returns \FLAGGED & Grading of product, dates and maker before any alarm (agent) \\
-Baseline: sibling raised as alarm & 4 & Carton reads a listed batch one look-alike character
-away from the unlisted batch the pack carries (schematic: \texttt{AB1703} read, \texttt{AB1708}
-carried); lookup returns \FLAGGED & Batch confirmation by the person before an
-alarm (agent) \\
-Agent, no answers: batch gate & 28 & Clean, glare, spurious and sibling packs whose
-\texttt{confirm\_batch} question was skipped end in \CANTV & A QR code or a second photo as
-independent evidence; otherwise only the person \\
-Agent, no answers: character unconfirmed & 8 & Misread packs whose \texttt{confirm\_char} question
-was skipped end in \CANTV & Only the person holding the pack \\
-\bottomrule
-\end{tabularx}
-\end{table}
 
 The baseline's errors are structural. A lookup cannot recover a batch that the reader got wrong, and
 it cannot tell whether a listed batch number belongs to this product, so collisions and siblings

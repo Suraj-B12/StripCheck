@@ -27,7 +27,7 @@ the tracing server and the network all switched off (NFR1).
 
 \begin{figure}[!htbp]
 \centering\setstretch{1}
-\begin{tikzpicture}[
+\scalebox{0.93}{\begin{tikzpicture}[
   font=\footnotesize,
   box/.style={draw=bmsblue,fill=guidebg,rounded corners=2pt,minimum width=2.6cm,text width=2.4cm,minimum height=0.95cm,align=center},
   agent/.style={box,line width=0.9pt},
@@ -45,6 +45,7 @@ the tracing server and the network all switched off (NFR1).
 \node[tool]  (perc) at (1.3,-4.68) {Perception tools: QR, OCR, re-read};
 \node[store] (state) at (13.6,-4.68) {Check state, traces, memory};
 \node[agent] (inv) at (7.45,-8.16) {\textbf{Investigator} planner and tool loop};
+\node[opt]   (vlm) at (1.3,-6.42) {Vision read (optional) qwen2.5vl:3b};
 \node[opt]   (llm) at (1.3,-8.16) {Local LLM (optional) qwen2.5:3b};
 \node[store] (index) at (13.6,-8.16) {Alert index (SQLite)};
 \node[agent] (ver) at (1.3,-10.68) {\textbf{Verifier} rules R1--R10};
@@ -53,47 +54,53 @@ the tracing server and the network all switched off (NFR1).
 \node[box]   (ingest) at (13.6,-13.74) {Ingest: clean, validate, quarantine};
 \node[ext]   (portal) at (1.3,-16.14) {CDSCO SUGAM portal};
 \node[box]   (sync) at (7.45,-16.14) {Portal sync\\(1.5\,s gap, TLS)};
+\node[agent] (mon) at (13.6,-16.14) {\textbf{Monitor} schedule, back-off};
 % lanes
 \begin{scope}[on background layer]
 \draw[dashed,draw=bmsblue!60,fill=bmsblue!3,rounded corners=4pt] (-0.15,0.90) rectangle (15.05,-11.94);
 \draw[dashed,draw=gray!70,fill=gray!4,rounded corners=4pt] (-0.15,-12.30) rectangle (15.05,-17.34);
 \end{scope}
 \node[anchor=north west,lab,fill=none,align=left,text=bmsblue] at (-0.05,0.80) {\textbf{Per-pack lane}\\the person waits};
-\node[anchor=south east,lab,fill=none,align=right,text=black!70] at (14.95,-17.24) {\textbf{Background lane}\\(supervisor)};
+\node[anchor=north west,lab,fill=none,align=left,text=black!70] at (-0.05,-12.36) {\textbf{Background lane} (supervisor and monitor)};
 % per-pack arrows
 \draw[arr] ([xshift=-5mm]person.south) -- node[lab,left,xshift=-2.5mm]{photos, typed\\details, answers} ([xshift=-5mm]clients.north);
 \draw[arr] ([xshift=5mm]clients.north) -- node[lab,right,xshift=2.5mm]{questions,\\verdict card} ([xshift=5mm]person.south);
 \draw[arr] ([xshift=-5mm]clients.south) -- node[lab,left,xshift=-2.5mm]{HTTP request:\\images, answer} ([xshift=-5mm]api.north);
 \draw[arr] ([xshift=5mm]api.north) -- node[lab,right,xshift=2.5mm]{SSE: steps,\\question, verdict} ([xshift=5mm]clients.south);
 \draw[arr] ([yshift=2mm]api.west) -- node[lab,above,pos=0.72]{image} ([yshift=2mm]perc.east);
-\draw[arr] ([yshift=-2mm]perc.east) -- node[lab,below]{fields, provenance} ([yshift=-2mm]api.west);
+\draw[arr] ([yshift=-2mm]perc.east) -- node[lab,below]{hand-off: fields} ([yshift=-2mm]api.west);
 \draw[arr,{Stealth[length=2mm]}-{Stealth[length=2mm]}] ([yshift=-2mm]api.east) -- node[lab,above]{check state, trace} node[lab,below]{prior, corrections} ([yshift=-2mm]state.west);
 \draw[arr] ([xshift=-5mm]api.south) -- node[lab,left]{fields, answer,\\saved state} ([xshift=-5mm]inv.north);
 \draw[arr] ([xshift=5mm]inv.north) -- node[lab,right]{snapshot: question\\or result} ([xshift=5mm]api.south);
+\draw[arr,dashed] (perc.south) -- node[lab,right]{no batch} (vlm.north);
+\draw[arr,dashed] (vlm.east) -- (inv.north west);
 \draw[arr,dashed] ([yshift=2mm]inv.west) -- node[lab,above]{evidence,\\allowed actions} ([yshift=2mm]llm.east);
-\draw[arr,dashed] ([yshift=-2mm]llm.east) -- node[lab,below]{action, thought} ([yshift=-2mm]inv.west);
+\draw[arr,dashed] ([yshift=-2mm]llm.east) -- node[lab,below]{action or tool call,\\thought} ([yshift=-2mm]inv.west);
 \draw[arr] (index.west) -- node[lab,below]{alert rows for\\the batch keys} (inv.east);
-\draw[arr] ([xshift=-9mm]inv.south) |- node[lab,above,pos=0.75]{draft verdict} ([yshift=2mm]ver.east);
-\draw[arr] ([yshift=-2mm]ver.east) -| node[lab,below,pos=0.25]{approved, or \CANTV} ([xshift=-5mm]inv.south);
+\draw[arr] ([xshift=-9mm]inv.south) |- node[lab,above,pos=0.75]{hand-off:\\draft verdict} ([yshift=2mm]ver.east);
+\draw[arr] ([yshift=-2mm]ver.east) -| node[lab,below,pos=0.62]{hand-off: approved,\\send-back, \CANTV} ([xshift=-5mm]inv.south);
 % background arrows
 \draw[arr] (portal.east) -- node[lab,below]{monthly JSON\\(latin-1)} (sync.west);
 \draw[arr] (sync.north west) -- node[lab,below left=-1pt,pos=0.55]{raw files, SHA-256} (raw.south east);
 \draw[arr] (sync.north east) -- node[lab,below right=-1pt,pos=0.55]{new snapshots} (ingest.south west);
 \draw[arr] (ingest.north) -- node[lab,left,pos=0.4]{validated rows,\\atomic commit} (index.south);
 \draw[arr] (ingest.west) -- node[lab,above]{after ingest} (recheck.east);
+\draw[arr] (mon.west) -- node[lab,above]{when due} (sync.east);
 \draw[arr] ([xshift=9mm]recheck.north) -- node[lab,right,pos=0.75]{saved packs,\\same investigator} ([xshift=9mm]inv.south);
-\end{tikzpicture}
-\caption{Architecture of StripCheck as built. Blue boxes are control components (bold: the agent and
-its verifier), green boxes are tools, the dashed box is optional, cylinders are local stores and the
-double box is the external data source.}
+\end{tikzpicture}}
+\caption{Architecture of StripCheck as built. Blue boxes are control components (bold: the agents),
+green boxes are tools, dashed boxes and arrows are optional model calls (planner, and a vision read of the batch line), cylinders are local stores and the double box is
+the external data source. Labels starting with ``hand-off'' mark messages between the perception,
+investigator, verifier and supervisor agents.}
 \label{fig:arch}
 \end{figure}
 
 Three decisions shape the figure. The agent is one bounded loop with an independent verifier,
 because the question it answers (is this exact batch on a list?) has a fixed set of evidence steps
 that a fixed loop can bound, test and trace. The language model sits beside the loop and never on
-the path to the person: it chooses between two allowed actions at a branch point, and the rules take
-over when it is slow, absent or invalid. The LangGraph graphs of the specification were replaced by
+the path to the person. By default it is not used; in hybrid mode it chooses between two allowed
+actions at a branch point, and in agent mode it picks each tool from a list the rules compute. The rules take over
+when it is slow, absent or invalid. Four agents pass hand-off messages (Section~\ref{sec:design-agents-handoffs}). The LangGraph graphs of the specification were replaced by
 a custom loop whose whole state is one JSON document saved after every run, which keeps the pause
 and resume behaviour with less code (decision D18).
 
@@ -123,7 +130,11 @@ the CPU~\cite{rapidai2021rapidocr,du2020ppocr}; one enhanced re-read is tried wh
 label-anchored patterns extract batch, product, brand, dates and maker. Each reader runs in a
 separate process within a 60\,s deadline per photo. A failed read leaves the field empty, and the
 investigator then asks the person to type the batch. If the QR and printed batches disagree, the
-printed one is used without confirmed status; if two photos disagree, the person is asked.
+printed one is used without confirmed status; if two photos disagree, the person is asked. When no
+reader finds a batch, the readers disagree or the batch line has very low confidence, the investigator
+may call a local vision model (\texttt{qwen2.5vl:3b}) on a crop of the batch line. The reading has the
+source \texttt{vlm}, is shown to the person with the crop as a yes or no question, and is not evidence for an alarm
+until the person confirms it. The investigator may also request one more photo of the missing detail.
 
 \subsection{Planner}
 
@@ -138,6 +149,16 @@ suggestion is used with the source \texttt{rules(fallback)}, and after a connect
 is skipped for 30\,s. When a client is watching, the reply is streamed and the growing thought is sent to
 it as it is written; every update is checked for banned and reassuring phrases, and a hit replaces
 the text with the rule reason. The model writes no text that enters a verdict.
+
+In agent mode (decision D27) the model picks each tool through Ollama's native tool calling, in a
+ReAct loop~\cite{yao2023react}. A turn has a thought (a required argument of every tool), an action (the tool
+call) and an observation (a summary of the result, fed back as a tool message). The tools offered are the ones the
+rules allow in the current state: only \texttt{search\_exact}, then only \texttt{search\_variants}, then only
+\texttt{grade}; afterwards \texttt{ask\_user} with the one question kind the grader requires, with
+\texttt{draft\_verdict} beside it when the question is optional. The model can therefore neither skip a search nor the
+confirmation gate, and every argument must be a value from the enumeration of the offered tool. A call to another tool,
+a timeout, an error or invalid output uses the rule choice with the source \texttt{rules(fallback)}. The small model
+often leaves the thought empty; the step then carries the note ``The model gave no reason'' and the rule thought.
 
 \subsection{Executor and tools}
 
@@ -167,8 +188,11 @@ The verifier re-checks every draft against the stored state with ten hard rules 
 Table~\ref{tab:verifier}), independently of the drafting code. An alarm needs a corroborated
 candidate, a confirmed batch and a citation; \NLISTED{} needs both searches, no pending candidate and
 a statement of the lists loaded; every used field needs a source; no text may contain a banned
-phrase. A failing draft becomes the \CANTV{} template with the rule ids. Only one draft is sent back
-for revision: a model draft made before the variant search, which rule R4 returns once.
+phrase. A failing draft becomes the \CANTV{} template with the rule ids, after one bounded
+revision. A model draft made before the variant search is returned once by rule R4. For any other
+violation the \texttt{reflect} step (decision D27) lists the options, one more question of the kind that could close the
+violation (for example \texttt{confirm\_batch} after an R2 violation) or abstention, and the planner chooses. After one
+revision, or when no question is left, the result is \CANTV.
 
 The human gate is \texttt{ask\_user}, with five question kinds: type the batch, confirm the batch,
 confirm a character, confirm a printed date, or add printed details or a carton photo. An alarm
@@ -198,43 +222,35 @@ missing product, a placeholder batch or a date in the batch cell, and commits ea
 transaction; a snapshot whose digest is already stored is skipped, so imports are idempotent. The
 cabinet re-check then runs the same investigator on every saved pack with questions disabled and
 notifies the person of a new listing or a printed expiry within 30 days. When the portal is
-unreachable the existing index stays in use.
+unreachable the existing index stays in use. The autonomous monitor (decision D28,
+\texttt{core/monitor.py}) starts this cycle from \texttt{cli.py serve} every six hours by default. It decides whether a
+sync is due, checks that the portal is reachable, syncs under the same spacing and TLS rules, re-checks the saved packs
+and notifies the person of status changes. A failed cycle backs off for up to 24\,h and never affects a check.
+
+\subsection{Agents and hand-offs}
+\label{sec:design-agents-handoffs}
+
+Four agents share the work: perception (QR, OCR, vision read), the investigator (planning, search, grading,
+questions), the verifier and the supervisor. They are plain functions that pass message records with a sender, a receiver,
+a kind (\texttt{fields}, \texttt{draft}, \texttt{send\_back} or \texttt{recheck}) and a reason; at most 24 are kept per check.
+In agent mode a hand-off is a step of the check, with a trace span and a row in the client; in rules and hybrid modes it is
+kept in the state and the trace only, so their step counts did not change. Only the investigator uses a language model.
 
 
 \section{Selected Agentic Patterns and Justification}
 \label{sec:design-selected-agentic-patterns-and-justification}
 
-Table~\ref{tab:design-patterns} lists the patterns used, where each sits, why it was chosen and
+Table~\ref{tab:design-patterns} in Appendix~\ref{app:supp} lists the patterns used, where each sits, why it was chosen and
 which alternative was rejected. The common reason is the cost of an error: a false alarm on a
 sibling batch harms a product that is not listed, and a confident \NLISTED{} can be read as an
 assurance about the medicine. Every decision that reaches the person is therefore kept in testable
 rules, and the model is used only where a later rule catches a wrong choice, in line with the advice
 to prefer simple workflows when the steps are known~\cite{schluntz2024building}.
 
-\begin{table}[!htbp]
-\centering
-\caption{Agentic patterns used in StripCheck and the alternatives rejected}
-\label{tab:design-patterns}
-\small\renewcommand{\_}{\textunderscore\allowbreak}
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.9cm}@{}}
-\toprule
-\textbf{Pattern} & \textbf{Where} & \textbf{Reason} & \textbf{Alternative rejected} \\ \midrule
-Bounded tool loop (plan, act, observe)~\cite{yao2023react} & Investigator & Each step is a logged tool call; the loop has a step cap and runs without a model & Free-form ReAct loop driven by the model \\
-Model as advisor at branch points~\cite{kambhampati2024llmmodulo} & Planner (b), (c) & A 3B local model chooses only among allowed actions; rules check and replace its choice & Model plans every step \\
-Corrective retrieval with a grader & Exact and variant search, grade & A misread batch is expected; an empty exact search triggers a bounded look-alike search, and grading removes collisions & Single exact lookup (the baseline of Chapter~\ref{ch:eval}) \\
-Record linkage~\cite{fellegi1969theory} & Grader & A shared batch string is not identity; product, dates and maker must agree & Embedding similarity over alert text \\
-External verifier (reflection)~\cite{huang2024cannot} & Verifier & Hard rules re-check the draft against stored state & Model self-critique~\cite{madaan2023selfrefine,shinn2023reflexion} \\
-Human-in-the-loop interrupt & \texttt{ask\_user} & Only the person holding the pack can read the printed character & Yes/no confirm button; fully automatic alarm \\
-Abstention~\cite{chow1970reject,geifman2017selective} & \CANTV{} & Weak evidence ends in an explicit ``more evidence is needed'' & Forced choice between alarm and \NLISTED \\
-Supervisor with re-check & Background lane & Sequential sync, ingest, re-check with one investigator & Multi-agent conversation~\cite{wu2023autogen} \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-A model-driven ReAct loop was rejected because a 3B model on a laptop adds seconds per decision
-and its choices cannot be bounded in advance; Chapter~\ref{ch:exp} later found that the hybrid
-planner changed no verdict on the \ResN{} evaluation packs while its 95th-percentile latency was
-about five times that of the rule planner. Model self-critique was rejected for the reason given
+A model-driven ReAct loop was first rejected, because a 3B model adds seconds per decision and its choices cannot
+be bounded in advance. It was later built as agent mode with rule-computed allowed tools, and Chapter~\ref{ch:exp}
+measured it: on the \ResN{} evaluation packs it changed no verdict, and its median time per pack was
+\res{ResLLMOracleLatMedian}\,s against \res{ResRulesOracleLatMedian}\,s for the rules, so the rule planner stays the default (D26). Model self-critique was rejected for the reason given
 in Section~\ref{sec:lit-related-technical-work}: without external feedback it does not reliably
 correct the model's reasoning.
 
@@ -245,7 +261,8 @@ Figure~\ref{fig:design-flow} shows the decision flow of one run of the investiga
 from the supplied fields, or resumes from the saved state with an answer. Every path ends in
 \texttt{draft\_verdict} and the verifier, or in a question that pauses the check; there is no other
 exit. The diamonds are the decision points, and the two branch points where the hybrid planner may
-consult the model are marked (b) and (c).
+consult the model are marked (b) and (c); in agent mode the model picks the tool at every step, always
+from the list the rules allow.
 
 \begin{figure}[!htbp]
 \centering\setstretch{1}
@@ -268,12 +285,13 @@ consult the model are marked (b) and (c).
 \node[dec]  (d4) at (6.4,-10.6) {Gate evidence?};
 \node[stp] (dr) at (6.4,-12.1) {\texttt{draft\_verdict} (template)};
 \node[dec]  (d5) at (6.4,-13.6) {Verifier passes?};
-\node[stp,fill=dobg,draw=ForestGreen] (out) at (6.4,-15.1) {Verdict with citation};
+\node[stp,fill=dobg,draw=ForestGreen] (out) at (6.4,-15.4) {Verdict with citation};
 \node[hum]  (ask) at (1.5,-6.75) {\texttt{ask\_user}: pause, state saved};
 \node[side] (pb) at (11.6,-4.5) {Branch (b): rules or LLM choose; a draft is sent back once (R4)};
-\node[bad]  (cv) at (11.6,-13.6) {\CANTV{}\\template, rule ids};
+\node[side] (refl) at (11.6,-13.6) {\texttt{reflect} (once): one more question, or abstain};
+\node[bad]  (cv) at (11.6,-15.4) {\CANTV{}\\template, rule ids};
 \node[draw=black!50,fill=white,text width=2.9cm,align=left,inner sep=3pt] (bounds) at (1.5,-13.9)
-  {\textbf{Bounds}\\16 steps (R6)\\2 questions\\no question after step 12\\2 substitutions\\2{,}000 variant keys\\20 candidates\\1 send-back\\LLM: 2 tries, 15\,s};
+  {\textbf{Bounds}\\16 steps (R6)\\2 questions\\no question after step 12\\2 substitutions\\2{,}000 variant keys\\20 candidates\\1 revision\\LLM: 2 tries, 15\,s\\2 vision calls, 1 photo};
 % spine
 \draw[arr] (start) -- (d1);
 \draw[arr] (d1) -- node[lab,right]{yes} (ex);
@@ -289,7 +307,7 @@ consult the model are marked (b) and (c).
 \draw[arr] (d2) -- node[lab,above]{no} (pb);
 \draw[arr] (pb.south) |- node[lab,above,pos=0.75,yshift=1.5mm]{\texttt{search\_variants}} (va.east);
 % questions
-\draw[arr] (d1.west) -| node[lab,above,pos=0.3]{no batch, or\\photos disagree} (ask.north);
+\draw[arr] (d1.west) -| node[lab,above,pos=0.3]{no or doubtful batch:\\vision, photo, ask} (ask.north);
 \draw[arr] (d3.west) -| node[lab,above,pos=0.3,yshift=1.5mm]{pending: (c)} ([xshift=5mm]ask.south);
 \draw[arr] (d4.west) -| node[lab,above,pos=0.3,yshift=1.5mm]{no: \texttt{confirm\_batch}} ([xshift=-5mm]ask.south);
 \draw[arr,dashed] (ask.west) -- ++(-0.45,0) |- node[lab,above,pos=0.75,yshift=1.5mm]{answer: resume} (start.west);
@@ -297,12 +315,14 @@ consult the model are marked (b) and (c).
 \draw[thick] (d1.east) -- node[lab,above]{no data, invalid length\\or date, step limit: \CANTV} (14.3,-1.5);
 \draw[arr] (14.3,-1.5) |- (dr.east);
 \draw[thick] (d3.east) -- node[lab,above]{none left: \NLISTED;\\conflict or too many: \CANTV} (14.3,-9.0);
-\draw[arr] (d5) -- node[lab,above]{fail} (cv);
-\draw[arr] (cv.south) |- (out.east);
+\draw[arr] (d5) -- node[lab,above]{fail} (refl);
+\draw[arr] (refl) -- node[lab,right]{no question left} (cv);
+\draw[arr] (cv.west) -- (out.east);
 \end{tikzpicture}
 \caption{Decision flow of one investigator run. Diamonds are decisions, (b) and (c) are the branch
-points where the hybrid planner may consult the local model, red is the pause for a question, and
-grey is the downgrade by the verifier. Every path reaches the verifier or a question.}
+points where the hybrid planner may consult the local model, red is the pause for a question,
+the green \texttt{reflect} box is the single revision after a verifier rejection, and grey is the
+downgrade. Every path reaches the verifier or a question.}
 \label{fig:design-flow}
 \end{figure}
 

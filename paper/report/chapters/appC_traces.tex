@@ -102,6 +102,29 @@ After the answer the server wrote a \texttt{learning} event (``Stored 1 explicit
 \end{lstlisting}
 Every sentence in this verdict comes from \texttt{core/templates.py}. Phoenix recorded 25 spans for this check, with a root span of 8.49~s; the two model calls took 4.60~s and 3.89~s, and every tool span took under a millisecond.
 
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}
+\node[anchor=south west,inner sep=0] (img) at (0,0)
+  {\includegraphics[width=0.92\linewidth]{fig_phoenix_tree_print.png}};
+\begin{scope}[x={(img.south east)},y={(img.north west)},
+  callout/.style={circle,fill=BrickRed,text=white,font=\bfseries\footnotesize,inner sep=1.2pt,minimum size=13pt}]
+  \node[callout] at (0.405,0.914) {1};  % trace latency and cost
+  \node[callout] at (0.160,0.824) {2};  % root check span (agent)
+  \node[callout] at (0.285,0.166) {3};  % planner_llm before search_variants
+  \node[callout] at (0.805,0.630) {4};  % planner_llm before ask_user
+  \node[callout] at (0.775,0.424) {5};  % check.resume
+\end{scope}
+\end{tikzpicture}
+\caption{Span tree of the Review~3 misread walkthrough in Phoenix (synthetic pack, hybrid planner),
+cropped and split into two columns; the right column continues the left one. (1)~trace latency
+8.8\,s and cost \$0 (local model); (2)~root \texttt{check} span of kind \textsc{agent} (8.49\,s,
+shown truncated as 8.4\,s); (3)~branch point after the empty exact search, where the model chose
+\texttt{search\_variants} (4.60\,s); (4)~branch point after grading, where the model chose
+\texttt{ask\_user} (3.89\,s); (5)~the resumed half of the check under the same root.}
+\label{fig:phoenix-trace}
+\end{figure}
+
 \section{Trace 2: the stored correction returns as a prior}
 \label{sec:app-traces-run2}
 

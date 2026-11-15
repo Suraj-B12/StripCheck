@@ -118,6 +118,10 @@ The web client at \url{http://127.0.0.1:8000} accepts one or two photos or typed
 python cli.py check front.jpg back.jpg
 # local LLM at the branch points
 python cli.py check front.jpg --planner hybrid
+# local LLM picks every tool (ReAct), rules fix the allowed tools
+python cli.py check front.jpg --planner agent
+# one cycle of the autonomous monitor (sync if due, re-check, notify)
+python cli.py monitor --once
 python cli.py check --text LM2408B --product "..." --maker "..."
 \end{lstlisting}\end{minipage}\par\smallskip\noindent
 
@@ -126,10 +130,12 @@ python cli.py check --text LM2408B --product "..." --maker "..."
 
 Settings are environment variables, listed in \texttt{.env.example}. A local copy named \texttt{.env} is read at start-up and must never be committed. No setting holds a third-party key. The pairing token for phone access (\texttt{STRIPCHECK\_LAN\_TOKEN}) is generated per session by the launch scripts and is not written into any file in the repository.
 
-The hybrid planner needs a local Ollama server with the model pulled. Without it, every branch point falls back to the rules and the check completes.
+The hybrid and agent planners need a local Ollama server with the model pulled, and the vision fallback needs the vision model. Without them, every branch point falls back to the rules and the check completes.
 \par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 ollama pull qwen2.5:3b
-$env:STRIPCHECK_PLANNER = "hybrid"      # default is "rules"
+ollama pull qwen2.5vl:3b               # vision fallback (STRIPCHECK_VLM_MODEL)
+$env:STRIPCHECK_PLANNER = "hybrid"      # "rules" (default), "hybrid" or "agent"
+$env:STRIPCHECK_MONITOR = "0"           # switch the monitor off
 # reports whether Ollama is up and which models it has
 python cli.py doctor
 \end{lstlisting}\end{minipage}\par\smallskip\noindent
@@ -168,16 +174,17 @@ python cli.py eval --quick
 npm --prefix web run build
 npm --prefix web test         # Vitest
 \end{lstlisting}\end{minipage}\par\smallskip\noindent
-Test counts at the commit described are given in Chapter~\ref{ch:req}.
+At the final commit \texttt{pytest} reports 289 passed and 2 skipped, the web client has 117 Vitest tests and \texttt{cli.py selftest} passes 11 of 11 checks.
 
 \section{Reproducing the evaluation}
 \label{sec:app-run-eval}
 
-The following commands regenerate the evaluation set and every number in Chapters~\ref{ch:eval} and~\ref{ch:exp}. The hybrid arm needs Ollama with \texttt{qwen2.5:3b}.
+The following commands regenerate the evaluation set and every number in Chapters~\ref{ch:eval} and~\ref{ch:exp}. The hybrid and tool-calling arms need Ollama with \texttt{qwen2.5:3b}.
 \par\smallskip\noindent\begin{minipage}[t]{\linewidth}\vspace{-\topsep}\begin{lstlisting}[language={},numbers=none,breakatwhitespace=true]
 .venv\Scripts\python.exe cli.py props --eval --n 60 --seed 7
 .venv\Scripts\python.exe cli.py eval --arms baseline,agent_rules --hitl oracle,none --seed 7
 .venv\Scripts\python.exe cli.py eval --arms agent_hybrid --hitl oracle,none --seed 7
+.venv\Scripts\python.exe cli.py eval --arms agent_llm --hitl oracle,none --seed 7
 \end{lstlisting}\end{minipage}\par\smallskip\noindent
 \begin{sloppypar}The commands write \texttt{runs/eval\_<timestamp>.json} and \texttt{.md}, the merged \texttt{runs/eval\_seed7\_latest.json}, \texttt{docs/results/eval\_seed7.md}, and the LaTeX files \texttt{paper/generated/results.tex} and \texttt{results\_tables.tex} that this report reads. The development set uses \texttt{--seed 1}. The packs are rendered from rows of the local index, so a later sync can change the set; the reported run used \res{ResAlertCount} indexed alerts and the evaluation manifest with hash \texttt{73de16c2934fa4a0}. The report itself is built with \texttt{cd paper/report; latexmk main.tex}, with output in \texttt{paper/report/build/}.\end{sloppypar}
 

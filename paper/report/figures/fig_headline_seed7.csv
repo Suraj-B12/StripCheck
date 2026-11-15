@@ -8,3 +8,6 @@ agent_rules,far_collision,0,8,0.0,0.0,0.3244
 agent_hybrid,hit_recall,40,40,1.0,0.9124,1.0
 agent_hybrid,far_all,0,20,0.0,0.0,0.1611
 agent_hybrid,far_collision,0,8,0.0,0.0,0.3244
+agent_llm,hit_recall,40,40,1.0,0.9124,1.0
+agent_llm,far_all,0,20,0.0,0.0,0.1611
+agent_llm,far_collision,0,8,0.0,0.0,0.3244

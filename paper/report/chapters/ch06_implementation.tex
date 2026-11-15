@@ -14,33 +14,9 @@ This chapter describes how the design of Chapter~\ref{ch:design} was built: the 
 \section{Technology Stack}
 \label{sec:impl-technology-stack}
 
-Table~\ref{tab:stack} lists the components with the versions installed on the Windows~11 laptop used for the evaluation (\texttt{pip list} and \texttt{ollama --version}, 12 November 2026). A check must finish with no network, no language model and no tracing server, and the project may not use paid services, so every component runs on the user's machine and the language model is optional.
+Table~\ref{tab:stack} in Appendix~\ref{app:supp} lists the components with the versions installed on the Windows~11 laptop used for the evaluation (\texttt{pip list} and \texttt{ollama --version}, 12 November 2026). A check must finish with no network, no language model and no tracing server, and the project may not use paid services, so every component runs on the user's machine and the language model is optional.
 
-\begin{table}[htbp]
-\centering
-\caption{Technology stack and installed versions}
-\label{tab:stack}
-\footnotesize
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{5.2cm} >{\raggedright\arraybackslash}X@{}}
-\toprule
-\textbf{Layer} & \textbf{Choice (version)} & \textbf{Reason} \\ \midrule
-Language & Python 3.12.7 & One language for engine, ingest and evaluation \\
-Agent engine & Own bounded loop, \texttt{core/investigator.py} & Small, testable, resumable (decision D18) \\
-Storage & SQLite (standard library), WAL mode & One local file for alerts, checks, memory \\
-API server & FastAPI 0.162.0, Uvicorn 0.54.0, Pydantic 2.14.1 & Streams steps and questions as server-sent events \\
-Text reading & RapidOCR 3.10.0, PP-OCRv6-small on ONNX Runtime 1.31.1; Apple Vision on macOS & Local, CPU only, no download at run time \cite{rapidai2021rapidocr,du2020ppocr} \\
-Barcodes & zxing-cpp 3.1.1; OpenCV headless 4.14.0.94 & GS1 payloads carry a check digit \\
-Images & Pillow 13.0.0, pillow\_heif 1.8.1 & Validation, resizing, HEIC photos \\
-Fuzzy matching & RapidFuzz 3.14.6 & Maker similarity in grading \\
-Local LLM (optional) & Ollama 0.17.7, \texttt{qwen2.5:3b} & JSON-schema output from a local model \cite{ollama2026structured} \\
-Tracing (optional) & OpenTelemetry SDK 1.45.1; Arize Phoenix 21.0.0 & Standard spans, viewed locally \cite{otel2026genai,arize2026openinference} \\
-Clients & React 19.3.1, TypeScript 6.0.3, Vite 8.3.5; SwiftUI (iOS 17) & Step timeline, question cards, camera \\
-Tests & pytest 9.1.1; Vitest 5.0.5 & Offline by default \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-The Review~2 design used LangGraph and Streamlit. LangGraph was replaced by a compact engine whose whole state is one JSON document, because the loop has few nodes and had to be resumable from any client (D18); Streamlit was replaced by FastAPI with a React client, because its rerun model fits poorly with a check that pauses for a question and streams each step (D2, D16).
+The Review~2 design used LangGraph and Streamlit. LangGraph was replaced by a compact engine whose whole state is one JSON document, because the loop has few nodes and had to be resumable from any client (D18); Streamlit was replaced by FastAPI with a React client, whose rerun model fits a check that pauses for a question and streams each step poorly (D2, D16).
 
 \section{Data Preparation and Indexing}
 \label{sec:impl-data-preparation-and-indexing}
@@ -101,12 +77,16 @@ Algorithm~\ref{alg:loop} is one call of \texttt{investigate()} in \texttt{core/i
 
 \textsc{ApplyAnswer} validates the answer against the pending question (for example one letter or digit per requested position) and returns an error without counting it when the answer is malformed. A new question is allowed only while fewer than two have been asked and the history has fewer than 12 steps, so the steps after the last answer still fit within 16. The variant search runs after an exact hit too, so a listed sibling batch one character away is not missed. \textsc{Decide} returns the rule suggestion in rule mode and whenever the model fails. \textsc{Log} drops steps once 16 are recorded, and verifier rule R6 rejects any draft whose history exceeds 16 steps or two questions, so the loop stays bounded even if a later change breaks a guard.
 
+\paragraph{Agent mode.} With the planner set to \texttt{agent}, \texttt{\_agent\_loop} replaces the fixed order of Algorithm~\ref{alg:loop} by at most 16 turns. Each turn computes the allowed tools from the state (Section~\ref{sec:design-component-description}), calls \texttt{agent\_step} in \texttt{core/llm.py}, runs the chosen tool and appends its observation (for example the number of exact hits) to the list sent with the next turn. Before any search, a perception-doubt phase runs when the batch is missing, the readers disagree or the batch line has very low confidence (below 0.5). It offers \texttt{read\_with\_vision}, a \texttt{confirm\_reading} or \texttt{type\_batch} question and \texttt{request\_photo}, bounded by two vision calls, one extra photo and the two questions; the rules planner takes the first allowed tool and the hybrid planner lets the model choose. After a verifier rejection the \texttt{reflect} step offers at most one revision.
+
 \section{Tools and Function Definitions}
 \label{sec:impl-tools-and-function-definitions}
 
 The agent calls the tools named in Algorithm~\ref{alg:loop}; Table~\ref{tab:tools} in Appendix~\ref{app:supp} lists each with its input, output, bounds and failure behaviour. None is mocked: every tool runs on the real index or the real image. The demonstration packs and evaluation cartons are synthetic images, and their records are marked synthetic and excluded from real checks.
 
 \paragraph{OCR pipeline on Windows and macOS.} \texttt{read\_pack} validates the upload (at most 15\,MB and 24 million pixels), shrinks it so no side exceeds 2{,}400 pixels and gives the whole read a 60\,s deadline. Barcodes are tried first (zxing-cpp, then Apple Vision on macOS, then OpenCV) in a process killed at its deadline; GS1 application identifiers 10, 11 and 17 give the batch and dates. Text is read by Apple Vision on macOS and, on Windows, by Tesseract if installed or otherwise by a persistent RapidOCR worker that loads the pinned PP-OCRv6-small models once (D23) and never downloads models. When no batch is found, the image is read once more after grey-scaling, auto-contrast and sharpening. Label-anchored patterns (``B.No.'', ``Batch No'', ``Lot'', ``BN'') then find the batch, dates and maker, and every value keeps its source (\texttt{qr} or \texttt{ocr}).
+
+\paragraph{Vision fallback and evidence requests.} \texttt{read\_with\_vision} sends a crop of the batch line (upscaled to 448 pixels wide), or the photo shrunk to 1{,}280 pixels, to \texttt{qwen2.5vl:3b} through Ollama with a JSON schema (batch, dates, confidence, note), temperature~0 and a timeout of 30\,s by default (\texttt{STRIPCHECK\_VLM\_TIMEOUT}). \texttt{validate\_vision} accepts a batch of 3 to 25 characters from a restricted character set and applies the wording guard to the note. The reading is shown with its crop as a \texttt{confirm\_reading} question; after a yes it is recorded as confirmed by the person with the source \texttt{vlm}, and after a no or a skip the person is asked to type the batch. A vision value, even with an agreeing OCR reading, is never gate evidence by itself (rule R2 is unchanged). \texttt{request\_photo} takes a batch zoom, a second angle or the carton, and the server re-runs perception on the upload.
 
 \paragraph{Matching and noisy-channel ranking.} \texttt{search\_variants} generates every key reachable from the read key by one or two substitutions from a table of characters that OCR confuses on printed codes (for example \texttt{B}/\texttt{8}/\texttt{3}, \texttt{0}/\texttt{O}/\texttt{D}/\texttt{Q}/\texttt{C}, \texttt{1}/\texttt{I}/\texttt{L}/\texttt{7}/\texttt{T}, \texttt{5}/\texttt{S}, \texttt{2}/\texttt{Z}). Hits are ordered by the number of substitutions, then by the channel score of Equation~\eqref{eq:channel}, then by row id:
 \begin{equation}
@@ -120,7 +100,7 @@ where $r$ is the read key, $v$ the variant, $S$ the substituted positions and $n
 \section{Prompt Design}
 \label{sec:impl-prompt-design}
 
-The language model is used only by \texttt{plan\_decision} in \texttt{core/llm.py}, at the two branch points. Each request to Ollama's \texttt{/api/chat} carries a fixed system message, a user message that wraps a task sentence, the evidence object, the allowed actions and the rule suggestion as JSON, and a JSON schema that requires a \texttt{thought} of at most 240 characters and an \texttt{action} from the allowed list, with temperature~0 and at most 256 reply tokens. The reply is streamed when a client is watching, and the \texttt{thought} parsed from the partial JSON is passed to the client as the check runs. Appendix~\ref{app:prompts} gives the verbatim strings (Listings~\ref{lst:app-system} and~\ref{lst:app-planner}).
+In hybrid mode the language model is used by \texttt{plan\_decision} in \texttt{core/llm.py}, at the two branch points. Each request to Ollama's \texttt{/api/chat} carries a fixed system message, a user message that wraps a task sentence, the evidence object, the allowed actions and the rule suggestion as JSON, and a JSON schema that requires a \texttt{thought} of at most 240 characters and an \texttt{action} from the allowed list, with temperature~0 and at most 256 reply tokens. The reply is streamed when a client is watching, and the \texttt{thought} parsed from the partial JSON is passed to the client as the check runs. Appendix~\ref{app:prompts} gives the verbatim strings (Listings~\ref{lst:app-system} and~\ref{lst:app-planner}). In agent mode the request holds a system message, the evidence object with the rule suggestion, the recent observations as tool calls and tool messages, and the offered tools as function specifications that each require a \texttt{thought} (Listing~\ref{lst:app-agent}); the vision call has its own prompt (Listing~\ref{lst:app-vision}). Both go to the loopback endpoint only.
 
 
 The system message and the JSON wrapping keep pack and alert text inside data fields, because OCR text from a photo is untrusted input that could contain instructions. The schema, passed as Ollama's \texttt{format} \cite{ollama2026structured}, restricts the action to the allowed list, so the model can reorder evidence gathering but cannot invent a tool or a verdict. The evidence object holds only derived facts (read batch and source, hit counts or candidate status, questions left, learned confusions). Temperature~0 makes the choice repeatable. The thought is capped at 240 characters, stripped of non-printable characters and replaced by a fixed notice if it contains a banned phrase. Streamed text is held to a stricter guard: each update is tested against the banned list and a pattern for reassuring phrases (such as ``fine to use'' or ``no risk''), a trailing word that could begin such a phrase is held back until the next word arrives, and a hit ends the block as redacted so that the rule reason is shown. Model text never enters verdict text.
@@ -131,38 +111,16 @@ The system message and the JSON wrapping keep pack and alert text inside data fi
 Every bound and timeout is listed with its termination behaviour in Table~\ref{tab:design-bounds} (Appendix~\ref{app:supp}). The values are constants in \texttt{core/config.py}, \texttt{investigator.py}, \texttt{llm.py}, \texttt{pack\_tools.py} and \texttt{server/sse.py}; settings read from the environment are clamped to the ranges shown there.
 
 
-\paragraph{Verifier.} \texttt{core/verifier.py} re-checks every draft against the stored state, independently of the drafting code, with the rules of Table~\ref{tab:verifier}. On any violation the draft is replaced by the \CANTV{} template and the rule identifiers are stored with the check; when only the batch gate (R2) fails, the text names the batch and month that would match and asks the person to have a pharmacist check the batch.
-
-\begin{table}[htbp]
-\centering
-\caption{Verifier rules as implemented}
-\label{tab:verifier}
-\footnotesize
-\begin{tabularx}{\linewidth}{@{}l >{\raggedright\arraybackslash}X@{}}
-\toprule
-\textbf{Rule} & \textbf{Condition checked on the draft and the stored state} \\ \midrule
-R1 & The label is one of the four verdicts \\
-R2 & An alarm needs an accepted candidate with an exact or confirmed batch, batch evidence from QR, two agreeing reads or the person, a product match (or a partial match with dates and maker), no field mismatch, and equal batch keys \\
-R3 & \SFAKE{} only for a spurious entry; \FLAGGED{} only for NSQ, misbranded or adulterated entries \\
-R4 & \NLISTED{} needs a grounded batch, both searches run, no pending or accepted candidate, loaded data, no truncation \\
-R5 & An alarm cites the entry with a source URL or SHA-256; no text contains a banned phrase \\
-R6 & At most 16 steps and 2 questions \\
-R7 & Outside \CANTV, no candidate has an unresolved date conflict \\
-R8 & Outside \CANTV, every field used has a grounded source (person, OCR, QR, enhanced OCR, carton) \\
-R9 & \NLISTED{} states the lists loaded and the latest list month \\
-R10 & The verdict language is a reviewed one (English) \\
-\bottomrule
-\end{tabularx}
-\end{table}
+\paragraph{Verifier.} \texttt{core/verifier.py} re-checks every draft against the stored state, independently of the drafting code, with the rules of Table~\ref{tab:verifier} (Appendix~\ref{app:supp}). On any violation the draft is replaced by the \CANTV{} template and the rule identifiers are stored with the check; when only the batch gate (R2) fails, the text names the batch and month that would match and asks the person to have a pharmacist check the batch.
 
 \paragraph{Templates.} All user-facing text comes from \texttt{core/templates.py}. The headlines are fixed: ``This batch is on an alert list'' (\FLAGGED), ``This batch is listed as purported spurious'' (\SFAKE), ``No matching alert found'' (\NLISTED) and ``More evidence is needed'' (\CANTV). An alarm names the list month, the failed test and the reporting laboratory and ends with ``Show this pack to your pharmacist. Do not stop any prescribed medicine without medical advice.'' A not-listed result states the lists loaded and the latest month, and adds that it does not certify the medicine because CDSCO tests only sampled batches. A case-insensitive pattern blocks the banned words of the safety policy (with Hindi equivalents) in every template and in text copied from alert rows, and the verifier and the tests enforce it. Only the listed batch is flagged, never a brand, and the web client never shows \NLISTED{} in green.
 
 \section{User Interface}
 \label{sec:impl-user-interface}
 
-\paragraph{API.} \texttt{server/app.py} serves a FastAPI application on 127.0.0.1:8000. \texttt{POST /api/checks} accepts one or two photos or typed fields, and \texttt{POST /api/checks/<id>/resume} accepts an answer; both stream server-sent events (\texttt{fields}, \texttt{strip}, \texttt{candidates}, \texttt{thinking}, \texttt{step}, \texttt{interrupt}, \texttt{snapshot}, \texttt{final}, \texttt{report}, \texttt{done}, \texttt{error}), and the work continues if the browser disconnects. Steps are emitted as the investigator runs, each once. The request may set the planner (\texttt{rules} or \texttt{hybrid}); the choice is validated and kept in the check context, so a resumed check keeps it, and \texttt{/api/health} reports whether the model is reachable. A check that is running, or that changed since the client loaded it, refuses a second answer. Further endpoints serve the alert library, quarantine, the cabinet, the per-check trace and phone pairing; with \texttt{--lan} every request needs a pairing token.
+\paragraph{API.} \texttt{server/app.py} serves a FastAPI application on 127.0.0.1:8000. \texttt{POST /api/checks} accepts one or two photos or typed fields, and \texttt{POST /api/checks/<id>/resume} accepts an answer; both stream server-sent events (\texttt{fields}, \texttt{strip}, \texttt{candidates}, \texttt{thinking}, \texttt{step}, \texttt{interrupt}, \texttt{snapshot}, \texttt{final}, \texttt{report}, \texttt{done}, \texttt{error}), and the work continues if the browser disconnects. Steps are emitted as the investigator runs, each once. The request may set the planner (\texttt{rules}, \texttt{hybrid} or \texttt{agent}); the choice is validated and kept in the check context, so a resumed check keeps it, and \texttt{/api/health} reports whether the model is reachable. A check that is running, or that changed since the client loaded it, refuses a second answer. Further endpoints serve the alert library, quarantine, the cabinet, the per-check trace, phone pairing and the monitor (\texttt{GET /api/monitor}, \texttt{POST /api/monitor/run}); with \texttt{--lan} every request needs a pairing token.
 
-\paragraph{Clients.} Figure~\ref{fig:ui-check} in Appendix~\ref{app:supp} shows the start of a check in the React web client. While a check runs, the screen shows a step timeline (action, source, summary) and a batch strip whose character cells change from read to uncertain or confirmed; a ``Local AI reasoning'' switch, enabled only when the model is reachable, selects the hybrid planner. A thinking panel shows the planner's thought as it streams and collapses to ``Thought for N s'' with the model and the chosen action; it is rebuilt from the history after a reload and states that results come only from the rules and the verifier. A question appears as a card with a typing indicator, the reason for asking, a question counter, the crop of the batch line from the photo, one input per requested character or a choice between the read and the listed batch with the differing characters highlighted, and the verdict card shows the template text with its citation. A SwiftUI client for iOS uses the same API with the camera; it was built and tested in the simulator in CI and not on a physical device. \texttt{cli.py} runs sync, ingest, checks, diagnostics and the evaluation.
+\paragraph{Clients.} Figure~\ref{fig:ui-check} in Appendix~\ref{app:supp} shows the start of a check in the React web client. While a check runs, the screen shows a step timeline (action, source, summary) and a batch strip whose character cells change from read to uncertain or confirmed; a Rules, Hybrid and Agent selector, disabled when the model is unreachable, sets the planner (the server default is still rules). Each step carries a badge for the agent that owns it, hand-off rows show messages between agents, and self-check rows show the verifier's rules in plain words. A thinking panel shows the planner's thought as it streams, with Thought, Action and Observation rows for tool-calling turns, and collapses to ``Thought for N s''; it is rebuilt after a reload and states that results come only from the rules and the verifier. Yes or no questions use radio-style buttons. A question appears as a card with a typing indicator, the reason for asking, a question counter, the crop of the batch line from the photo, one input per requested character or a choice between the read and the listed batch with the differing characters highlighted, and the verdict card shows the template text with its citation. A SwiftUI client for iOS uses the same API with the camera; it was built and tested in the simulator in CI and not on a physical device. \texttt{cli.py} runs sync, ingest, checks, diagnostics and the evaluation.
 
 \section{Repository Structure}
 \label{sec:impl-repository-structure}

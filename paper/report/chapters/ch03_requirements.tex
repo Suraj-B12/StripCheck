@@ -160,10 +160,11 @@ took a median of \res{ResRulesOracleReasonMedian}\,s per pack.
 
 \paragraph{Cost and rate limits.} No paid API is used, so a check and the full evaluation cost
 nothing. A hybrid check makes at most six model decisions (two branch points in each of at most
-three runs) of at most two requests each. Token counts were not recorded; the request options cap
+three runs) of at most two requests each. An agent-mode check makes at most one tool-calling turn
+per step, so at most 16, of at most two requests each, plus at most two vision calls. Token counts were not recorded; the request options cap
 the context at 4{,}096 and the reply at 256 tokens. The only external rate limit is the portal (NFR8).
 
 \paragraph{Time and scope.} To fit one semester, features of the design specification were cut,
-among them a vision-language second reader, LangGraph orchestration, reviewed Hindi and Kannada
+among them an independent vision-language second reader (only a fallback reading was built), LangGraph orchestration, reviewed Hindi and Kannada
 templates, the confirm-gate ablation (decision rule R-B) and a usability study. Chapter~\ref{ch:impl}
 lists them as deviations and Chapter~\ref{ch:lim} as limitations.

@@ -23,3 +23,11 @@ misread,agent_hybrid,8,8
 qr,agent_hybrid,8,8
 glare,agent_hybrid,8,8
 clean,agent_hybrid,8,8
+sibling,agent_llm,4,4
+collision,agent_llm,8,8
+genuine,agent_llm,8,8
+spurious,agent_llm,8,8
+misread,agent_llm,8,8
+qr,agent_llm,8,8
+glare,agent_llm,8,8
+clean,agent_llm,8,8

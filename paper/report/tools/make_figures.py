@@ -30,9 +30,11 @@ FIG = REPORT / "figures"
 DATA = REPORT / "data"
 sys.path.insert(0, str(ROOT))
 
-ARMS = ["baseline", "agent_rules", "agent_hybrid"]
-ARM_LABEL = {"baseline": "Baseline (lookup)", "agent_rules": "Agent (rules)", "agent_hybrid": "Agent (hybrid)"}
-ARM_COLOR = {"baseline": "#7F7F7F", "agent_rules": "#0072B2", "agent_hybrid": "#E69F00"}
+ARMS = ["baseline", "agent_rules", "agent_hybrid", "agent_llm"]
+RUN1_ARMS = ARMS[:3]  # run 1 predates the tool-calling arm
+ARM_LABEL = {"baseline": "Baseline (lookup)", "agent_rules": "Agent (rules)", "agent_hybrid": "Agent (hybrid)",
+             "agent_llm": "Agent (tool-calling)"}
+ARM_COLOR = {"baseline": "#7F7F7F", "agent_rules": "#0072B2", "agent_hybrid": "#E69F00", "agent_llm": "#CC79A7"}
 EXTRA = "#009E73"
 NEUTRAL = "#4D4D4D"
 SCENARIOS = ["clean", "glare", "qr", "misread", "spurious", "genuine", "collision", "sibling"]
@@ -142,7 +144,7 @@ def run1_tables():
         for line in sec.splitlines():
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             if len(cells) == 4 and not cells[0].startswith("---") and cells[0] not in ("Metric", "Scenario"):
-                table[cells[0]] = dict(zip(ARMS, cells[1:]))
+                table[cells[0]] = dict(zip(RUN1_ARMS, cells[1:]))
         out[key] = table
     return out
 
@@ -237,7 +239,7 @@ def fig_headline(ev):
                ("far_collision", "False-alarm rate\n(collision packs)")]
     res = ev["results"]["oracle"]
     fig, ax = plt.subplots(figsize=(FULL, 3.4))
-    width = 0.26
+    width = 0.2
     rows = []
     for j, arm in enumerate(ARMS):
         s = res[arm]["summary"]
@@ -245,23 +247,23 @@ def fig_headline(ev):
             k, n = s[m]["k"], s[m]["n"]
             lo, hi = wilson(k, n)
             assert abs(lo - s[m]["ci"][0]) < 1e-3 and abs(hi - s[m]["ci"][1]) < 1e-3, (arm, m)
-            x = i + (j - 1) * width
+            x = i + (j - 1.5) * width
             r = k / n
             ax.bar(x, r, width=width * 0.92, color=ARM_COLOR[arm], zorder=2)
             if k == 0:
                 zero_mark(ax, x, width * 0.92, ARM_COLOR[arm])
             ax.errorbar(x, r, yerr=[[r - lo], [hi - r]], fmt="none", ecolor="#222222", elinewidth=0.9, capsize=2.5, zorder=3)
-            ax.text(x, hi + 0.025, label_kn(k, n), ha="center", va="bottom", fontsize=9.5)
+            ax.text(x, hi + 0.025, label_kn(k, n), ha="center", va="bottom", fontsize=8.5)
             rows.append([arm, m, k, n, round(r, 4), round(lo, 4), round(hi, 4)])
     ax.set_xticks(range(len(metrics)))
     ax.set_xticklabels([m[1] for m in metrics])
     ax.set_ylabel("Proportion of packs")
     ax.set_ylim(0, 1.18)
     ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    ax.set_xlim(-0.55, 2.55)
+    ax.set_xlim(-0.6, 2.6)
     hgrid(ax)
     fig.legend(handles=[Patch(color=ARM_COLOR[a], label=ARM_LABEL[a]) for a in ARMS],
-               loc="outside upper center", ncol=3, handlelength=1.2, columnspacing=1.4)
+               loc="outside upper center", ncol=4, handlelength=1.2, columnspacing=1.0, fontsize=9.5)
     save(fig, "fig_headline_seed7", ["arm", "metric", "k", "n", "rate", "wilson_lo", "wilson_hi"], rows,
          "seed 7, HITL oracle: " + "; ".join(f"{r[0]} {r[1]} {r[2]}/{r[3]}" for r in rows))
     return rows
@@ -269,11 +271,11 @@ def fig_headline(ev):
 
 def fig_scenarios(ev):
     res = ev["results"]["oracle"]
-    fig, axes = plt.subplots(1, 3, figsize=(FULL, 3.1), sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(FULL, 3.9), sharey=True)
     rows = []
     order = list(reversed(SCENARIOS))
     n_of = {sc: res["baseline"]["summary"]["by_scenario"][sc]["n"] for sc in order}
-    for ax, arm in zip(axes, ARMS):
+    for ax, arm in zip(axes.flat, ARMS):
         for i, sc in enumerate(order):
             b = res[arm]["summary"]["by_scenario"][sc]
             k, n = b["correct"], b["n"]
@@ -284,13 +286,16 @@ def fig_scenarios(ev):
             rows.append([sc, arm, k, n])
         ax.set_xlim(0, 11.5)
         ax.set_xticks([0, 4, 8])
-        ax.set_xlabel("Correct (packs)")
+        if ax in axes[1]:
+            ax.set_xlabel("Correct (packs)")
         ax.text(0.0, 1.02, ARM_LABEL[arm], transform=ax.transAxes, ha="left", va="bottom", fontsize=10.5,
                 color=ARM_COLOR[arm] if arm != "baseline" else "#555555", fontweight="bold")
         vgrid(ax)
-    axes[0].set_yticks(range(len(order)))
-    axes[0].set_yticklabels([f"{SCEN_LABEL[sc]} ($n$ = {n_of[sc]})" for sc in order])
-    axes[0].set_ylim(-0.6, len(order) - 0.4)
+    for ax in axes[:, 0]:
+        ax.set_yticks(range(len(order)))
+        ax.set_yticklabels([f"{SCEN_LABEL[sc]} ($n$ = {n_of[sc]})" for sc in order])
+        ax.set_ylim(-0.6, len(order) - 0.4)
+    fig.subplots_adjust(hspace=0.5)
     save(fig, "fig_scenarios_seed7", ["scenario", "arm", "correct", "n"], rows,
          "seed 7, HITL oracle, correct per scenario: " + "; ".join(f"{r[0]} {r[1]} {r[2]}/{r[3]}" for r in rows))
     return rows
@@ -336,10 +341,10 @@ def fig_hitl(ev):
 
 def fig_latency(ev):
     res = ev["results"]["oracle"]
-    fig, axes = plt.subplots(1, 2, figsize=(FULL, 2.5), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(FULL, 2.9), sharey=True)
     rows = []
-    for ax, key, xlabel, xmax in [(axes[0], "latency_s", "Time per pack, end to end (s)", 11.5),
-                                  (axes[1], "reasoning_s", "Reasoning time only (s)", 11.5)]:
+    for ax, key, xlabel, xmax in [(axes[0], "latency_s", "Time per pack, end to end (s)", 14.5),
+                                  (axes[1], "reasoning_s", "Reasoning time only (s)", 14.5)]:
         for i, arm in enumerate(reversed(ARMS)):
             s = res[arm]["summary"][key]
             med, p95 = s["median"], s["p95"]
@@ -353,9 +358,9 @@ def fig_latency(ev):
             rows.append([arm, key, med, p95])
         ax.set_xlim(0, xmax)
         if key == "reasoning_s":
-            ax.text(11.3, 1.5, "Bars under 0.11 s are too short\nto see; their values are printed.",
+            ax.text(14.3, 2.5, "Bars under 0.11 s are too short\nto see; their values are printed.",
                     ha="right", va="center", fontsize=8.5, color=NEUTRAL)
-        ax.set_xticks([0, 2, 4, 6, 8, 10])
+        ax.set_xticks([0, 3, 6, 9, 12])
         ax.set_xlabel(xlabel)
         vgrid(ax)
     axes[0].set_yticks(range(len(ARMS)))
@@ -432,7 +437,7 @@ def fig_run1_run2(ev, run1):
 def fig_seeds(ev7, ev1):
     metrics = [("hit_recall", "Hit recall (listed packs)"), ("accuracy", "Overall accuracy (all packs)"),
                ("far_all", "False-alarm rate (not-listed packs)"), ("far_collision", "False-alarm rate (collision packs)")]
-    fig, axes = plt.subplots(2, 2, figsize=(FULL, 4.0), sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(FULL, 4.6), sharey=True)
     rows = []
     h = 0.36
     for ax, (m, xlabel) in zip(axes.flat, metrics):

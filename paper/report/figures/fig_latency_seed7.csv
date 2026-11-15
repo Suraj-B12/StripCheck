@@ -1,7 +1,9 @@
 arm,measure,median_s,p95_s
-agent_hybrid,latency_s,1.507,8.955
-agent_rules,latency_s,1.39,1.862
+agent_llm,latency_s,7.949,11.823
+agent_hybrid,latency_s,1.489,4.575
+agent_rules,latency_s,1.385,1.854
 baseline,latency_s,1.332,1.819
-agent_hybrid,reasoning_s,0.0987,7.6723
-agent_rules,reasoning_s,0.0609,0.1028
+agent_llm,reasoning_s,6.6024,10.5343
+agent_hybrid,reasoning_s,0.068,3.1528
+agent_rules,reasoning_s,0.064,0.0907
 baseline,reasoning_s,0.0,0.0

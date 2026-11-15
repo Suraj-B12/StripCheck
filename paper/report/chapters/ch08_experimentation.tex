@@ -9,7 +9,7 @@
 The evaluation of Chapter~\ref{ch:eval} doubles as a controlled experiment with two questions. The
 first is whether the agentic layer (confusion-aware search, record-linkage grading, questions and
 the verifier) is worth its cost compared with a plain lookup. The second is whether letting a local
-language model choose the action at the branch points improves on the rule planner. This chapter
+language model choose the action, at the branch points or at every step, improves on the rule planner. This chapter
 states the hypotheses and decision rules, the setup, the outcome on both seeds and on both runs of
 the evaluation seed, and the configuration decision that followed.
 
@@ -33,7 +33,9 @@ outcomes per scenario, listed in Table~\ref{tab:exp-predictions}.
 if its accuracy is not significantly lower than the rule planner's (exact McNemar test,
 $\alpha=0.05$) and its median latency is at most twice the rule planner's. Both conditions are
 necessary; together they permit the change without requiring it. A further check, that the hybrid
-planner does better on packs with a partial product match, was registered as exploratory.
+planner does better on packs with a partial product match, was registered as exploratory. The
+tool-calling planner (arm~D) was added after the registration, so no rule was written for it. We
+apply rule R-C to it afterwards and mark the result as not registered.
 
 \section{Experimental Setup}
 \label{sec:exp-experimental-setup}
@@ -43,7 +45,7 @@ fixed. The arms are those of Section~\ref{sec:eval-baselines}, under the oracle 
 policies. The lookup and the agent differ in the whole reasoning layer, so H1 compares two systems;
 perception (read once per image and cached), index, packs, templates, verifier rules and loop bounds
 are shared, so any difference comes from the reasoning between the read batch and the verdict. H2
-changes a single factor: the planner at the two branch points. The rule arms are deterministic, so
+changes a single factor: the planner (rules, a model at two branch points, or a model at every step). The rule arms are deterministic, so
 the variation that matters is the choice of packs, which we probe with a second seed of the
 generator. Seed~7 was run twice (run~1 at commit \texttt{\RunOneCommit}, run~2 after decision D25)
 and seed~1 once with the run-2 code, all on one Windows~11 laptop; the model ran on the GPU in the
@@ -72,7 +74,14 @@ median latency was \res{ResHybridOracleLatMedian}\,s against \res{ResRulesOracle
 against \res{ResRulesOracleLatPNinetyFive}\,s and the mean \res{ResHybridOracleLatMean}\,s against
 \res{ResRulesOracleLatMean}\,s, from \res{ResHybridOracleLLMSteps} model calls with
 \res{ResHybridOracleFallbackSteps} fallbacks. The model's choices changed no verdict on these packs.
-The exploratory check on
+The tool-calling arm (agent mode) also returned the same verdict metrics and the same per-scenario counts as the rule
+planner under both policies, with \res{ResLLMOracleMcNemarB} agent-only and \res{ResLLMOracleMcNemarC} lookup-only correct packs
+($p={}$\res{ResLLMOracleMcNemarP}, decision \res{ResLLMOracleDecision}) with the oracle user, and \res{ResLLMSkipMcNemarB} and
+\res{ResLLMSkipMcNemarC} ($p={}$\res{ResLLMSkipMcNemarP}, decision \res{ResLLMSkipDecision}) with every question skipped.
+Its median time per pack was \res{ResLLMOracleLatMedian}\,s against \res{ResRulesOracleLatMedian}\,s, about 5.7 times and above the
+factor of two, so applying R-C to it afterwards (not registered) gives a failure on latency, and it
+made \res{ResLLMOracleLLMSteps} model steps with \res{ResLLMOracleFallbackSteps} fallbacks. Its 95th percentile was
+\res{ResLLMOracleLatPNinetyFive}\,s. The exploratory check on
 partial product matches was not evaluable, because no pack of seed~7 produced one.
 
 \paragraph{Spread across seeds.} Figure~\ref{fig:exp-seeds} in Appendix~\ref{app:supp} repeats the headline metrics on the
@@ -83,7 +92,7 @@ one pack in hit recall (31/40 against \res{ResBaseOracleHitRecallK}) and in accu
 returned a batch different from the rendered text on 4 of 60 images (60 of 60 on seed~7), which
 cost the lookup two listed packs, while the lookup found the listed batch on one misread pack. The paired test on seed~1 gives 21 agent-only
 and 0 lookup-only correct packs ($p=10^{-6}$), so R-A again gives adopt; without answers the agent
-reaches 7/40 hit recall with 37/60 abstentions. The hybrid planner again has a long tail: a median of
+reaches 7/40 hit recall with 37/60 abstentions. The tool-calling arm was run on seed~7 only. The hybrid planner again has a long tail: a median of
 1.25\,s against 1.19\,s for rules and a 95th percentile of 9.63\,s against 1.76\,s. The two
 seeds are not a like-for-like latency comparison, because the model ran on the GPU in the seed-1
 run and the device for the seed-7 runs was not recorded. Seed~1 is the
@@ -97,7 +106,7 @@ recall \RunOneRulesOracleHitRecallK{} with \RunOneRulesOracleFARCollisionK{} col
 and McNemar gave $p=\RunOneRulesOracleMcNemarP$ (\RunOneRulesOracleMcNemarB{} agent-only,
 \RunOneRulesOracleMcNemarC{} lookup-only). Two parts of the prediction failed: the agent was correct on
 \RunOneRulesOracleCleanK{} clean packs and on \RunOneRulesOracleMisreadK{} misread packs.
-Figure~\ref{fig:exp-runs} sets the two runs side by side and Table~\ref{tab:exp-predictions} gives
+Figure~\ref{fig:exp-runs} in Appendix~\ref{app:supp} sets the two runs side by side and Table~\ref{tab:exp-predictions} gives
 the prediction outcomes for every run.
 
 The \RunOneRulesOracleMisses{} alarms the agent missed in run~1 were all on cartons that print a brand
@@ -112,16 +121,6 @@ every look-alike position. Each fix changes a general rule of the engine and non
 batch or threshold of the evaluation set. They were still made after we had seen run~1 on the
 evaluation seed, so run~2 is no longer a held-out test and its numbers are optimistic. A fresh seed
 and photographs of real packs are needed for an unbiased estimate.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics{fig_run1_run2.pdf}
-\caption{Agent with the rule planner on seed~7 before (run~1) and after the three D25 fixes (run~2),
-a person answering. Left: rates with Wilson 95\% intervals. Right: correct verdicts per scenario.
-Labels on the right read run~1 $\rightarrow$ run~2. Run~1 is reported in full; because the fixes
-were made after it, run~2 is not a blind test.}
-\label{fig:exp-runs}
-\end{figure}
 
 \begin{table}[htbp]
 \centering
@@ -155,12 +154,18 @@ collision accuses a batch of the wrong product. We therefore adopted the agent i
 in every client and kept the questions mandatory before any alarm. The lookup survives only as
 baseline arm~A.
 
-H2 was also supported in the sense of the rule: R-C held on both seeds. The rule permits the hybrid
+H2 was also supported in the sense of the rule: R-C held on both seeds for the hybrid planner. The rule permits the hybrid
 planner as the default and does not require it, and on these packs the model changed no verdict
 while it raised the 95th-percentile latency from under 2\,s to about 9\,s. We therefore kept the rule
 planner as the default (decision D26, \texttt{STRIPCHECK\_PLANNER=rules}). The hybrid planner stays
 available per check, and its written reason for each branch decision helps a reviewer follow the
 traces of Chapter~\ref{ch:eval}.
+
+The tool-calling planner gives the same verdicts at about six times the median time per pack. On these packs its value is
+the visible reasoning, with a thought, an action and an observation at every step and the allowed tools fixed by the rules, and
+the vision fallback that the golden set could not exercise (Section~\ref{sec:eval-live-agent}). It does not improve any metric,
+because the rules already reach the ceiling on rendered packs, so it stays an option per check and the rules stay the default. A harder
+test set could show a benefit that this one cannot.
 
 The limits of the experiment (small scenarios, an optimistic run~2, rendered packs and
 over-represented traps) are discussed in Section~\ref{sec:lim-limitations}; a third seed generated

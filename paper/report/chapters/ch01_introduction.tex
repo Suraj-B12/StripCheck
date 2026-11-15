@@ -127,9 +127,9 @@ interleaving decisions with tool calls~\cite{yao2023react}, kept to the simple, 
 that practitioner guidance recommends~\cite{schluntz2024building}. The critic is external and
 rule-based, in line with the LLM-Modulo argument that a model's plans should be checked by sound
 external verifiers~\cite{kambhampati2024llmmodulo}. The planner that chooses among the allowed actions is a
-deterministic rule set by default; an optional local LLM can make the choice at two branch points,
-and any failure falls back to the rule choice. The agentic structure lies in the loop, the tools,
-the verifier and the questions, and it works with or without the model.
+deterministic rule set by default; an optional local LLM can choose at two branch points or pick each tool
+from a rule-allowed list, and any failure falls back to the rules. The agentic structure lies in the loop, the tools, the verifier and the
+questions, and it works with or without the model.
 
 \begin{table}[htbp]
 \centering
@@ -178,7 +178,7 @@ local tracing server.
 \item To evaluate the agent against a lookup baseline on 60 rendered packs under a decision rule
 stated before the run (Section~\ref{sec:exp-hypothesis}).
 \item To compare, in an A/B experiment, the rule planner with a hybrid planner that consults a local
-LLM at branch points, under a second stated decision rule.
+LLM at branch points, under a second stated decision rule, and with a tool-calling planner.
 \end{enumerate}
 
 \section{Scope of the Project}
@@ -197,8 +197,9 @@ re-checked after each sync, and an evaluation harness.
 means only that no matching entry was found on the lists loaded, and the verdict text says so.
 The system flags only a listed batch and never a brand, and it gives no medical advice beyond
 showing the pack to a pharmacist. It is a student project and not a CDSCO service. Lists published
-only as PDF before 2019 and state-level feeds are outside the index. A vision-language second
-reader and reviewed Hindi and Kannada verdict text were planned but not built. The evaluation uses
+only as PDF before 2019 and state-level feeds are outside the index. An independent vision-language
+second reader and reviewed Hindi and Kannada verdict text were planned but not built; a vision model
+is only a fallback that the person must confirm. The evaluation uses
 synthetic packs rendered from real alert rows; no photos of real medicine strips were taken, so no
 claim is made about accuracy on real packs.
 
@@ -209,5 +210,4 @@ Chapter~\ref{ch:lit} reviews existing practice and related work, Chapter~\ref{ch
 requirements, Chapters~\ref{ch:design} to~\ref{ch:impl} present the design, the agentic concepts
 and the implementation, Chapters~\ref{ch:eval} and~\ref{ch:exp} report the evaluation and the
 planner experiment, Chapter~\ref{ch:lim} discusses limitations and responsible use, and
-Chapter~\ref{ch:concl} concludes. The appendices give the team contributions, setup instructions,
-sample traces, the prompts and supplementary tables and figures.
+Chapter~\ref{ch:concl} concludes. The appendices give the contributions, setup, traces, prompts and supplementary material.
