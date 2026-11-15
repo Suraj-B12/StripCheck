@@ -41,3 +41,5 @@ Source plan: `C:\Users\suraj\Downloads\StripCheck_Project_Plan.md` (Parts 6 to 8
 - [ ] P2 web: agent badges / hand-offs / self-correction in thinking panel
 - [ ] P3 re-run eval seed 7 (+ new arm for full loop), regenerate paper/generated
 - [ ] P4 update report, slides, guide, decisions D27+, README
+- [x] P1, P1b, P2 committed (b0bc3fe + web). Eval re-run in progress (4 arms).
+- [ ] P5 (user 2026-11-15): vision fallback tool (qwen2.5vl:3b) when OCR fails -> ask person to confirm vision reading -> manual entry only if denied; active evidence gathering (agent asks for exactly the missing evidence: second angle / zoomed batch / carton, reruns perception). Start after current eval finishes; then FINAL eval re-run, then P4 docs.
