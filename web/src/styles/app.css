@@ -4009,3 +4009,134 @@ button.think-head:hover {
     animation: none;
   }
 }
+
+/* Answer styles (contract 2b): yes/no reply chips, two-up choice boxes, photo request, vision reading. */
+.choice-cards.two-up {
+  grid-template-columns: 1fr 1fr;
+}
+.choice-cards.two-up .choice-value {
+  overflow-wrap: anywhere;
+}
+.vision-reading {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+.vision-reading-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.vision-reading-value {
+  font: 600 20px var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.reply-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+.reply-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+  animation: bubble-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.reply-chip:nth-child(2) {
+  animation-delay: 0.07s;
+}
+.reply-chip:hover:not(:disabled),
+.reply-chip:focus-visible {
+  border-color: var(--pen);
+}
+.reply-chip:focus-visible {
+  outline: 2px solid var(--pen);
+  outline-offset: 2px;
+}
+.reply-chip.chosen {
+  border-color: var(--pen);
+  background: var(--pen-soft);
+}
+.reply-chip:disabled:not(.chosen) {
+  opacity: 0.5;
+  cursor: default;
+}
+.reply-dot {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  flex: none;
+}
+.reply-chip.chosen .reply-dot {
+  border-color: var(--pen);
+  background: radial-gradient(circle, var(--pen) 0 45%, transparent 50%);
+}
+.photo-request {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+.photo-hint {
+  margin: 0;
+  color: var(--ink-2);
+}
+.react-rows {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+.react-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 8px;
+}
+.react-row dt {
+  font: 600 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.react-row dd {
+  margin: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.react-tool {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+@media (max-width: 360px) {
+  .react-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .reply-chip {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reply-chip {
+    animation: none;
+    transition: none;
+  }
+}

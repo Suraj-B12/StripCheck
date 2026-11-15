@@ -45,3 +45,24 @@ def glyph_crops(image, boxes, directory=None):
     prefix = uuid.uuid4().hex
     source = validate_image(image)
     return [batch_line_crop(image, box, directory / f"{prefix}-{index}.png", _image=source) for index, box in enumerate(boxes[:30])]
+
+def vision_input(image, crop=None, max_side=1280):
+    """Base64 PNG for the vision model (batch-line crop when present, else the photo downscaled) and a display copy path."""
+    import base64
+    import io
+    from core.pack_tools import validate_image
+    use = Path(crop) if crop and Path(crop).is_file() else Path(image)
+    source = validate_image(use).convert("RGB")
+    source.thumbnail((max_side, max_side))
+    if source.width < 448:
+        # Small text crops are enlarged so the vision model sees each glyph.
+        scale = 448 / source.width
+        source = source.resize((448, max(28, round(source.height * scale))), Image.LANCZOS)
+    buffer = io.BytesIO()
+    source.save(buffer, "PNG")
+    display = use
+    if use == Path(image):
+        display = config.DATA_DIR / "crops" / f"{uuid.uuid4().hex}.png"
+        display.parent.mkdir(parents=True, exist_ok=True)
+        display.write_bytes(buffer.getvalue())
+    return base64.b64encode(buffer.getvalue()).decode("ascii"), display

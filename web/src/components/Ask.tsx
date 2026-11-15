@@ -8,6 +8,13 @@ import type { Fields, Pending } from "../lib/api";
 const TYPING_MS = 600;
 const CANT_TELL = /^(can'?t|cannot|can’t) tell$/i;
 const OPTION_ACTIONS = /^(type the whole batch|add printed details)$/i;
+const YES_NO = ["Yes, that's the batch", "No, it's different"];
+const DECLINE_PHOTO = "I can't take another photo";
+const PHOTO_LABEL: Record<string, string> = {
+  batch_zoom: "Take a close-up of the batch line",
+  second_angle: "Take a photo from another angle",
+  carton: "Take a photo of the carton",
+};
 
 export function AgentAvatar({ typing = false }: { typing?: boolean }) {
   return (
@@ -238,7 +245,7 @@ export function ChoiceCards({
       role="group"
       aria-label="Which is printed on your pack?"
     >
-      <div className="choice-cards">
+      <div className={`choice-cards ${options.length === 2 ? "two-up" : ""}`}>
         {options.map((value, n) => {
           const diff = differingIndices(value, n === 0 ? b : a, positions);
           return (
@@ -277,6 +284,111 @@ export function ChoiceCards({
         onClick={onCantTell}
       >
         Can’t tell
+      </button>
+    </div>
+  );
+}
+
+/** Yes/No as radio-style reply chips: arrow keys move, Enter, Space or a click sends. */
+export function ReplyChips({
+  options,
+  label,
+  onChoose,
+}: {
+  options: string[];
+  label: string;
+  onChoose: (value: string, index: number) => void;
+}) {
+  const [focus, setFocus] = useState(0);
+  const [chosen, setChosen] = useState(-1);
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const move = (to: number) => {
+    const next = (to + options.length) % options.length;
+    setFocus(next);
+    refs.current[next]?.focus();
+  };
+  const choose = (index: number) => {
+    if (chosen >= 0) return;
+    setChosen(index);
+    onChoose(options[index], index);
+  };
+  return (
+    <div className="reply-chips" role="radiogroup" aria-label={label}>
+      {options.map((value, index) => (
+        <button
+          key={value}
+          ref={(el) => {
+            refs.current[index] = el;
+          }}
+          type="button"
+          role="radio"
+          aria-checked={chosen === index}
+          tabIndex={index === focus ? 0 : -1}
+          className={`reply-chip ${chosen === index ? "chosen" : ""}`}
+          data-autofocus={index === 0 ? "" : undefined}
+          disabled={chosen >= 0 && chosen !== index}
+          onClick={() => choose(index)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+              e.preventDefault();
+              move(index + 1);
+            } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+              e.preventDefault();
+              move(index - 1);
+            } else if (e.key === " " || e.key === "Enter") {
+              e.preventDefault();
+              choose(index);
+            }
+          }}
+        >
+          <span className="reply-dot" aria-hidden="true" />
+          {value}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** request_photo: one line on what to photograph, a camera/upload button and a decline. */
+function PhotoRequest({
+  kind,
+  hint,
+  onFile,
+  onDecline,
+}: {
+  kind: string;
+  hint: string;
+  onFile: (file: File) => void;
+  onDecline: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="photo-request">
+      {hint && <p className="photo-hint">{hint}</p>}
+      <button
+        className="button primary"
+        type="button"
+        data-autofocus=""
+        onClick={() => input.current?.click()}
+      >
+        <Camera size={18} aria-hidden="true" />
+        {PHOTO_LABEL[kind] || "Take another photo"}
+      </button>
+      <input
+        ref={input}
+        className="visually-hidden"
+        aria-label="Upload the requested photo"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onFile(file);
+        }}
+      />
+      <button type="button" className="button secondary" onClick={onDecline}>
+        {DECLINE_PHOTO}
       </button>
     </div>
   );
@@ -356,9 +468,14 @@ export function AskConversation({
   fields: Fields;
   hints?: Record<number, string>;
   onAnswer: (value: Record<string, unknown>) => void;
-  onCarton: (file: File) => void;
+  onCarton: (file: File, photoKind?: string) => void;
 }) {
   const kind = String(pending.kind || "");
+  const style = String(pending.style || "");
+  const yesNo = kind === "confirm_reading" || style === "yes_no";
+  const photo = kind === "request_photo" || style === "photo";
+  const photoKind = String(pending.photo_kind || "batch_zoom");
+  const reading = String(pending.reading || "");
   const error = typeof pending.error === "string" ? pending.error : "";
   const [typing, setTyping] = useState(() => !error && !reducedMotion());
   const [whole, setWhole] = useState(false);
@@ -451,6 +568,33 @@ export function AskConversation({
               </p>
             )}
             {crop && <Magnifier src={crop} />}
+            {yesNo && reading && (
+              <p className="vision-reading">
+                <span className="vision-reading-label">
+                  Read from your photo by the local vision model
+                </span>
+                <span className="vision-reading-value">{reading}</span>
+              </p>
+            )}
+            {yesNo && (
+              <ReplyChips
+                label={question}
+                options={
+                  options.length === 2 && kind !== "confirm_reading"
+                    ? options
+                    : YES_NO
+                }
+                onChoose={(value) => onAnswer({ choice: value })}
+              />
+            )}
+            {photo && (
+              <PhotoRequest
+                kind={photoKind}
+                hint={String(pending.photo_hint || "")}
+                onFile={(file) => onCarton(file, photoKind)}
+                onDecline={() => onAnswer({ choice: DECLINE_PHOTO })}
+              />
+            )}
             {otp && !whole && (
               <CharBoxes
                 batch={batch}
@@ -549,13 +693,15 @@ export function AskConversation({
                 <button className="button primary">Check these details</button>
               </form>
             )}
-            <button
-              className="text-button skip-button"
-              type="button"
-              onClick={skip}
-            >
-              I can’t confirm this detail
-            </button>
+            {!yesNo && !photo && (
+              <button
+                className="text-button skip-button"
+                type="button"
+                onClick={skip}
+              >
+                I can’t confirm this detail
+              </button>
+            )}
           </div>
         )}
       </div>

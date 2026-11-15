@@ -118,6 +118,9 @@ THINKING_CONTEXT = {
     "confirm_batch": "A listed entry matches. Deciding how to confirm the printed batch.",
     "draft_verdict": "The evidence is gathered. Deciding whether to draft the result.",
     "reflect": "The verifier found problems with the draft. Deciding how to revise it once.",
+    "read_with_vision": "The photo text reader could not read the batch clearly. Deciding how to read it.",
+    "confirm_reading": "A vision model read the batch. Deciding how to confirm the reading with you.",
+    "request_photo": "The printed details are still in doubt. Deciding whether one more photo would settle it.",
 }
 QUESTION_REASONS = {
     "type_batch": "I need the batch number exactly as printed, because alert entries are matched by batch.",
@@ -125,7 +128,17 @@ QUESTION_REASONS = {
     "confirm_char": "The closest listed batch differs only by characters that photos often confuse, and only you can see which one is printed.",
     "confirm_field": "A printed date differs from the alert entry, so the entry may belong to a different pack.",
     "box_photo": "A batch number alone does not show that an alert entry applies to this pack, so more printed details are needed.",
+    "confirm_reading": "The photo text reader could not read the batch clearly, so a local vision model read it, and a model reading is used only after you confirm it.",
+    "request_photo": "One more photo is the quickest way to settle the doubt about the printed details.",
 }
+PHOTO_KINDS = {
+    "batch_zoom": "Take a close-up photo of the batch line (B.No.) so it fills the frame, without glare.",
+    "second_angle": "Take another photo of the pack from a different angle so the light does not hide the print.",
+    "carton": "Take a photo of the carton side that shows the product name and the manufacturer.",
+}
+ANSWER_STYLES = {"type_batch": "text", "confirm_batch": "chars", "confirm_char": "choice2", "confirm_field": "choice2",
+                 "confirm_reading": "yes_no", "request_photo": "photo", "box_photo": "fields"}
+YES, NO, DECLINE_PHOTO = "Yes, that's the batch", "No, it's different", "I can't take another photo"
 
 
 def thinking_context(key):
@@ -152,8 +165,14 @@ def prior_note(items):
 def question(kind, fields, entry=None, positions=None):
     entry, positions = entry or {}, positions or []
     batch = fields.get("batch", "")
-    base = {"kind": kind, "batch": batch, "entry_id": entry.get("id"), "options": [], "reason": question_reason(kind)}
-    if kind == "type_batch":
+    base = {"kind": kind, "batch": batch, "entry_id": entry.get("id"), "options": [], "reason": question_reason(kind), "style": ANSWER_STYLES.get(kind, "fields")}
+    if kind == "confirm_reading":
+        reading = clean_text(entry.get("reading"))[:40]
+        base.update(question="Is this the batch printed on your pack?", reading=reading, options=[YES, NO])
+    elif kind == "request_photo":
+        photo = entry.get("photo_kind") if entry.get("photo_kind") in PHOTO_KINDS else "batch_zoom"
+        base.update(question="Can you take one more photo?", photo_kind=photo, photo_hint=PHOTO_KINDS[photo], options=[DECLINE_PHOTO])
+    elif kind == "type_batch":
         base.update(question="Read the batch number printed on your pack and type it here.", options=["Can't tell"])
     elif kind == "confirm_batch":
         where = " and ".join(str(i) for i in positions)

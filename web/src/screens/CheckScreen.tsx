@@ -23,7 +23,11 @@ import { api, emptyFields, json, stream } from "../lib/api";
 import type { Fields, Health, Planner, Snapshot } from "../lib/api";
 import { ThinkingPanel } from "../components/Thinking";
 import { PLANNER_KEY } from "../lib/agents";
-import { applyThinking, blocksFromHistory } from "../lib/thinking";
+import {
+  applyObservation,
+  applyThinking,
+  blocksFromHistory,
+} from "../lib/thinking";
 import type { ThinkBlock } from "../lib/thinking";
 import { AnsweredThread, AskConversation } from "../components/Ask";
 import { answerSummary } from "../lib/ask";
@@ -219,6 +223,7 @@ export default function CheckScreen({
           );
         if (event === "error" && !data.recoverable)
           throw new Error(String(data.message));
+        if (event === "step") setThinking((b) => applyObservation(b, data));
         if (event === "step")
           setSnapshot((s) =>
             s
@@ -374,7 +379,7 @@ export default function CheckScreen({
       json(value),
     );
   };
-  const sendCarton = (file: File) => {
+  const sendCarton = (file: File, photoKind?: string) => {
     if (!snapshot) return;
     if (file.size > 15 * 1024 * 1024) {
       setError("Choose a photo under 15 MB.");
@@ -382,7 +387,9 @@ export default function CheckScreen({
     }
     const form = new FormData();
     form.append("images", file);
-    beginAnswer(answerSummary({ carton: true }));
+    beginAnswer(
+      answerSummary(photoKind ? { photo: photoKind } : { carton: true }),
+    );
     execute(`/api/checks/${encodeURIComponent(snapshot.thread_id)}/resume`, {
       method: "POST",
       body: form,

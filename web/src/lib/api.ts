@@ -40,6 +40,13 @@ export type ThinkingEvent = {
   ms?: number;
   redacted?: boolean;
   agent?: string;
+  /** Contract 2b: ReAct labels of the decision (the observation arrives on the step with this think_id). */
+  react?: ReactLabels;
+};
+export type ReactLabels = {
+  thought?: string;
+  action?: { tool?: string; args?: Record<string, unknown> };
+  observation?: string;
 };
 /** Question payload (`interrupt` / `snapshot.pending`), contract section 3. */
 export type Pending = {
@@ -57,6 +64,12 @@ export type Pending = {
   field?: string;
   error?: string;
   guided_answer?: unknown;
+  /** Contract 2b: text | chars | choice2 | yes_no | photo | fields. */
+  style?: string;
+  reading?: string;
+  ocr_batch?: string;
+  photo_kind?: string;
+  photo_hint?: string;
   [key: string]: unknown;
 };
 export type Planner = "rules" | "hybrid" | "agent";

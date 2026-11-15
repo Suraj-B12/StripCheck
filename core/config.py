@@ -30,7 +30,7 @@ def _bounded_number(name, default, minimum, maximum, integer=False):
 SYNC_DELAY = _bounded_number("STRIPCHECK_SYNC_DELAY", 1.5, 1.5, 60)
 NETWORK_TIMEOUT = _bounded_number("STRIPCHECK_NETWORK_TIMEOUT", 20, 3, 60, integer=True)
 LLM_MODEL = os.environ.get("STRIPCHECK_LLM_MODEL", "qwen2.5:3b")
-VLM_MODEL = os.environ.get("STRIPCHECK_VLM_MODEL", "")
+VLM_MODEL = os.environ.get("STRIPCHECK_VLM_MODEL", "qwen2.5vl:3b")
 OLLAMA_URL = os.environ.get("STRIPCHECK_OLLAMA_URL", "http://localhost:11434")
 LLM_TIMEOUT = _bounded_number("STRIPCHECK_LLM_TIMEOUT", 15, 1, 90, integer=True)
 VLM_TIMEOUT = _bounded_number("STRIPCHECK_VLM_TIMEOUT", 30, 1, 60, integer=True)

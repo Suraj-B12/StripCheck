@@ -1,4 +1,4 @@
-import type { Step, ThinkingEvent } from "./api";
+import type { ReactLabels, Step, ThinkingEvent } from "./api";
 import { knownAgent } from "./agents";
 import type { AgentName } from "./agents";
 
@@ -15,7 +15,61 @@ export type ThinkBlock = {
   redacted?: boolean;
   agent?: AgentName;
   startedAt: number;
+  /** ReAct rows (contract 2b): thought, tool call and a short observation of its result. */
+  react?: { thought: string; tool: string; args: string; observation: string };
 };
+
+function argsText(args: unknown): string {
+  if (!args || typeof args !== "object") return "";
+  return Object.entries(args as Record<string, unknown>)
+    .filter(
+      ([k, v]) =>
+        k !== "thought" && (typeof v === "string" || typeof v === "number"),
+    )
+    .map(([k, v]) => `${k}: ${String(v).replaceAll("_", " ")}`)
+    .join(", ");
+}
+
+/** Normalise untrusted ReAct labels; undefined when there is no tool. */
+export function reactRows(
+  raw: unknown,
+  fallback: { thought?: string; observation?: string } = {},
+): ThinkBlock["react"] {
+  const r = (raw && typeof raw === "object" ? raw : {}) as ReactLabels;
+  const tool = typeof r.action?.tool === "string" ? r.action.tool : "";
+  if (!tool) return undefined;
+  return {
+    thought: String(
+      typeof r.thought === "string" ? r.thought : fallback.thought || "",
+    ),
+    tool,
+    args: argsText(r.action?.args),
+    observation: String(
+      typeof r.observation === "string"
+        ? r.observation
+        : fallback.observation || "",
+    ).slice(0, 240),
+  };
+}
+
+/** Attach a step's observation to the thinking block that chose it (step.think_id === block id). */
+export function applyObservation(
+  blocks: ThinkBlock[],
+  step: Record<string, unknown>,
+): ThinkBlock[] {
+  const id = typeof step.think_id === "string" ? step.think_id : "";
+  const index = id ? blocks.findIndex((b) => b.id === id) : -1;
+  if (index < 0) return blocks;
+  const block = blocks[index];
+  const rows =
+    block.react || reactRows(step.react, { thought: block.text }) || undefined;
+  if (!rows) return blocks;
+  const observation =
+    reactRows(step.react)?.observation || String(step.summary || "");
+  const copy = blocks.slice();
+  copy[index] = { ...block, react: { ...rows, observation } };
+  return copy;
+}
 
 export const TRANSPARENCY_NOTE =
   "Shown for transparency. Results come only from the rules and the verifier.";
@@ -72,6 +126,9 @@ export function applyThinking(
       typeof ev.ms === "number" && Number.isFinite(ev.ms)
         ? ev.ms
         : Date.now() - old.startedAt;
+    const rows = reactRows(ev.react, { thought: next.text });
+    if (rows)
+      next.react = { ...rows, observation: old.react?.observation || "" };
   }
   if (index < 0) return [...blocks, next];
   const copy = blocks.slice();
@@ -102,6 +159,10 @@ export function blocksFromHistory(steps: Step[] | undefined): ThinkBlock[] {
       ms: undefined,
       agent: knownAgent(step.agent),
       startedAt: 0,
+      react: reactRows(step.react, {
+        thought: String(step.thought),
+        observation: String(step.summary || ""),
+      }),
     }));
 }
 

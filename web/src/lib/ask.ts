@@ -8,6 +8,7 @@ export function answerSummary(value: unknown): string {
   const answer = (value || {}) as Record<string, unknown>;
   if (answer.skip) return "I can’t confirm this detail.";
   if (answer.carton) return "I added a carton photo.";
+  if (answer.photo) return "I added another photo.";
   if (typeof answer.typed === "string") return answer.typed;
   if (typeof answer.choice === "string") return answer.choice;
   if (answer.chars && typeof answer.chars === "object")

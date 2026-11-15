@@ -89,10 +89,36 @@ function ThoughtBlock({ block }: { block: ThinkBlock }) {
               rules.
             </p>
           )}
-          {(text || !block.done) && (
-            <p className={`think-text ${block.done ? "" : "streaming"}`}>
-              {text}
-            </p>
+          {block.done && block.react ? (
+            <dl className="react-rows">
+              <div className="react-row">
+                <dt>Thought</dt>
+                <dd>{block.react.thought || text}</dd>
+              </div>
+              <div className="react-row">
+                <dt>Action</dt>
+                <dd>
+                  <span className="react-tool">
+                    {actionLabel(block.react.tool)}
+                  </span>
+                  {block.react.args && (
+                    <span className="react-args"> ({block.react.args})</span>
+                  )}
+                </dd>
+              </div>
+              {block.react.observation && (
+                <div className="react-row">
+                  <dt>Observation</dt>
+                  <dd>{block.react.observation}</dd>
+                </div>
+              )}
+            </dl>
+          ) : (
+            (text || !block.done) && (
+              <p className={`think-text ${block.done ? "" : "streaming"}`}>
+                {text}
+              </p>
+            )
           )}
         </div>
       </div>

@@ -146,8 +146,11 @@ def main(argv=None):
         from core.tracing import record
         thread_id = "check-" + uuid.uuid4().hex
         created_at = datetime.now(timezone.utc).isoformat()
-        snapshot = investigate(fields, db.all_alerts(), context={"lang": args.lang, "planner": args.planner,
-            "real_alert_count": db.stats()["alerts"], "confusion_counts": confusion_counts()})
+        check_context = {"lang": args.lang, "planner": args.planner, "real_alert_count": db.stats()["alerts"], "confusion_counts": confusion_counts()}
+        if args.images and not args.text:
+            # Vision fallback (read_with_vision) on the first photo; --vlm is kept for compatibility.
+            check_context["vision_image"] = str(Path(args.images[0]))
+        snapshot = investigate(fields, db.all_alerts(), context=check_context)
         for _ in range(3):
             if snapshot.get("status") != "waiting" or not sys.stdin.isatty():
                 break

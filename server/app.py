@@ -197,7 +197,7 @@ def _probe_ollama() -> dict:
         return {"up": False, "models": [], "llm_ok": False, "vlm_ok": False, "model": model, "status": "optional_not_connected"}
     present = model in models or (":" not in model and model + ":latest" in models)
     vlm = bool(config.VLM_MODEL) and config.VLM_MODEL in models
-    return {"up": True, "models": models, "llm_ok": bool(model) and present, "vlm_ok": vlm, "model": model,
+    return {"up": True, "models": models, "llm_ok": bool(model) and present, "vlm_ok": vlm, "model": model, "vlm_model": config.VLM_MODEL,
             "status": "ready" if present else "model_missing"}
 
 
@@ -206,13 +206,34 @@ def _batch_crop(image_path, reading: dict) -> str:
     try:
         index = reading.get("fields", {}).get("batch_line")
         lines = reading.get("lines") or []
-        if not isinstance(index, int) or not 0 <= index < len(lines):
-            return ""
+        box = lines[index]["box"] if isinstance(index, int) and 0 <= index < len(lines) else None
+        if box is None:
+            # The batch value was unreadable: crop the "Batch No" label line and the space to its right,
+            # where the value is printed (this is what the vision fallback reads).
+            label = next((line for line in lines if re.search(r"\b(?:batch|b\.?\s*no|lot)\b", str(line.get("text", "")), re.I)), None)
+            if label is None:
+                return ""
+            xs, ys = [p[0] for p in label["box"]], [p[1] for p in label["box"]]
+            height = max(ys) - min(ys)
+            box = (min(xs), min(ys), max(xs) + max(8 * height, max(xs) - min(xs)), max(ys))
         from core.crops import batch_line_crop
-        path = batch_line_crop(image_path, lines[index]["box"])
+        path = batch_line_crop(image_path, box)
         return f"/api/crops/{Path(path).stem}.png"
     except Exception:
         return ""
+
+
+def _low_confidence(reading: dict) -> bool:
+    """The batch line was read with very low OCR confidence (the vision fallback may then help)."""
+    try:
+        index = reading.get("fields", {}).get("batch_line")
+        lines = reading.get("lines") or []
+        return isinstance(index, int) and 0 <= index < len(lines) and float(lines[index].get("score", 1)) < VERY_LOW_SCORE
+    except (TypeError, ValueError, AttributeError):
+        return False
+
+
+VERY_LOW_SCORE = 0.5
 
 
 def _snapshot_events(emit, snapshot: dict, previous_steps: int = 0) -> None:
@@ -269,11 +290,11 @@ def _cabinet_public(item):
             "batch_display": item.get("fields", {}).get("batch", ""), "check_thread_id": item.get("thread_id")}
 
 
-def _candidate_batches(fields, answer=None):
-    """Include both current and user-edited batches when preparing a resumed check."""
+def _candidate_batches(fields, answer=None, pending=None):
+    """Include both current and user-edited batches (and a vision reading awaiting confirmation) when preparing a resumed check."""
     from core.textutils import batch_key
     answer = answer or {}
-    values = [fields.get("batch"), answer.get("typed")]
+    values = [fields.get("batch"), answer.get("typed"), (pending or {}).get("reading")]
     if isinstance(answer.get("fields"), dict):
         values.append(answer["fields"].get("batch"))
     key = batch_key(fields.get("batch"))
@@ -475,6 +496,7 @@ def create_app(db_path=None, *, lan=False, port=8000, monitor=False) -> FastAPI:
                     image_fields = {}
                     reader_batches = []
                     batch_crop = ""
+                    low_confidence = False
                     for image_path in images:
                         emit("step", {"action": "read_pack", "node": "perception", "agent": "perception", "summary": "Reading the printed pack details locally.", "source": "ocr"})
                         reading = read_pack(image_path)
@@ -488,8 +510,9 @@ def create_app(db_path=None, *, lan=False, port=8000, monitor=False) -> FastAPI:
                             if value and not working_fields.get(key) and answer is None:
                                 working_fields[key] = value
                         warnings_found.extend(reading.get("warnings", []))
-                        if answer is None and not batch_crop:
+                        if not batch_crop:
                             batch_crop = _batch_crop(image_path, reading)
+                        low_confidence = low_confidence or _low_confidence(reading)
                     if answer is not None:
                         answer["fields"] = image_fields
                         answer["source"] = "carton"
@@ -508,12 +531,15 @@ def create_app(db_path=None, *, lan=False, port=8000, monitor=False) -> FastAPI:
                     if "confusion_counts" not in context:
                         context["confusion_counts"] = confusion_counts()
                     unique = {}
-                    for key in _candidate_batches(working_fields, answer):
+                    pending = ((context or {}).get("_engine") or {}).get("pending") if answer is not None else None
+                    for key in _candidate_batches(working_fields, answer, pending):
                         for row in db.batch_alerts(key, limit=21):
                             unique[row["id"]] = row
                     alert_rows = list(unique.values())
                 if images:
-                    context = {**(context or {}), "reader_disagreement": len(reader_batches) > 1, "reader_batches": reader_batches}
+                    # The vision fallback reads the first photo of this call (never before the OCR/QR read).
+                    context = {**(context or {}), "reader_disagreement": len(reader_batches) > 1, "reader_batches": reader_batches,
+                               "vision_image": str(images[0]), "batch_low_confidence": low_confidence}
                     if len(reader_batches) > 1:
                         warnings_found.append("The photos show different batch readings. Confirm the printed batch before continuing.")
                     if batch_crop:

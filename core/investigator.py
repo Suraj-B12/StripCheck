@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from datetime import date
+from pathlib import Path
 import re
 from time import perf_counter, perf_counter_ns, time_ns
 import uuid
@@ -9,11 +10,12 @@ import uuid
 from core import config, llm, tracing
 from core.matching import build_index, grade, search_exact, search_variants
 from core.noisy import confirmation_positions, prior_counts
-from core.templates import prior_note, question, render_verdict, thinking_context
+from core.templates import DECLINE_PHOTO, NO, YES, prior_note, question, render_verdict, thinking_context
 from core.textutils import PLACEHOLDERS, batch_key, maker_name, parse_month_year
 from core.verifier import GATE_EVIDENCE, verify_verdict
 
 MAX_STEPS, MAX_ASKS, MAX_CANDIDATES = 16, 2, 20
+MAX_VISION_CALLS, MAX_PHOTOS = 2, 1
 FIELD_NAMES = ("batch", "product", "brand", "mfg", "exp", "maker")
 SOURCES = {"user", "ocr", "qr", "ocr_enh", "carton", "vlm"}
 _WALL0, _PERF0 = time_ns(), perf_counter_ns()
@@ -44,7 +46,10 @@ def _fields(raw):
     # Keep every product line the reader saw: a brand line above the generic name must not hide it from grading.
     fields["product_text"] = str(raw.get("product_text") or "").strip()[:500]
     fields["product"] = fields["product"] or fields["product_text"]
-    fields["source"] = raw.get("source", "user") if raw.get("source", "user") in SOURCES else "unknown"
+    source = raw.get("source", "user")
+    # read_pack reports "none" when the photo gave no batch; its other printed fields are still OCR text.
+    source = "ocr" if source == "none" else source
+    fields["source"] = source if source in SOURCES else "unknown"
     fields["confirmed"] = bool(raw.get("confirmed", False))
     return fields
 
@@ -91,10 +96,13 @@ RULE_THOUGHTS = {
     "reflect_search": "The verifier found the search incomplete; run the missing search once.",
     "reflect": "The verifier sent the draft back; choose one revision or abstain.",
     "reflect_downgrade":"The verifier found a gap that no allowed step can close; abstain instead of guessing.",
+    "read_with_vision": "The text reader could not read the batch clearly; read the batch line with the local vision model before asking the person to type.",
+    "confirm_reading": "A vision reading is never used by itself; ask the person whether it is the printed batch.",
+    "request_photo": "The readings are in doubt; one more photo of exactly the missing detail is the cheapest way to settle it.",
 }
 # Which agent owns each step. Agents are plain functions passing message dicts, not classes.
 AGENTS = ("perception", "investigator", "verifier", "supervisor")
-AGENT_OF = {"extract_fields": "perception", "read_pack": "perception", "verify": "verifier"}
+AGENT_OF = {"extract_fields": "perception", "read_pack": "perception", "read_with_vision": "perception", "verify": "verifier"}
 MAX_MESSAGES = 24
 # Tools the "agent" planner may call (offered per step only when the rules allow them).
 TOOL_SPECS = {
@@ -104,16 +112,22 @@ TOOL_SPECS = {
     "ask_user": "Ask the person holding the pack one question of the given kind.",
     "draft_verdict": "Draft the result from the evidence so far; the verifier checks it.",
     "downgrade": "Accept the verifier's result: abstain (cannot verify).",
+    "read_with_vision": "Read the batch line from the photo with the local vision model; the reading is used only after the person confirms it.",
+    "request_photo": "Ask the person for one more photo of exactly the missing evidence (the given kind); they may decline.",
 }
 
 
-def _log(state, action, summary, started=None, source="rules", thought=None, io=None, llm_meta=None, agent=None, **extra):
+def _log(state, action, summary, started=None, source="rules", thought=None, io=None, llm_meta=None, agent=None, observation=None, react_args=None, **extra):
     if len(state["history"]) >= MAX_STEPS:
         return
     entry = {"step": len(state["history"]) + 1, "action": action, "source": source, "summary": summary, "ms": round((perf_counter() - started) * 1000, 2) if started else 0,
              "agent": agent if agent in AGENTS else AGENT_OF.get(action, "investigator")}
     if thought:
         entry["thought"] = thought
+        # ReAct labels: the reason, the tool call and a short summary of what it returned.
+        entry["react"] = {"thought": thought, "action": {"tool": action, "args": dict(react_args or {})}, "observation": str(observation or summary)[:240]}
+        if state.get("_last_think"):
+            entry["think_id"] = state.pop("_last_think")
     entry.update({key: value for key, value in extra.items() if value is not None})
     state["history"].append(entry)
     state.setdefault("_marks", []).append({"i": len(state["history"]) - 1, "end_ns": _now_ns(), "io": io or {}, "llm": llm_meta})
@@ -152,10 +166,12 @@ def _decide(state, mode, evidence, allowed, suggestion, thought_key):
     decision = llm.plan_decision(evidence, allowed, suggestion, RULE_THOUGHTS[thought_key], mode=mode,
                                  model=model, url=config.OLLAMA_URL, timeout=config.LLM_TIMEOUT, **extra)
     end = dict(block, phase="end", source=decision["source"], text=decision["thought"], action=decision["action"],
-               ms=round((perf_counter() - started) * 1000), redacted=bool(decision.get("redacted")))
+               ms=round((perf_counter() - started) * 1000), redacted=bool(decision.get("redacted")),
+               react={"thought": decision["thought"], "action": {"tool": decision["action"], "args": {}}})
     if decision["source"] == "llm":
         end["model"] = model
     _emit(state, "thinking", end)
+    state["_last_think"] = block["id"]
     state.setdefault("decisions", []).append({"step": len(state["history"]) + 1, "action": decision["action"], "source": decision["source"]})
     return decision
 
@@ -185,10 +201,12 @@ def _agent_decide(state, evidence, tools, rule_choice, thought_key, observations
     else:
         decision = {"action": rule_choice["tool"], "args": dict(rule_choice.get("args") or {}), "source": "rules", "thought": rule_thought, "llm": None, "redacted": False}
     end = dict(block, phase="end", source=decision["source"], text=decision["thought"], action=decision["action"],
-               ms=round((perf_counter() - started) * 1000), redacted=bool(decision.get("redacted")))
+               ms=round((perf_counter() - started) * 1000), redacted=bool(decision.get("redacted")),
+               react={"thought": decision["thought"], "action": {"tool": decision["action"], "args": dict(decision.get("args") or {})}})
     if decision["source"] == "llm":
         end["model"] = model
     _emit(state, "thinking", end)
+    state["_last_think"] = block["id"]
     state.setdefault("decisions", []).append({"step": len(state["history"]) + 1, "action": decision["action"], "source": decision["source"], "via": decision.get("via", "rules")})
     return decision
 
@@ -277,7 +295,7 @@ def _span_steps(state, history, marks):
         children.append(tool)
         add(agent, {"name": f"planner: {entry['action']}", "kind": "CHAIN", "start_ns": start, "end_ns": end,
                     "input": {"step": entry["step"], "source": entry.get("source")},
-                    "output": {"action": entry["action"], "thought": entry.get("thought", "")},
+                    "output": {"action": entry["action"], "thought": entry.get("thought", ""), "observation": (entry.get("react") or {}).get("observation", "")},
                     "attributes": {"stripcheck.source": entry.get("source", ""), "stripcheck.thought": entry.get("thought", ""), "stripcheck.prior": entry.get("prior", ""),
                                    "stripcheck.agent": agent},
                     "children": children})
@@ -315,6 +333,7 @@ def _strip(fields, state, pending=None):
 
 def _snapshot(fields, context, state, pending=None, final=None):
     state.pop("_observer", None)
+    state.pop("_last_think", None)
     if pending and "asks_used" not in pending:
         pending["asks_used"], pending["asks_max"] = min(state["asks"] + 1, MAX_ASKS), MAX_ASKS
         crop = str(context.get("batch_crop") or "")
@@ -336,13 +355,35 @@ def _apply_answer(fields, state, answer):
         return None
     kind = pending["kind"]
     choice = str(answer.get("choice", "")).strip()
-    skip = bool(answer.get("skip")) or choice.lower() in {"cant_tell", "can't tell", "cannot tell", "skip"}
+    skip = bool(answer.get("skip")) or choice.lower() in {"cant_tell", "can't tell", "cannot tell", "skip", "decline", DECLINE_PHOTO.lower()}
     changes = {}
     old_key = batch_key(fields["batch"])
     if skip:
         state["declined"].append(kind)
         if kind == "confirm_field":
             state["conflict_ids"].append(pending.get("entry_id"))
+        if kind == "confirm_reading" and state.get("vision"):
+            state["vision"]["status"] = "rejected"
+    elif kind == "confirm_reading":
+        reading = str(pending.get("reading") or "")
+        lowered = choice.lower()
+        if answer.get("confirm") is True or lowered in {"yes", "y", YES.lower()}:
+            changes["batch"] = reading
+            state["batch_evidence"] = "user_confirmed"
+            state["low_confidence"] = False
+            if state.get("vision"):
+                state["vision"]["status"] = "confirmed"
+        elif answer.get("confirm") is False or lowered in {"no", "n", NO.lower()}:
+            state["rejected_keys"].append(batch_key(reading))
+            if state.get("vision"):
+                state["vision"]["status"] = "rejected"
+        else:
+            return "Choose Yes or No."
+    elif kind == "request_photo":
+        supplied = answer.get("fields") if isinstance(answer.get("fields"), dict) else None
+        if supplied is None and not answer.get("image"):
+            return "Add the photo, or choose I can't take another photo."
+        changes = _merge_photo(fields, state, supplied or {}, "carton" if pending.get("photo_kind") == "carton" else "ocr", old_key)
     elif kind in {"type_batch", "confirm_batch"}:
         typed = str(answer.get("typed") or answer.get("batch") or "").strip()
         chars = answer.get("chars")
@@ -402,7 +443,12 @@ def _apply_answer(fields, state, answer):
                 state["batch_evidence"] = "user_typed"
     for key, value in changes.items():
         fields[key] = value
-        state["provenance"][key] = answer.get("source", "user") if kind == "box_photo" else "user"
+        if kind == "request_photo":
+            state["provenance"][key] = "carton" if pending.get("photo_kind") == "carton" else "ocr"
+        elif kind == "confirm_reading":
+            state["provenance"][key] = "vlm"  # read by the vision model, confirmed by the person (batch_evidence user_confirmed)
+        else:
+            state["provenance"][key] = answer.get("source", "user") if kind == "box_photo" else "user"
     if changes:
         state["fields_version"] += 1
     if state["batch_evidence"] in GATE_EVIDENCE:
@@ -539,7 +585,7 @@ def _agent_loop(state, fields, context, index, batch, searched_count, demo, prio
     """
     exact = variants = candidates = None
     known = _prior_items({(read, true) for read, true in prior if read in batch}, prior)
-    observations, assessed = [], {"top": None, "reason": "the check reached its bounded review limit", "label": "CANT_VERIFY"}
+    observations, assessed = list(state.get("observations", []))[-4:], {"top": None, "reason": "the check reached its bounded review limit", "label": "CANT_VERIFY"}
     for _ in range(MAX_STEPS):
         if len(state["history"]) >= MAX_STEPS - 2:
             return dict(assessed, label="CANT_VERIFY", reason="the check reached its bounded review limit", decision=None)
@@ -556,6 +602,8 @@ def _agent_loop(state, fields, context, index, batch, searched_count, demo, prio
                 tools, rule, key = [_tool("ask_user", [kind])], {"tool": "ask_user", "args": {"kind": kind}}, "confirm_batch"
             elif kind:
                 tools, rule, key = [_tool("ask_user", [kind]), _tool("draft_verdict")], {"tool": "ask_user", "args": {"kind": kind}}, kind
+                if kind == "box_photo" and _photo_ok(state, context):
+                    tools.insert(1, _tool("request_photo", ["carton"]))
             else:
                 tools, rule, key = [_tool("draft_verdict")], {"tool": "draft_verdict"}, "draft_verdict"
         top = assessed.get("top") if candidates is not None else None
@@ -579,10 +627,196 @@ def _agent_loop(state, fields, context, index, batch, searched_count, demo, prio
             observation = {"candidates": [{"batch_key": c.get("batch_key"), "status": c.get("status"), "evidence": c.get("evidence")} for c in candidates[:3]]}
         elif action == "ask_user":
             return {"pending": _ask(state, fields, context, decision["args"].get("kind") or rule["args"]["kind"], assessed["top"], batch, prior, decision)}
+        elif action == "request_photo":
+            return {"pending": _ask_photo(state, fields, decision["args"].get("kind") or "carton", decision)}
         else:
             return dict(assessed, decision=decision)
         observations.append({"tool": action, "args": decision.get("args") or {}, "observation": observation})
+        _remember(state, action, decision.get("args") or {}, observation)
     return dict(assessed, label="CANT_VERIFY", reason="the check reached its bounded review limit", decision=None)
+
+
+def _merge_photo(fields, state, supplied, source, old_key):
+    """Merge fields read from a requested photo; a vision reading never becomes gate evidence."""
+    changes = {key: str(supplied[key]).strip()[:500] for key in FIELD_NAMES if key != "batch" and supplied.get(key) and not fields.get(key)}
+    new_key = batch_key(supplied.get("batch"))
+    vision = state.get("vision") or {}
+    vision_key = batch_key(vision.get("batch")) if vision.get("status") == "pending" else ""
+    state["photos"] = state.get("photos", 0) + 1
+    if new_key and new_key not in state["rejected_keys"]:
+        if old_key and new_key == old_key and state["provenance"].get("batch") not in {"vlm", None}:
+            state["batch_evidence"] = "dual_read"  # two independent text reads of two photos agree (as for a carton photo)
+            state["reader_disagreement"] = False
+        else:
+            changes["batch"] = str(supplied["batch"]).strip()[:40]
+            state["batch_evidence"] = source
+            state["reader_disagreement"] = bool(old_key and new_key != old_key and new_key != vision_key)
+        if vision_key and new_key == vision_key:
+            state["vision"] = dict(vision, status="agrees")
+        elif vision:
+            state["vision"] = None  # read the new photo again if doubt remains
+    elif state.get("vision") and state["vision"].get("status") in {"failed", "rejected"}:
+        state["vision"] = None
+    return changes
+
+
+def _crop_file(url):
+    match = re.fullmatch(r"/api/crops/([A-Za-z0-9_-]{1,100})\.png", str(url or ""))
+    return config.DATA_DIR / "crops" / f"{match[1]}.png" if match else None
+
+
+def _vision_ready(state, context):
+    image = str(context.get("vision_image") or "")
+    return bool(config.VLM_MODEL) and bool(image) and Path(image).is_file() and state.get("vision_calls", 0) < MAX_VISION_CALLS and not context.get("cabinet")
+
+
+def _do_vision(state, fields, context, decision):
+    """Tool read_with_vision: the batch line (or the downscaled photo) to the local vision model."""
+    from core.crops import vision_input
+    started = perf_counter()
+    state["vision_calls"] = state.get("vision_calls", 0) + 1
+    display, crop_in = None, _crop_file(context.get("batch_crop"))
+    used_crop = bool(crop_in and crop_in.is_file())
+    try:
+        image_b64, display = vision_input(context["vision_image"], crop_in if used_crop else None)
+        result = llm.vision_read(image_b64, model=config.VLM_MODEL, url=config.OLLAMA_URL, timeout=config.VLM_TIMEOUT)
+    except Exception as exc:
+        result = {"reading": None, "ms": 0.0, "error": f"image unavailable: {type(exc).__name__}"}
+    reading, ocr_key = result.get("reading"), batch_key(fields["batch"])
+    if reading and batch_key(reading["batch"]) in state["rejected_keys"]:
+        reading, result["error"] = None, "the reading matches a batch the person rejected"
+    if reading:
+        agrees = bool(ocr_key) and batch_key(reading["batch"]) == ocr_key and not state.get("reader_disagreement")
+        status = "agrees" if agrees else "pending"
+        summary = (f"The local vision model read the batch as {reading['batch']} (confidence {reading['confidence']:.2f}), "
+                   + ("the same as the text reader." if agrees else "which a person must confirm before it is used."))
+    else:
+        status, summary = "failed", f"The local vision model gave no usable batch reading ({result.get('error') or 'no answer'})."
+    crop = f"/api/crops/{Path(display).stem}.png" if display is not None and Path(display).parent == config.DATA_DIR / "crops" else ""
+    state["vision"] = dict(reading or {}, status=status, ocr_batch=fields["batch"], crop=crop, model=config.VLM_MODEL)
+    if crop and status == "pending":
+        context["batch_crop"] = crop
+    if status == "agrees":
+        state["low_confidence"] = False
+    observation = {"vision_batch": (reading or {}).get("batch", ""), "confidence": (reading or {}).get("confidence"), "status": status, "ocr_batch": fields["batch"]}
+    _remember(state, "read_with_vision", {}, observation)
+    meta = {"model": config.VLM_MODEL, "ms": result.get("ms", 0), "prompt": llm.VISION_PROMPT + " [image omitted]", "response": result.get("raw"), "error": result.get("error", "")}
+    _log(state, "read_with_vision", summary, started, source=decision["source"], thought=decision["thought"], llm_meta=meta, agent="perception",
+         observation=summary, react_args={"image": "batch line crop" if used_crop else "photo, max 1280 px"},
+         io={"input": {"model": config.VLM_MODEL, "timeout": config.VLM_TIMEOUT}, "output": observation}, vision=observation)
+
+
+def _remember(state, tool, args, observation):
+    """Bounded ReAct observations shared by the perception phase and the agent loop."""
+    items = state.setdefault("observations", [])
+    items.append({"tool": tool, "args": args, "observation": observation})
+    del items[:-8]
+
+
+def _ask_photo(state, fields, photo_kind, decision):
+    """Tool request_photo: ask for exactly the missing evidence; the person may decline."""
+    pending = question("request_photo", fields, {"photo_kind": photo_kind})
+    _log(state, "request_photo", f"Asked for one more photo ({photo_kind.replace('_', ' ')}).", source=decision["source"], thought=decision["thought"],
+         llm_meta=decision.get("llm"), react_args={"kind": photo_kind}, observation="Waiting for the photo or a decline.", io={"output": pending})
+    return pending
+
+
+def _photo_ok(state, context):
+    """One more photo can be asked for: a photo check, a question left, not asked or declined before."""
+    return (bool(context.get("vision_image")) and state["asks"] < MAX_ASKS and state.get("photos", 0) < MAX_PHOTOS
+            and "request_photo" not in state["declined"] and not context.get("cabinet"))
+
+
+def _doubt(state, batch):
+    """What is uncertain about the printed batch before any search ("" when nothing)."""
+    if state["batch_evidence"] in GATE_EVIDENCE:
+        return ""
+    if not batch:
+        return "missing"
+    if state.get("reader_disagreement"):
+        return "disagree"
+    if state.get("low_confidence"):
+        return "low"
+    return ""
+
+
+def _perception(state, fields, context, mode, can_ask):
+    """Resolve doubt about the printed batch: vision, confirm the reading, one more photo, or typing.
+
+    Rules decide which tools are allowed; a planner may pick among them. Returns
+    ("go", None), ("pending", question) or ("abstain", reason). Bounded.
+    """
+    for _ in range(MAX_VISION_CALLS + 2):
+        batch = batch_key(fields["batch"])
+        doubt = _doubt(state, batch)
+        if not doubt:
+            return "go", None
+        vision = state.get("vision") or {}
+        status = vision.get("status")
+        if doubt == "low" and status in {"agrees", "failed", "confirmed"}:
+            return "go", None
+        asks_left = MAX_ASKS - state["asks"] if can_ask else 0
+        declined = state["declined"]
+        options = []
+        if not status and _vision_ready(state, context):
+            options.append(("read_with_vision", None))
+        confirm_ok = status == "pending" and asks_left >= 2 and "confirm_reading" not in declined
+        if confirm_ok:
+            options.append(("confirm_reading", None))
+        if (doubt in {"missing", "disagree"} or status in {"rejected", "pending"}) and asks_left >= 1 and "type_batch" not in declined and not confirm_ok and not (not status and options):
+            options.append(("type_batch", None))
+        readers_differ = status == "pending" and bool(batch) and batch != batch_key(vision.get("batch"))
+        if (readers_differ or (status == "failed" and doubt != "low")) and asks_left >= 2 and context.get("vision_image") \
+                and state.get("photos", 0) < MAX_PHOTOS and "request_photo" not in declined:
+            options.append(("request_photo", "batch_zoom"))
+        if not options:
+            if doubt == "low":
+                return "go", None
+            return "abstain", ("a readable batch number was not provided" if doubt == "missing" else "the images gave different batch readings that could not be resolved")
+        names = [name for name, _ in options]
+        key = names[0]
+        rule = {"action": key, "source": "rules", "thought": RULE_THOUGHTS[key], "llm": None}
+        evidence = {"batch_read": batch, "doubt": doubt, "batch_evidence": state["batch_evidence"], "vision_reading": vision.get("batch", ""),
+                    "vision_status": status or "not run", "questions_left": asks_left, "declined": list(declined), "offered_tools": names}
+        if len(options) < 2 or mode == "rules":
+            decision = rule
+        elif mode == "agent":
+            tools, rule_call = [], {}
+            for name, arg in options:
+                if name == "read_with_vision":
+                    tools.append(_tool("read_with_vision"))
+                elif name == "request_photo":
+                    tools.append(_tool("request_photo", [arg]))
+                elif not any(t["name"] == "ask_user" for t in tools):
+                    tools.append(_tool("ask_user", [n for n, _ in options if n in {"confirm_reading", "type_batch"}]))
+            first = options[0]
+            rule_call = {"tool": "ask_user", "args": {"kind": first[0]}} if first[0] in {"confirm_reading", "type_batch"} else {"tool": first[0], "args": {"kind": first[1]} if first[1] else {}}
+            decision = _agent_decide(state, evidence, tools, rule_call, key, list(state.get("observations", [])))
+            chosen = decision["action"]
+            if chosen == "ask_user":
+                chosen = decision.get("args", {}).get("kind") or rule_call.get("args", {}).get("kind")
+            decision = dict(decision, action=chosen if chosen in names else key)
+        else:
+            decision = _decide(state, mode, evidence, names, key, key)
+        action = decision["action"] if decision["action"] in names else key
+        if action == "read_with_vision":
+            _do_vision(state, fields, context, decision)
+            continue
+        if action == "request_photo":
+            return "pending", _ask_photo(state, fields, dict(options)["request_photo"], decision)
+        if action == "confirm_reading":
+            pending = question("confirm_reading", fields, {"reading": vision.get("batch")})
+            pending["ocr_batch"] = fields["batch"]
+            _log(state, "ask_user", "Asked whether the vision reading is the printed batch.", source=decision["source"], thought=decision["thought"],
+                 llm_meta=decision.get("llm"), react_args={"kind": "confirm_reading"}, observation="Waiting for Yes or No.", io={"output": pending})
+            return "pending", pending
+        pending = question("type_batch", fields)
+        summary = ("The photos gave different batch readings. Enter the printed batch to resolve the difference." if doubt == "disagree" and status != "rejected"
+                   else "The printed batch number is needed.")
+        _log(state, "ask_user", summary, source=decision["source"], thought=decision["thought"],
+             llm_meta=decision.get("llm"), react_args={"kind": "type_batch"}, io={"output": pending})
+        return "pending", pending
+    return "abstain", "the check reached its bounded review limit"
 
 
 def _verifier_agent(fields, context, state, label, top, reason, batch, data_available):
@@ -660,6 +894,7 @@ def investigate(fields, alerts, context=None, answer=None, observer=None):
             state["reader_disagreement"] = True
             state["batch_evidence"] = "none"
             fields["confirmed"] = False
+        state["low_confidence"] = bool(context.get("batch_low_confidence")) and state["batch_evidence"] not in GATE_EVIDENCE
         state["session"] = str(context.get("thread_id") or uuid.uuid4().hex)
         state["_call"], state["_marks"], state["_observer"] = {"start_ns": call_start, "answer": None}, [], observer
         state["planner"] = mode
@@ -683,6 +918,8 @@ def investigate(fields, alerts, context=None, answer=None, observer=None):
             state["reader_disagreement"] = True
             state["batch_evidence"] = "none"
             fields["confirmed"] = False
+        if answer.get("image") and state["batch_evidence"] not in GATE_EVIDENCE:
+            state["low_confidence"] = bool(context.get("batch_low_confidence"))
     rows = _rows(alerts, bool(context.get("demo")))
     months = sorted({str(row.get("list_month")) for row in rows if row.get("list_month")})
     context.setdefault("latest_month", months[-1] if months else None)
@@ -694,22 +931,16 @@ def investigate(fields, alerts, context=None, answer=None, observer=None):
     reason, label, top, draft_decision = "", "CANT_VERIFY", None, None
     can_ask = state["asks"] < MAX_ASKS and len(state["history"]) < MAX_STEPS - 4 and not context.get("cabinet")
     text_mode = fields["source"] == "user" and context.get("mode", "text") == "text"
+    step, value = _perception(state, fields, context, mode, can_ask) if data_available and not (batch and (len(batch) < 2 or len(fields["batch"]) > 40)) else ("go", None)
+    if step == "pending":
+        return _snapshot(fields, context, state, value)
+    batch = batch_key(fields["batch"])
     if not data_available:
         reason = "no_data"
-    elif not batch:
-        if can_ask and "type_batch" not in state["declined"]:
-            pending = question("type_batch", fields)
-            _log(state, "ask_user", "The printed batch number is needed.", thought=RULE_THOUGHTS["type_batch"], io={"output": pending})
-            return _snapshot(fields, context, state, pending)
-        reason = "a readable batch number was not provided"
+    elif step == "abstain":
+        reason = value
     elif len(batch) < 2 or len(fields["batch"]) > 40:
         reason = "the printed batch number is incomplete or exceeds the supported length"
-    elif state.get("reader_disagreement"):
-        if can_ask and "type_batch" not in state["declined"]:
-            pending = question("type_batch", fields)
-            _log(state, "ask_user", "The photos gave different batch readings. Enter the printed batch to resolve the difference.", thought=RULE_THOUGHTS["type_batch"], io={"output": pending})
-            return _snapshot(fields, context, state, pending)
-        reason = "the images gave different batch readings that could not be resolved"
     elif any(fields[key] and _date(fields[key]) is None for key in ("mfg", "exp")):
         reason = "a printed date could not be read as a month and year; check the entered dates"
     elif len(state["history"]) >= MAX_STEPS - 3:
@@ -754,7 +985,10 @@ def investigate(fields, alerts, context=None, answer=None, observer=None):
                                 "substitutions": [f"pack {read} vs listed {true}" for _, read, true in top.get("subs", [])],
                                 "evidence": top.get("evidence"), "questions_left": MAX_ASKS - state["asks"],
                                 "learned_reader_confusions": [f"{read}->{true} x{count}" for read, true, count in _prior_items({(r, t) for _, r, t in top.get("subs", [])}, prior)]}
-                    decision = _decide(state, mode, evidence, ["ask_user", "draft_verdict"], "ask_user", kind)
+                    allowed = ["ask_user", "draft_verdict"] + (["request_photo"] if kind == "box_photo" and _photo_ok(state, context) else [])
+                    decision = _decide(state, mode, evidence, allowed, "ask_user", kind)
+                if decision["action"] == "request_photo":
+                    return _snapshot(fields, context, state, _ask_photo(state, fields, "carton", decision))
                 if decision["action"] == "ask_user":
                     return _snapshot(fields, context, state, _ask(state, fields, context, kind, top, batch, prior, decision))
                 draft_decision = decision
