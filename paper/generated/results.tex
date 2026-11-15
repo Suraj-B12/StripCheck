@@ -72,7 +72,7 @@
 \newcommand{\ResRulesOracleSteps}{8.0}
 \newcommand{\ResRulesOracleLatMedian}{1.39}
 \newcommand{\ResRulesOracleLatMean}{1.43}
-\newcommand{\ResRulesOracleLatPNinetyFive}{1.86}
+\newcommand{\ResRulesOracleLatPNinetyFive}{1.85}
 \newcommand{\ResRulesOracleReasonMedian}{0.061}
 \newcommand{\ResRulesOracleSafety}{0}
 \newcommand{\ResRulesOracleLLMSteps}{0}
@@ -107,10 +107,10 @@
 \newcommand{\ResHybridOracleAccuracyCI}{[0.94, 1.00]}
 \newcommand{\ResHybridOracleQuestions}{0.60}
 \newcommand{\ResHybridOracleSteps}{8.0}
-\newcommand{\ResHybridOracleLatMedian}{1.51}
-\newcommand{\ResHybridOracleLatMean}{3.28}
-\newcommand{\ResHybridOracleLatPNinetyFive}{8.96}
-\newcommand{\ResHybridOracleReasonMedian}{0.099}
+\newcommand{\ResHybridOracleLatMedian}{1.49}
+\newcommand{\ResHybridOracleLatMean}{2.17}
+\newcommand{\ResHybridOracleLatPNinetyFive}{4.78}
+\newcommand{\ResHybridOracleReasonMedian}{0.071}
 \newcommand{\ResHybridOracleSafety}{0}
 \newcommand{\ResHybridOracleLLMSteps}{28}
 \newcommand{\ResHybridOracleFallbackSteps}{0}
@@ -118,6 +118,43 @@
 \newcommand{\ResHybridOracleMcNemarB}{20}
 \newcommand{\ResHybridOracleMcNemarC}{0}
 \newcommand{\ResHybridOracleDecision}{adopt}
+\newcommand{\ResLLMOracleHitRecall}{1.00}
+\newcommand{\ResLLMOracleHitRecallK}{40/40}
+\newcommand{\ResLLMOracleHitRecallCI}{[0.91, 1.00]}
+\newcommand{\ResLLMOracleHitRecallCleanQR}{1.00}
+\newcommand{\ResLLMOracleHitRecallCleanQRK}{16/16}
+\newcommand{\ResLLMOracleHitRecallCleanQRCI}{[0.81, 1.00]}
+\newcommand{\ResLLMOracleTypeAcc}{1.00}
+\newcommand{\ResLLMOracleTypeAccK}{40/40}
+\newcommand{\ResLLMOracleTypeAccCI}{[0.91, 1.00]}
+\newcommand{\ResLLMOracleFAR}{0.00}
+\newcommand{\ResLLMOracleFARK}{0/20}
+\newcommand{\ResLLMOracleFARCI}{[0.00, 0.16]}
+\newcommand{\ResLLMOracleFARCollision}{0.00}
+\newcommand{\ResLLMOracleFARCollisionK}{0/8}
+\newcommand{\ResLLMOracleFARCollisionCI}{[0.00, 0.32]}
+\newcommand{\ResLLMOracleFARSibling}{0.00}
+\newcommand{\ResLLMOracleFARSiblingK}{0/4}
+\newcommand{\ResLLMOracleFARSiblingCI}{[0.00, 0.49]}
+\newcommand{\ResLLMOracleAbstain}{0.00}
+\newcommand{\ResLLMOracleAbstainK}{0/60}
+\newcommand{\ResLLMOracleAbstainCI}{[0.00, 0.06]}
+\newcommand{\ResLLMOracleAccuracy}{1.00}
+\newcommand{\ResLLMOracleAccuracyK}{60/60}
+\newcommand{\ResLLMOracleAccuracyCI}{[0.94, 1.00]}
+\newcommand{\ResLLMOracleQuestions}{0.60}
+\newcommand{\ResLLMOracleSteps}{10.0}
+\newcommand{\ResLLMOracleLatMedian}{5.74}
+\newcommand{\ResLLMOracleLatMean}{5.90}
+\newcommand{\ResLLMOracleLatPNinetyFive}{9.27}
+\newcommand{\ResLLMOracleReasonMedian}{4.429}
+\newcommand{\ResLLMOracleSafety}{0}
+\newcommand{\ResLLMOracleLLMSteps}{379}
+\newcommand{\ResLLMOracleFallbackSteps}{5}
+\newcommand{\ResLLMOracleMcNemarP}{2e-06}
+\newcommand{\ResLLMOracleMcNemarB}{20}
+\newcommand{\ResLLMOracleMcNemarC}{0}
+\newcommand{\ResLLMOracleDecision}{adopt}
 \newcommand{\ResBaseSkipHitRecall}{0.80}
 \newcommand{\ResBaseSkipHitRecallK}{32/40}
 \newcommand{\ResBaseSkipHitRecallCI}{[0.65, 0.90]}
@@ -177,10 +214,10 @@
 \newcommand{\ResRulesSkipAccuracyCI}{[0.29, 0.53]}
 \newcommand{\ResRulesSkipQuestions}{0.60}
 \newcommand{\ResRulesSkipSteps}{8.0}
-\newcommand{\ResRulesSkipLatMedian}{1.41}
-\newcommand{\ResRulesSkipLatMean}{1.45}
-\newcommand{\ResRulesSkipLatPNinetyFive}{1.87}
-\newcommand{\ResRulesSkipReasonMedian}{0.095}
+\newcommand{\ResRulesSkipLatMedian}{1.40}
+\newcommand{\ResRulesSkipLatMean}{1.44}
+\newcommand{\ResRulesSkipLatPNinetyFive}{1.85}
+\newcommand{\ResRulesSkipReasonMedian}{0.071}
 \newcommand{\ResRulesSkipSafety}{0}
 \newcommand{\ResRulesSkipLLMSteps}{0}
 \newcommand{\ResRulesSkipFallbackSteps}{0}
@@ -214,10 +251,10 @@
 \newcommand{\ResHybridSkipAccuracyCI}{[0.29, 0.53]}
 \newcommand{\ResHybridSkipQuestions}{0.60}
 \newcommand{\ResHybridSkipSteps}{8.0}
-\newcommand{\ResHybridSkipLatMedian}{1.51}
-\newcommand{\ResHybridSkipLatMean}{3.44}
-\newcommand{\ResHybridSkipLatPNinetyFive}{12.64}
-\newcommand{\ResHybridSkipReasonMedian}{0.099}
+\newcommand{\ResHybridSkipLatMedian}{1.52}
+\newcommand{\ResHybridSkipLatMean}{2.42}
+\newcommand{\ResHybridSkipLatPNinetyFive}{6.39}
+\newcommand{\ResHybridSkipReasonMedian}{0.128}
 \newcommand{\ResHybridSkipSafety}{0}
 \newcommand{\ResHybridSkipLLMSteps}{32}
 \newcommand{\ResHybridSkipFallbackSteps}{0}
@@ -225,6 +262,43 @@
 \newcommand{\ResHybridSkipMcNemarB}{8}
 \newcommand{\ResHybridSkipMcNemarC}{24}
 \newcommand{\ResHybridSkipDecision}{do not adopt}
+\newcommand{\ResLLMSkipHitRecall}{0.20}
+\newcommand{\ResLLMSkipHitRecallK}{8/40}
+\newcommand{\ResLLMSkipHitRecallCI}{[0.10, 0.35]}
+\newcommand{\ResLLMSkipHitRecallCleanQR}{0.50}
+\newcommand{\ResLLMSkipHitRecallCleanQRK}{8/16}
+\newcommand{\ResLLMSkipHitRecallCleanQRCI}{[0.28, 0.72]}
+\newcommand{\ResLLMSkipTypeAcc}{1.00}
+\newcommand{\ResLLMSkipTypeAccK}{8/8}
+\newcommand{\ResLLMSkipTypeAccCI}{[0.68, 1.00]}
+\newcommand{\ResLLMSkipFAR}{0.00}
+\newcommand{\ResLLMSkipFARK}{0/20}
+\newcommand{\ResLLMSkipFARCI}{[0.00, 0.16]}
+\newcommand{\ResLLMSkipFARCollision}{0.00}
+\newcommand{\ResLLMSkipFARCollisionK}{0/8}
+\newcommand{\ResLLMSkipFARCollisionCI}{[0.00, 0.32]}
+\newcommand{\ResLLMSkipFARSibling}{0.00}
+\newcommand{\ResLLMSkipFARSiblingK}{0/4}
+\newcommand{\ResLLMSkipFARSiblingCI}{[0.00, 0.49]}
+\newcommand{\ResLLMSkipAbstain}{0.60}
+\newcommand{\ResLLMSkipAbstainK}{36/60}
+\newcommand{\ResLLMSkipAbstainCI}{[0.47, 0.71]}
+\newcommand{\ResLLMSkipAccuracy}{0.40}
+\newcommand{\ResLLMSkipAccuracyK}{24/60}
+\newcommand{\ResLLMSkipAccuracyCI}{[0.29, 0.53]}
+\newcommand{\ResLLMSkipQuestions}{0.60}
+\newcommand{\ResLLMSkipSteps}{10.0}
+\newcommand{\ResLLMSkipLatMedian}{5.85}
+\newcommand{\ResLLMSkipLatMean}{6.01}
+\newcommand{\ResLLMSkipLatPNinetyFive}{8.61}
+\newcommand{\ResLLMSkipReasonMedian}{4.517}
+\newcommand{\ResLLMSkipSafety}{0}
+\newcommand{\ResLLMSkipLLMSteps}{379}
+\newcommand{\ResLLMSkipFallbackSteps}{5}
+\newcommand{\ResLLMSkipMcNemarP}{0.007}
+\newcommand{\ResLLMSkipMcNemarB}{8}
+\newcommand{\ResLLMSkipMcNemarC}{24}
+\newcommand{\ResLLMSkipDecision}{do not adopt}
 \newcommand{\ResOCRBatchExact}{60/60}
 \newcommand{\ResOCRMedian}{1.33}
 \newcommand{\ResPredictionOne}{held}
